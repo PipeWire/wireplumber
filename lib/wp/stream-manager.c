@@ -27,18 +27,22 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-stream-manager")
  *
  * WpStreamManager is a utility class that automatically creates and manages
  * WpStream objects for all nodes in the PipeWire graph. It monitors node
- * additions and removals, creating appropriate stream objects (audio or video)
- * based on the node's media class, and unregistering them when nodes disappear.
+ * additions and removals, creating the appropriate stream objects (audio or
+ * video) for them, and unregistering them when nodes disappear.
  *
  * This class simplifies stream management by handling the tedious work of
  * tracking which nodes have streams and maintaining that state as the PipeWire
  * graph changes. Without this manager, applications would need to manually
  * listen for node changes and create streams themselves.
  *
- * The stream manager discovers each node's port configuration by enumerating
- * ports and their parameters, then creates the appropriate stream type
- * (WpAudioStream or WpVideoStream) and registers it with the WpCore for
- * other components to discover and use.
+ * The stream manager creates one stream for each port group and direction of
+ * the node's EnumPortConfig param. A node can have both audio and video
+ * streams, so the stream type (WpAudioStream or WpVideoStream) is chosen from
+ * the media type and media class of the node's "stream.props.<port-group>"
+ * property, or from the node's ones if that property does not have them.
+ * Nodes without EnumPortConfig only get a single WpVideoStream if they are
+ * video nodes. The streams are registered with the WpCore for other components
+ * to discover and use.
  *
  * When activated with the WP_STREAM_MANAGER_FEATURE_LOADED feature, the
  * stream manager enters its operational state where it automatically handles
@@ -259,8 +263,75 @@ on_stream_activated (WpObject * s, GAsyncResult * res, WpStreamManager * self)
   check_activation_done (self, "with streams");
 }
 
+typedef enum {
+  STREAM_MEDIA_UNKNOWN,
+  STREAM_MEDIA_AUDIO,
+  STREAM_MEDIA_VIDEO,
+} StreamMedia;
+
+/* Gets the media from the media type, or from the media class as fallback */
+static StreamMedia
+parse_stream_media (const gchar * media_type, const gchar * media_class)
+{
+  if (media_type && g_str_equal (media_type, "Audio"))
+    return STREAM_MEDIA_AUDIO;
+  else if (media_type && g_str_equal (media_type, "Video"))
+    return STREAM_MEDIA_VIDEO;
+  else if (media_class && g_strstr_len (media_class, -1, "Audio"))
+    return STREAM_MEDIA_AUDIO;
+  else if (media_class && g_strstr_len (media_class, -1, "Video"))
+    return STREAM_MEDIA_VIDEO;
+
+  return STREAM_MEDIA_UNKNOWN;
+}
+
+/* A node can have both audio and video streams, so the stream specific media
+ * type and class are used if any, and the node ones otherwise */
+static StreamMedia
+get_stream_media (WpProperties * stream_props)
+{
+  const gchar *media_type = wp_properties_get (stream_props,
+      STREAM_PROPS_PREFIX PW_KEY_MEDIA_TYPE);
+  const gchar *media_class = wp_properties_get (stream_props,
+      STREAM_PROPS_PREFIX PW_KEY_MEDIA_CLASS);
+
+  if (media_type || media_class)
+    return parse_stream_media (media_type, media_class);
+
+  return parse_stream_media (
+      wp_properties_get (stream_props, PW_KEY_MEDIA_TYPE),
+      wp_properties_get (stream_props, PW_KEY_MEDIA_CLASS));
+}
+
 static void
-on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
+create_stream (WpStreamManager * self, WpNode * node, WpProperties * props,
+    StreamMedia media, WpDirection dir, const gchar * port_group)
+{
+  g_autoptr (WpStream) stream = NULL;
+
+  /* Create the stream */
+  switch (media) {
+  case STREAM_MEDIA_AUDIO:
+    stream = WP_STREAM (wp_audio_stream_new (node, props, dir, port_group));
+    break;
+  case STREAM_MEDIA_VIDEO:
+    stream = WP_STREAM (wp_video_stream_new (node, props, dir, port_group));
+    break;
+  default:
+    wp_properties_unref (props);
+    g_return_if_reached ();
+  }
+
+  /* Activate the stream */
+  self->pending_streams++;
+  wp_info_object (self, "activating stream %p...", stream);
+  wp_object_activate_closure (WP_OBJECT (stream),
+      WP_OBJECT_FEATURES_ALL, NULL, g_cclosure_new_object (
+          (GCallback) on_stream_activated, G_OBJECT (self)));
+}
+
+static void
+on_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
     WpStreamManager *self)
 {
   WpNode *node = WP_NODE (po);
@@ -296,7 +367,7 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
     const gchar *port_group = NULL;
     gchar *stream_key;
     g_autoptr (WpProperties) stream_props = NULL;
-    g_autoptr (WpAudioStream) stream = NULL;
+    StreamMedia media;
 
     /* Parse mandatory fields */
     if (!wp_spa_pod_is_object (param) ||
@@ -321,17 +392,16 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
     if (!g_hash_table_add (seen, stream_key))
       continue;
 
-    /* Create the audio stream with its own properties */
+    /* Create the stream with its own properties and media */
     stream_props = build_stream_properties (self, props, port_group);
-    stream = wp_audio_stream_new (node, g_steal_pointer (&stream_props),
+    media = get_stream_media (stream_props);
+    if (media == STREAM_MEDIA_UNKNOWN) {
+      wp_info_object (self, "unknown media for stream '%s' of node %u",
+          port_group ? port_group : "", bound_id);
+      continue;
+    }
+    create_stream (self, node, g_steal_pointer (&stream_props), media,
         (WpDirection)dir, port_group);
-
-    /* Activate the audio stream */
-    self->pending_streams++;
-    wp_info_object (self, "activating stream %p...", stream);
-    wp_object_activate_closure (WP_OBJECT (stream),
-        WP_OBJECT_FEATURES_ALL, NULL, g_cclosure_new_object (
-            (GCallback) on_stream_activated, G_OBJECT (self)));
 
     /* Make sure we dont have more than 1 stream per node without port group */
     if (!port_group)
@@ -344,92 +414,65 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
 }
 
 static void
-on_audio_node_params_changed (WpNode *node, const gchar *id,
-    WpStreamManager *self)
+enum_node_port_config (WpStreamManager *self, WpNode *node)
 {
-  /* Check if EnumPortConfig has changed */
-  if (g_str_equal (id, "EnumPortConfig")) {
-    self->pending_enum_port_config++;
-    wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "EnumPortConfig",
-        NULL, NULL, (GAsyncReadyCallback) on_audio_node_enum_port_config_done,
-        G_OBJECT (self));
-  }
-}
-
-static void
-manage_audio_node_streams (WpStreamManager *self, WpNode *node)
-{
-  /* Handle params-changed signal */
-  g_signal_connect_object (node, "params-changed",
-        G_CALLBACK (on_audio_node_params_changed), self, 0);
-
-  /* Get EnumPortConfig param to create all available audio streams */
   self->pending_enum_port_config++;
   wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "EnumPortConfig",
-      NULL, NULL, (GAsyncReadyCallback) on_audio_node_enum_port_config_done,
+      NULL, NULL, (GAsyncReadyCallback) on_node_enum_port_config_done,
       G_OBJECT (self));
 }
 
 static void
-manage_video_node_streams (WpStreamManager *self, WpNode *node)
+on_node_params_changed (WpNode *node, const gchar *id, WpStreamManager *self)
 {
-  g_autoptr (WpProperties) props = NULL;
-  const gchar *media_class = NULL;
-  WpDirection dir = WP_DIRECTION_INPUT;
-  g_autoptr (WpProperties) stream_props = NULL;
-  g_autoptr (WpVideoStream) stream = NULL;
-
-  /* Get node properties */
-  props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (node));
-  media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
-  g_return_if_fail (media_class);
-
-  /* Get direction */
-  if (strstr (media_class, "Source") || strstr (media_class, "Output"))
-    dir = WP_DIRECTION_OUTPUT;
-
-  /* Create the video stream with its own properties */
-  stream_props = build_stream_properties (self, props, NULL);
-  stream = wp_video_stream_new (node, g_steal_pointer (&stream_props), dir,
-      NULL);
-
-  /* Activate the video stream */
-  self->pending_streams++;
-  wp_info_object (self, "activating stream %p...", stream);
-  wp_object_activate_closure (WP_OBJECT (stream),
-      WP_OBJECT_FEATURES_ALL, NULL, g_cclosure_new_object (
-          (GCallback) on_stream_activated, G_OBJECT (self)));
+  /* Check if EnumPortConfig has changed */
+  if (g_str_equal (id, "EnumPortConfig"))
+    enum_node_port_config (self, node);
 }
 
 static void
 create_all_node_streams (WpStreamManager *self, WpNode *node)
 {
+  g_autoptr (GVariant) param_info = NULL;
+  const gchar *flags = NULL;
   g_autoptr (WpProperties) props = NULL;
+  const gchar *media_type;
   const gchar *media_class;
-  guint32 bound_id;
+  WpDirection dir = WP_DIRECTION_INPUT;
 
-  /* Get the media class and bound-id */
-  props = wp_global_proxy_get_global_properties (WP_GLOBAL_PROXY (node));
-  g_return_if_fail (props);
+  /* Check if the node has EnumPortConfig param */
+  param_info = wp_pipewire_object_get_param_info (WP_PIPEWIRE_OBJECT (node));
+  if (param_info &&
+      g_variant_lookup (param_info, "EnumPortConfig", "&s", &flags)) {
+    /* Handle params-changed signal to refresh streams on EnumPortConfig */
+    g_signal_connect_object (node, "params-changed",
+        G_CALLBACK (on_node_params_changed), self, 0);
+
+    /* Create streams if EnumPortConfig is readable */
+    if (strchr (flags, 'r'))
+      enum_node_port_config (self, node);
+    return;
+  }
+
+  /* Otherwise, only video nodes, such as cameras, have a stream */
+  props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (node));
+  media_type = wp_properties_get (props, PW_KEY_MEDIA_TYPE);
   media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
-  bound_id = wp_proxy_get_bound_id (WP_PROXY (node));
-  if (!media_class) {
-    wp_info_object (self, "no streams for node without media class: %u",
-        bound_id);
+  if (parse_stream_media (media_type, media_class) != STREAM_MEDIA_VIDEO) {
+    wp_info_object (self,
+        "no streams for node %u with media type '%s' and media class '%s'",
+        wp_proxy_get_bound_id (WP_PROXY (node)), media_type ? media_type : "",
+        media_class ? media_class : "");
     return;
   }
 
-  /* Manage streams */
-  if (g_strstr_len (media_class, -1, "Audio")) {
-    manage_audio_node_streams (self, node);
-    return;
-  } else if (g_strstr_len (media_class, -1, "Video")) {
-    manage_video_node_streams (self, node);
-    return;
-  }
+  /* Get direction */
+  if (media_class &&
+      (strstr (media_class, "Source") || strstr (media_class, "Output")))
+    dir = WP_DIRECTION_OUTPUT;
 
-  wp_info_object (self, "unknown media class '%s' for node %u", media_class,
-        bound_id);
+  create_stream (self, node, build_stream_properties (self, props, NULL),
+      STREAM_MEDIA_VIDEO, dir, NULL);
 }
 
 static void
