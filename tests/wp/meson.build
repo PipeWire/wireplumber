@@ -4,140 +4,140 @@ common_env.set('G_TEST_SRCDIR', meson.current_source_dir())
 common_env.set('G_TEST_BUILDDIR', meson.current_build_dir())
 
 test(
-  'test-component-loader',
+  'wp/component-loader',
   executable('test-component-loader', 'component-loader.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-core',
+  'wp/core',
   executable('test-core', 'core.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-events',
+  'wp/events',
   executable('test-events', 'events.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-client-context',
+  'wp/client-context',
   executable('test-client-context', 'client-context.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-metadata',
+  'wp/metadata',
   executable('test-metadata', 'metadata.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-object-interest',
+  'wp/object-interest',
   executable('test-object-interest', 'object-interest.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-object-manager',
+  'wp/object-manager',
   executable('test-object-manager', 'object-manager.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-properties',
+  'wp/properties',
   executable('test-properties', 'properties.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-proxy',
+  'wp/proxy',
   executable('test-proxy', 'proxy.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-session-item',
+  'wp/session-item',
   executable('test-session-item', 'session-item.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-spa-json',
+  'wp/spa-json',
   executable('test-spa-json', 'spa-json.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-spa-pod',
+  'wp/spa-pod',
   executable('test-spa-pod', 'spa-pod.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-spa-type',
+  'wp/spa-type',
   executable('test-spa-type', 'spa-type.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-state',
+  'wp/state',
   executable('test-state', 'state.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-settings',
+  'wp/settings',
   executable('test-settings', 'settings.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-transition',
+  'wp/transition',
   executable('test-transition', 'transition.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-factory',
+  'wp/factory',
   executable('test-factory', 'factory.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-conf',
+  'wp/conf',
   executable('test-conf', 'conf.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-json-utils',
+  'wp/json-utils',
   executable('test-json-utils', 'json-utils.c',
       dependencies: common_deps),
   env: common_env,
 )
 
 test(
-  'test-dynamic-rules',
+  'wp/dynamic-rules',
   executable('test-dynamic-rules', 'dynamic-rules.c',
       dependencies: common_deps),
   env: common_env,
