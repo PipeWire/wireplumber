@@ -91,6 +91,32 @@ properties on the nodes.
   link 2 stream nodes together. An example of this case is the monitoring nodes
   created by ``pavucontrol`` to monitor audio of all audio devices and streams.
 
+- **stream.props.target.stream**:
+
+  A JSON object defining the desired stream for this stream to be linked with.
+  Its ``target.object`` key selects the target node, the same way as the
+  ``target.object`` property does, and its optional ``target.stream`` key
+  selects the port group of the stream in that node. If ``target.stream`` is
+  not defined, the first stream of that node with the proper direction is
+  selected, as with ``target.object``. If ``target.object`` is not defined,
+  the property is ignored. This property has priority over ``target.object``
+  and, like any stream specific property, is set in the
+  ``stream.props.<port-group>`` node property:
+
+  .. code-block::
+
+    stream.props.0 = {
+      target.stream = {
+        target.object = "my-target-node"
+        target.stream = "my-target-stream"
+      }
+    }
+
+  Streams can also be moved at runtime to a specific stream by setting the
+  ``target.stream.<port-group>`` key in the default metadata, with the stream
+  node id as subject and a JSON object with the same keys as value. This key
+  has priority over the ``target.object`` metadata key.
+
 - **node.dont-reconnect**:
 
   Boolean indicating whether the stream node should not be reconnected to a new

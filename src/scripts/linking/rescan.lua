@@ -227,6 +227,11 @@ function handleMoveSetting (enable)
           Constraint { "metadata.name", "=", "default" },
           Constraint { "event.subject.key", "c", "target.object", "target.node" },
         },
+        EventInterest {
+          Constraint { "event.type", "=", "metadata-changed" },
+          Constraint { "metadata.name", "=", "default" },
+          Constraint { "event.subject.key", "#", "target.stream.*" },
+        },
       },
       execute = function (event)
         if handles.rescan_enabled then

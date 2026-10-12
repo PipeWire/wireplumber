@@ -5,13 +5,37 @@
 -- SPDX-License-Identifier: MIT
 --
 -- Check if the target stream is defined explicitly.
--- This definition can be done in two ways.
+-- This definition can be done in four ways, from lowest to highest priority:
 -- 1. "node.target"/"target.object" in the node properties
--- 2. "target.node"/"target.object" in the default metadata
+-- 2. "stream.props.target.stream" in the stream properties
+-- 3. "target.node"/"target.object" in the default metadata
+-- 4. "target.stream.<port-group>" in the default metadata
+--
+-- The "target.stream" values are JSON objects with a "target.object" key,
+-- which selects the target node, and an optional "target.stream" key, which
+-- selects the port group of the target stream in that node.
 
 stream_utils = require ("stream-utils")
 
 log = Log.open_topic ("s-linking")
+
+-- Returns the target object and the optional target port group of a
+-- "target.stream" JSON value, or nil if the target object is missing
+local function parse_target_stream (value)
+  if value == nil then
+    return nil
+  end
+  local json = Json.Raw (value)
+  if not json:is_object () then
+    return nil
+  end
+  local t = json:parse ()
+  if t ["target.object"] == nil then
+    return nil
+  end
+  local group = t ["target.stream"]
+  return tostring (t ["target.object"]), group and tostring (group)
+end
 
 SimpleEventHook {
   name = "linking/find-defined-target",
@@ -43,7 +67,7 @@ SimpleEventHook {
     local metadata = nil
     local target_key = nil
     local target_value = nil
-    local target_stream = nil
+    local target_port_group = nil
     local node_defined = false
 
     -- can_link() only checks the direction, the monitor ports and the link
@@ -61,7 +85,13 @@ SimpleEventHook {
     end
 
     -- Get the target key and value
-    if stream_props ["target.object"] ~= nil then
+    local object, group = parse_target_stream (
+        stream_props ["stream.props.target.stream"])
+    if object ~= nil then
+      target_value = object
+      target_port_group = group
+      target_key = "object.serial"
+    elseif stream_props ["target.object"] ~= nil then
       target_value = stream_props ["target.object"]
       target_key = "object.serial"
       node_defined = true
@@ -78,17 +108,32 @@ SimpleEventHook {
       }
     end
     if metadata ~= nil and not dont_move then
-      local id = metadata:find (node_id, "target.object")
-      if id ~= nil then
-        target_value = id
+      local port_group = stream:get_port_group ()
+      local object, group = nil, nil
+      if port_group ~= nil then
+        object, group = parse_target_stream (
+            metadata:find (node_id, "target.stream." .. port_group))
+      end
+      if object ~= nil then
+        target_value = object
+        target_port_group = group
         target_key = "object.serial"
         node_defined = false
       else
-        id = metadata:find (node_id, "target.node")
+        local id = metadata:find (node_id, "target.object")
         if id ~= nil then
           target_value = id
-          target_key = "object.id"
+          target_port_group = nil
+          target_key = "object.serial"
           node_defined = false
+        else
+          id = metadata:find (node_id, "target.node")
+          if id ~= nil then
+            target_value = id
+            target_port_group = nil
+            target_key = "object.id"
+            node_defined = false
+          end
         end
       end
     end
@@ -101,35 +146,25 @@ SimpleEventHook {
 
     -- If target-value is a number, find the target using target-key,
     -- otherwise just find the target by checking all identity properties.
-    if tonumber (target_value) then
-      if target_key == "object.id" then
-        for candidate_stream in stream_om:iterate { type = "Stream" } do
-          if tostring (candidate_stream:get_node_bound_id ()) == target_value then
-            target_stream = candidate_stream
-            break
-          end
+    -- If a target port group is defined, the target must also have it.
+    -- The direction is not checked here, as a capture stream can also be
+    -- linked to the monitor ports of a sink, so the first usable stream wins.
+    do
+      for candidate in stream_om:iterate { type = "Stream" } do
+        local candidate_props = candidate:get_properties ()
+        local matches
+        if not tonumber (target_value) then
+          matches = candidate_props ["node.name"] == target_value or
+              candidate_props ["object.path"] == target_value
+        elseif target_key == "object.id" then
+          matches = tostring (candidate:get_node_bound_id ()) == target_value
+        else
+          matches = candidate_props [target_key] == target_value
         end
-      else
-        target_stream = stream_om:lookup {
-          type = "Stream",
-          Constraint { target_key, "=", target_value },
-        }
-      end
-      if target_stream ~= nil and target_is_usable (target_stream) then
-        target = target_stream
-      end
-    else
-      local target_dir = stream_utils.get_target_direction (stream)
-      for target_stream in stream_om:iterate {
-          type = "Stream",
-          Constraint { "direction", "=", target_dir, type = "gobject" },
-      } do
-        local target_props = target_stream:get_properties()
-        if (target_props ["node.name"] == target_value or
-            target_props ["object.path"] == target_value) then
-          if target_is_usable (target_stream) then
-            target = target_stream
-          end
+        if matches and (target_port_group == nil or
+            candidate:get_port_group () == target_port_group) and
+            target_is_usable (candidate) then
+          target = candidate
           break
         end
       end

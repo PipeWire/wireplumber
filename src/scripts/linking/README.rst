@@ -41,7 +41,7 @@ processed while targets are being selected.
 
    * - linking/rescan-trigger-on-target-metadata-changed
      - rescan.lua
-     - metadata-changed on ``target.object`` or ``target.node``
+     - metadata-changed on ``target.object``, ``target.node`` or ``target.stream.*``
      - schedules rescan-for-linking when node target metadata properties are changed; registered only while the ``linking.allow-moving-streams`` setting is enabled
 
    * - linking/stream-added
@@ -121,7 +121,7 @@ processed while targets are being selected.
 
    * - linking/find-defined-target
      - find-defined-target.lua
-     - Select the target that has been defined explicitly by the 'target.object' property or metadata
+     - Select the target that has been defined explicitly by the 'target.object' or 'target.stream' property or metadata
 
    * - linking/find-audio-group-target
      - find-audio-group-target.lua
