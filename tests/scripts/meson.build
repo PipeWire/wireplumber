@@ -10,198 +10,198 @@ script_tester = executable('script-tester',
 )
 
 test(
-  'test-linking-non-default-device-node',
+  'scripts/linking/non-default-device-node',
   script_tester,
-  args: ['script-tests', '00-test-linking-non-default-device-node.lua'],
+  args: ['script-tests', 'linking/non-default-device-node.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-non-default-device-node-capture',
+  'scripts/linking/non-default-device-node-capture',
   script_tester,
-  args: ['script-tests', '01-test-linking-non-default-device-node-capture.lua'],
+  args: ['script-tests', 'linking/non-default-device-node-capture.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-default-device-node',
+  'scripts/linking/default-device-node',
   script_tester,
-  args: ['script-tests', '02-test-linking-default-device-node.lua'],
+  args: ['script-tests', 'linking/default-device-node.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-default-device-node-capture',
+  'scripts/linking/default-device-node-capture',
   script_tester,
-  args: ['script-tests', '03-test-linking-default-device-node-capture.lua'],
+  args: ['script-tests', 'linking/default-device-node-capture.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-string',
+  'scripts/linking/defined-device-node-target-object-string',
   script_tester,
-  args: ['script-tests', '04-test-linking-defined-device-node-target-object-string.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-string.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-int',
+  'scripts/linking/defined-device-node-target-object-int',
   script_tester,
-  args: ['script-tests', '05-test-linking-defined-device-node-target-object-int.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-int.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-name',
+  'scripts/linking/defined-device-node-target-object-name',
   script_tester,
-  args: ['script-tests', '06-test-linking-defined-device-node-target-object-name.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-name.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-string-capture',
+  'scripts/linking/defined-device-node-target-object-string-capture',
   script_tester,
-  args: ['script-tests', '07-test-linking-defined-device-node-target-object-string-capture.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-string-capture.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-int-capture',
+  'scripts/linking/defined-device-node-target-object-int-capture',
   script_tester,
-  args: ['script-tests', '08-test-linking-defined-device-node-target-object-int-capture.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-int-capture.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-name-capture',
+  'scripts/linking/defined-device-node-target-object-name-capture',
   script_tester,
-  args: ['script-tests', '09-test-linking-defined-device-node-target-object-name-capture.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-name-capture.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-node-target',
+  'scripts/linking/defined-device-node-node-target',
   script_tester,
-  args: ['script-tests', '10-test-linking-defined-device-node-node-target.lua'],
+  args: ['script-tests', 'linking/defined-device-node-node-target.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-node-target-capture',
+  'scripts/linking/defined-device-node-node-target-capture',
   script_tester,
-  args: ['script-tests', '11-test-linking-defined-device-node-node-target-capture.lua'],
+  args: ['script-tests', 'linking/defined-device-node-node-target-capture.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-node-metadata',
+  'scripts/linking/defined-device-node-target-node-metadata',
   script_tester,
-  args: ['script-tests', '12-test-linking-defined-device-node-target-node-metadata.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-node-metadata.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-node-metadata-capture',
+  'scripts/linking/defined-device-node-target-node-metadata-capture',
   script_tester,
-  args: ['script-tests', '13-test-linking-defined-device-node-target-node-metadata-capture.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-node-metadata-capture.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-metadata',
+  'scripts/linking/defined-device-node-target-object-metadata',
   script_tester,
-  args: ['script-tests', '14-test-linking-defined-device-node-target-object-metadata.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-metadata.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-metadata-capture',
+  'scripts/linking/defined-device-node-target-object-metadata-capture',
   script_tester,
-  args: ['script-tests', '15-test-linking-defined-device-node-target-object-metadata-capture.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-metadata-capture.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-int-metadata',
+  'scripts/linking/defined-device-node-target-object-int-metadata',
   script_tester,
-  args: ['script-tests', '16-test-linking-defined-device-node-target-object-int-metadata.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-int-metadata.lua'],
   env: common_env,
 )
 
 test(
-  'test-linking-defined-device-node-target-object-int-metadata-capture',
+  'scripts/linking/defined-device-node-target-object-int-metadata-capture',
   script_tester,
-  args: ['script-tests', '17-test-linking-defined-device-node-target-object-int-metadata-capture.lua'],
+  args: ['script-tests', 'linking/defined-device-node-target-object-int-metadata-capture.lua'],
   env: common_env,
 )
 
 
 test(
-  '00-test-default-nodes-initial-metadata-update',
+  'scripts/default-nodes/initial-metadata-update',
   script_tester,
-  args: ['script-tests', '00-test-default-nodes-initial-metadata-update.lua'],
+  args: ['script-tests', 'default-nodes/initial-metadata-update.lua'],
   env: common_env,
 )
 
 test(
-  'test-suspend-idle-source',
+  'scripts/node/suspend-idle-source',
   script_tester,
-  args: ['script-tests', '18-test-suspend-idle-source.lua'],
+  args: ['script-tests', 'node/suspend-idle-source.lua'],
   env: common_env,
 )
 
 test(
-  'test-suspend-fast-start',
+  'scripts/node/suspend-fast-start',
   script_tester,
-  args: ['script-tests', '19-test-suspend-fast-start.lua'],
+  args: ['script-tests', 'node/suspend-fast-start.lua'],
   env: common_env,
 )
 
 test(
-  'test-suspend-fast-start-slow-resume-only',
+  'scripts/node/suspend-fast-start-slow-resume-only',
   script_tester,
-  args: ['script-tests', '20-test-suspend-fast-start-slow-resume-only.lua'],
+  args: ['script-tests', 'node/suspend-fast-start-slow-resume-only.lua'],
   env: common_env,
 )
 
 test(
-  'test-suspend-fast-start-direction',
+  'scripts/node/suspend-fast-start-direction',
   script_tester,
-  args: ['script-tests', '21-test-suspend-fast-start-direction.lua'],
+  args: ['script-tests', 'node/suspend-fast-start-direction.lua'],
   env: common_env,
 )
 
 test(
-  'test-suspend-fast-start-cancels-pending',
+  'scripts/node/suspend-fast-start-cancels-pending',
   script_tester,
-  args: ['script-tests', '22-test-suspend-fast-start-cancels-pending.lua'],
+  args: ['script-tests', 'node/suspend-fast-start-cancels-pending.lua'],
   env: common_env,
 )
 
 test(
-  'test-suspend-fast-start-other-clients',
+  'scripts/node/suspend-fast-start-other-clients',
   script_tester,
-  args: ['script-tests', '23-test-suspend-fast-start-other-clients.lua'],
+  args: ['script-tests', 'node/suspend-fast-start-other-clients.lua'],
   env: common_env,
 )
 
 test(
-  'test-suspend-fast-start-last-client',
+  'scripts/node/suspend-fast-start-last-client',
   script_tester,
-  args: ['script-tests', '24-test-suspend-fast-start-last-client.lua'],
+  args: ['script-tests', 'node/suspend-fast-start-last-client.lua'],
   env: common_env,
 )
 
 test(
-  'test-suspend-fast-start-partial-release',
+  'scripts/node/suspend-fast-start-partial-release',
   script_tester,
-  args: ['script-tests', '25-test-suspend-fast-start-partial-release.lua'],
+  args: ['script-tests', 'node/suspend-fast-start-partial-release.lua'],
   env: common_env,
 )
 
 test(
-  'test-suspend-fast-start-existing-client',
+  'scripts/node/suspend-fast-start-existing-client',
   script_tester,
-  args: ['script-tests', '26-test-suspend-fast-start-existing-client.lua'],
+  args: ['script-tests', 'node/suspend-fast-start-existing-client.lua'],
   env: common_env,
 )
