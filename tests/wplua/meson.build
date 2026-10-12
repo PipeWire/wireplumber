@@ -5,7 +5,7 @@ common_env.set('G_TEST_SRCDIR', meson.current_source_dir())
 common_env.set('G_TEST_BUILDDIR', meson.current_build_dir())
 
 test(
-  'test-wplua',
+  'wplua/wplua',
   executable('test-wplua', 'wplua.c',
     dependencies: common_deps),
   env: common_env,
@@ -17,67 +17,67 @@ script_tester = executable('script-tester',
 )
 
 test(
-  'test-lua-pod',
+  'wplua/lua-pod',
   script_tester,
   args: ['lua-api-tests', 'pod.lua'],
   env: common_env,
 )
 test(
-  'test-lua-json',
+  'wplua/lua-json',
   script_tester,
   args: ['lua-api-tests', 'json.lua'],
   env: common_env,
 )
 test(
-  'test-lua-json-utils',
+  'wplua/lua-json-utils',
   script_tester,
   args: ['lua-api-tests', 'json-utils.lua'],
   env: common_env,
 )
 test(
-  'test-lua-monitor-rules',
+  'wplua/lua-monitor-rules',
   script_tester,
   args: ['lua-api-tests', 'monitor-rules.lua'],
   env: common_env,
 )
 test(
-  'test-lua-require',
+  'wplua/lua-require',
   script_tester,
   args: ['lua-api-tests', 'require.lua'],
   env: common_env,
 )
 test(
-  'test-lua-async-activation',
+  'wplua/lua-async-activation',
   script_tester,
   args: ['lua-api-tests', 'async-activation.lua'],
   env: common_env,
 )
 test(
-  'test-lua-settings',
+  'wplua/lua-settings',
   script_tester,
   args: ['lua-api-tests', 'settings.lua'],
   env: common_env,
 )
 test(
-  'test-lua-event-hooks',
+  'wplua/lua-event-hooks',
   script_tester,
   args: ['lua-api-tests', 'event-hooks.lua'],
   env: common_env,
 )
 test(
-  'test-lua-properties',
+  'wplua/lua-properties',
   script_tester,
   args: ['lua-api-tests', 'properties.lua'],
   env: common_env,
 )
 test(
-  'test-lua-node-utils',
+  'wplua/lua-node-utils',
   script_tester,
   args: ['lua-api-tests', 'node-utils.lua'],
   env: common_env,
 )
 test(
-  'test-lua-profile-utils',
+  'wplua/lua-profile-utils',
   script_tester,
   args: ['lua-api-tests', 'profile-utils.lua'],
   env: common_env,
