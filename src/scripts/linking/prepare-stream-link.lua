@@ -30,11 +30,16 @@ SimpleEventHook {
     local node_id = stream:get_node_bound_id ()
     local must_passthrough = stream:get_supported_enc_format_count() > 0 and
         stream:get_supported_raw_format_count() == 0
-    local dont_reconnect = stream_props:get_boolean ("node.dont-reconnect")
+    local dont_reconnect =
+        stream_utils.get_boolean_property (stream_props, "dont-reconnect")
+    -- Only node.dont-reconnect destroys the node, as the node can have other
+    -- streams
+    local destroy_node = dont_reconnect and
+        stream_props:get_boolean ("node.dont-reconnect")
     local linked_once = stream_utils.linked_once [stream_id]
     local target = event:get_data ("target")
 
-    -- node.exclusive belongs to the stream that asked for the link, so a
+    -- exclusive belongs to the stream that asked for the link, so a
     -- target that one of its peers claimed exclusively can only be recognized
     -- through those peers
     local function target_claimed_exclusively ()
@@ -42,7 +47,8 @@ SimpleEventHook {
         return true
       end
       for target_peer in StreamLinkManager.iterate_peers (target) do
-        if target_peer:get_properties ():get_boolean ("node.exclusive") then
+        if stream_utils.get_boolean_property (target_peer:get_properties (),
+            "exclusive") then
           return true
         end
       end
@@ -92,7 +98,8 @@ SimpleEventHook {
       if target_claimed_exclusively () then
         log:debug (stream, "... target is linked exclusively")
         target = nil
-      elseif stream_props:get_boolean ("node.exclusive") or must_passthrough then
+      elseif stream_utils.get_boolean_property (stream_props, "exclusive") or
+          must_passthrough then
         -- a stream with no raw formats needs the target in passthrough, which
         -- removes the ports that the existing links are on
         log:debug (stream, "... target is already linked, cannot link exclusively")
@@ -116,6 +123,13 @@ SimpleEventHook {
         goto done
       end
 
+      -- A stream that has dont-reconnect set without destroying its node and
+      -- lost its target is just left unlinked
+      if linked_once and not destroy_node then
+        log:debug (stream, "... stream has dont-reconnect, leaving it unlinked")
+        goto done
+      end
+
       -- Send client error if stream has client ID
       local message = dont_reconnect and "target not found"
           or "no target node available"
@@ -124,7 +138,7 @@ SimpleEventHook {
       end
 
       -- request client to destroy node
-      if dont_reconnect then
+      if destroy_node then
         local node = stream:get_node ()
         node:request_destroy ()
         log:info (stream, "... requested destroy node")

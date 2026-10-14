@@ -40,7 +40,8 @@ function handle_stream (source, stream)
   end
 
   -- Check if we need to link this stream at all
-  local autoconnect = stream_props:get_boolean ("node.autoconnect")
+  local autoconnect =
+      stream_utils.get_boolean_property (stream_props, "autoconnect")
   if not autoconnect then
     log:info (stream, string.format (
         "ignoring stream:%d (node:%d) as autoconnect is not enabled",

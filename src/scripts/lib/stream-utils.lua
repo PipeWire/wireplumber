@@ -24,6 +24,17 @@ function module.get_media_type (stream)
   return "Unknown"
 end
 
+-- Gets a "stream.<name>" property of the stream, set in the node's
+-- "stream.props.<port-group>" property, or the "node.<name>" property, which
+-- applies to all the streams of the node, if the stream one is not set
+function module.get_boolean_property (stream_props, name)
+  local value = stream_props:get_boolean ("stream.props.stream." .. name)
+  if value == nil then
+    value = stream_props:get_boolean ("node." .. name)
+  end
+  return value
+end
+
 function module.get_target_direction (stream)
   local stream_dir = stream:get_direction ()
   local stream_props = stream:get_properties ()
@@ -132,7 +143,8 @@ end
 
 function module.check_follow_default (stream, target)
   local stream_props = stream:get_properties ()
-  local reconnect = not stream_props:get_boolean ("node.dont-reconnect")
+  local reconnect =
+      not module.get_boolean_property (stream_props, "dont-reconnect")
 
   if reconnect and stream_props ["node.link-group"] == nil then
     local default_nodes = Plugin.find ("default-nodes-api")

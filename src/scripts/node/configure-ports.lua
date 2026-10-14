@@ -6,6 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 cutils = require ("common-utils")
+stream_utils = require ("stream-utils")
 
 log = Log.open_topic ("s-node")
 
@@ -78,7 +79,7 @@ SimpleEventHook {
 
     local stream_props = stream:get_properties ()
     if stream:get_kind () ~= StreamKind.TARGET and
-        stream_props:get_boolean ("node.autoconnect") and
+        stream_utils.get_boolean_property (stream_props, "autoconnect") and
         not stream_props:get_boolean ("stream.dont-remix") then
       return
     end

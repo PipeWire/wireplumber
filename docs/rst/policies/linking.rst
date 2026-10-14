@@ -126,6 +126,25 @@ properties on the nodes.
   an error to the client. The logic is implemented in the ``linking/prepare-link.lua``
   Lua script.
 
+- **stream.props.stream.autoconnect**, **stream.props.stream.dont-reconnect**
+  and **stream.props.stream.exclusive**:
+
+  The ``node.autoconnect``, ``node.dont-reconnect`` and ``node.exclusive``
+  properties apply to all the streams of a node. The ``stream.autoconnect``,
+  ``stream.dont-reconnect`` and ``stream.exclusive`` keys of the
+  ``stream.props.<port-group>`` node property only apply to that stream, and
+  have priority over the node ones. Unlike ``node.dont-reconnect``,
+  ``stream.dont-reconnect`` does not destroy the node when the stream loses
+  its target, as the node can have other streams, and just leaves the stream
+  unlinked:
+
+  .. code-block::
+
+    stream.props.0 = {
+      stream.autoconnect = false
+      stream.dont-reconnect = true
+    }
+
 - **node.dont-move**:
 
   Boolean indicating whether the stream node should not be movable or not at runtime
