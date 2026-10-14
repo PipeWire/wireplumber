@@ -10,6 +10,9 @@ mutils = require ("monitor-utils")
 
 log = Log.open_topic ("s-monitors-bluez")
 
+config = {}
+config.rules = Conf.get_section_as_json ("monitor.bluez.rules", Json.Array {})
+
 LOOPBACK_SOURCE_ID = 128
 DEVICE_SOURCE_ID = 0
 
@@ -24,6 +27,20 @@ function CreateDeviceLoopbackSource (dev_props, dev_id)
   dec_desc = dec_desc:gsub("(:)", " ")
 
   log:info("create SCO source loopback node: " .. dev_name)
+
+  -- apply properties from the rules in the configuration file
+  local playback_props = JsonUtils.match_rules_update_properties (config.rules, {
+    ["node.name"] = string.format ("bluez_input.%s", dev_name),
+    ["node.description"] = string.format ("%s", dec_desc),
+    ["node.virtual"] = false,
+    ["audio.position"] = "[MONO]",
+    ["media.class"] = "Audio/Source",
+    ["device.id"] = dev_id,
+    ["card.profile.device"] = DEVICE_SOURCE_ID,
+    ["device.routes"] = "1",
+    ["priority.session"] = 2010,
+    ["bluez5.loopback"] = true,
+  })
 
   local args = Json.Object {
     ["capture.props"] = Json.Object {
@@ -41,18 +58,7 @@ function CreateDeviceLoopbackSource (dev_props, dev_id)
       ["state.restore-props"] = false,
       ["target.object"] = target_object,
     },
-    ["playback.props"] = Json.Object {
-      ["node.name"] = string.format ("bluez_input.%s", dev_name),
-      ["node.description"] = string.format ("%s", dec_desc),
-      ["node.virtual"] = false,
-      ["audio.position"] = "[MONO]",
-      ["media.class"] = "Audio/Source",
-      ["device.id"] = dev_id,
-      ["card.profile.device"] = DEVICE_SOURCE_ID,
-      ["device.routes"] = "1",
-      ["priority.session"] = 2010,
-      ["bluez5.loopback"] = true,
-    }
+    ["playback.props"] = Json.Object (playback_props:parse ())
   }
   return LocalModule("libpipewire-module-loopback", args:get_data(), {})
 end
