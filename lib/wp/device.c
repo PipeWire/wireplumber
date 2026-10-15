@@ -1000,8 +1000,9 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
   handle = pw_context_load_spa_handle (pw_context, factory_name,
       props ? wp_properties_peek_dict (props) : NULL);
   if (!handle) {
-    wp_notice ("SPA handle '%s' could not be loaded; is it installed?",
-        factory_name);
+    int err = errno;
+    wp_notice ("SPA handle '%s' could not be loaded: %s",
+        factory_name, g_strerror (err));
     goto out;
   }
 
