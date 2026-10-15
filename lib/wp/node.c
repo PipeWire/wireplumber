@@ -966,7 +966,9 @@ wp_impl_node_new_from_pw_factory (WpCore * core,
       NULL, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE,
       props ? wp_properties_to_pw_properties (props) : NULL, 0);
   if (!node) {
-    wp_warning ("failed to create node from factory '%s'", factory_name);
+    int err = errno;
+    wp_notice ("failed to create node from factory '%s': %s",
+        factory_name, g_strerror (err));
     goto out;
   }
 
