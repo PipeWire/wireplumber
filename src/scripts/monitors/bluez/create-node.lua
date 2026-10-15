@@ -41,8 +41,9 @@ AsyncEventHook {
         -- Create the node
         local node = LocalNode("adapter", properties)
         if node == nil then
-          transition:return_error ("Failed to create BT node " ..
-              tostring (properties ["node.name"]))
+          log:notice ("Could not create BT node " .. tostring (properties ["node.name"]))
+          transition:advance ()
+          event:stop_processing ()
           return
         end
 

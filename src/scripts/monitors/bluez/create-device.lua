@@ -38,7 +38,7 @@ AsyncEventHook {
         -- Create the BT device
         local device = SpaDevice (factory, properties)
         if device == nil then
-          log:warning ("Failed to create '" .. factory .. "' device")
+          log:notice ("Could not create '" .. factory .. "' device")
           transition:advance ()
           event:stop_processing ()
           return
