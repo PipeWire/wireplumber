@@ -184,11 +184,11 @@ local Feature = {
   },
 }
 
-PERM_R_VAL = 0400
-PERM_W_VAL = 0200
-PERM_X_VAL = 0100
-PERM_M_VAL = 0010
-PERM_L_VAL = 0020
+PERM_R_VAL = 0x100
+PERM_W_VAL = 0x080
+PERM_X_VAL = 0x040
+PERM_M_VAL = 0x008
+PERM_L_VAL = 0x010
 
 local Perm = {
   NONE = 0,
