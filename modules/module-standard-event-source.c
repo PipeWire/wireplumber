@@ -180,12 +180,20 @@ get_default_event_priority (const gchar *event_type)
     return 200;
   else if (g_str_has_prefix (event_type, "device-"))
     return 170;
-  else if (g_str_has_prefix (event_type, "port-"))
+  /* Removed in the reverse order of creation: stream links, streams, ports
+   * and then nodes */
+  else if (!g_strcmp0 (event_type, "stream-link-removed"))
     return 150;
-  else if (g_str_has_prefix (event_type, "node-"))
+  else if (!g_strcmp0 (event_type, "stream-removed"))
+    return 140;
+  else if (g_str_has_prefix (event_type, "port-"))
     return 130;
+  else if (g_str_has_prefix (event_type, "node-"))
+    return 120;
+  /* Added in the order of creation: nodes and ports first, then streams and
+   * then stream links */
   else if (g_str_has_prefix (event_type, "stream-link-"))
-    return 110;
+    return 100;
   else if (g_str_has_prefix (event_type, "stream-"))
     return 110;
   else if (g_str_has_suffix (event_type, "-added") ||
