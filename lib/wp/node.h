@@ -10,9 +10,6 @@
 #define __WIREPLUMBER_NODE_H__
 
 #include "global-proxy.h"
-#include "port.h"
-#include "iterator.h"
-#include "object-interest.h"
 
 G_BEGIN_DECLS
 
@@ -36,17 +33,6 @@ typedef enum {
 } WpNodeState;
 
 /*!
- * \brief An extension of WpProxyFeatures
- * \ingroup wpnode
- */
-typedef enum { /*< flags >*/
-  /*! caches information about ports, enabling
-   * the use of wp_node_get_n_ports(), wp_node_lookup_port(),
-   * wp_node_new_ports_iterator() and related methods */
-  WP_NODE_FEATURE_PORTS = (WP_PROXY_FEATURE_CUSTOM_START << 0),
-} WpNodeFeatures;
-
-/*!
  * \brief The WpNode GType
  * \ingroup wpnode
  */
@@ -66,26 +52,6 @@ guint wp_node_get_n_input_ports (WpNode * self, guint * max);
 
 WP_API
 guint wp_node_get_n_output_ports (WpNode * self, guint * max);
-
-WP_API
-guint wp_node_get_n_ports (WpNode * self);
-
-WP_API
-WpIterator * wp_node_new_ports_iterator (WpNode * self);
-
-WP_API
-WpIterator * wp_node_new_ports_filtered_iterator (WpNode * self, ...)
-    G_GNUC_NULL_TERMINATED;
-
-WP_API
-WpIterator * wp_node_new_ports_filtered_iterator_full (WpNode * self,
-    WpObjectInterest * interest);
-
-WP_API
-WpPort * wp_node_lookup_port (WpNode * self, ...) G_GNUC_NULL_TERMINATED;
-
-WP_API
-WpPort * wp_node_lookup_port_full (WpNode * self, WpObjectInterest * interest);
 
 WP_API
 void wp_node_send_command (WpNode * self, const gchar *command);

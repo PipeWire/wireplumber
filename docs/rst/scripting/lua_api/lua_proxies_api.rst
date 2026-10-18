@@ -160,36 +160,6 @@ Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
    :rtype: integer (current), integer (max)
    :since: 0.4.2
 
-.. function:: Node.get_n_ports(self)
-
-   Binds :c:func:`wp_node_get_n_ports`
-
-   :param self: the proxy
-   :returns: the number of ports on the node
-   :since: 0.4.2
-
-.. function:: Node.iterate_ports(self, interest)
-
-   Binds :c:func:`wp_node_new_ports_iterator`
-
-   :param self: the proxy
-   :param interest: an interest to filter objects
-   :type interest: :ref:`Interest <lua_object_interest_api>` or nil or none
-   :returns: all the ports of this node that that match the interest
-   :rtype: :ref:`Iterator <lua_iterator_api>`; the iteration items are of type :ref:`WpPort <port_api>`
-   :since: 0.4.2
-
-.. function:: Node.lookup_port(self, interest)
-
-   Binds :c:func:`wp_node_lookup_port`
-
-   :param self: the proxy
-   :param interest: the interest to use for the lookup
-   :type interest: :ref:`Interest <lua_object_interest_api>` or nil or none
-   :returns: the first port of this node that matches the interest
-   :rtype: :ref:`WpPort <port_api>`
-   :since: 0.4.2
-
 .. function:: Node.send_command(self, command)
 
    Binds :c:func:`wp_node_send_command`

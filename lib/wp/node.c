@@ -47,20 +47,6 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-node")
  *
  * \gsignals
  *
- * \par ports-changed
- * \parblock
- * \code
- * void
- * ports_changed_callback (WpNode * self,
- *                         gpointer user_data)
- * \endcode
- *
- * Emitted when the node's ports change. This is only emitted when
- * WP_NODE_FEATURE_PORTS is enabled.
- *
- * Flags: G_SIGNAL_RUN_LAST
- * \endparblock
- *
  * \par state-changed
  * \parblock
  * \code
@@ -93,7 +79,6 @@ enum {
 
 enum {
   SIGNAL_STATE_CHANGED,
-  SIGNAL_PORTS_CHANGED,
   N_SIGNALS,
 };
 
@@ -102,7 +87,6 @@ static guint32 signals[N_SIGNALS] = {0};
 struct _WpNode
 {
   WpGlobalProxy parent;
-  WpObjectManager *ports_om;
 };
 
 static void wp_node_pw_object_mixin_priv_interface_init (
@@ -153,54 +137,6 @@ wp_node_get_property (GObject * object, guint property_id,
 }
 
 static void
-wp_node_on_ports_om_installed (WpObjectManager *ports_om, WpNode * self)
-{
-  wp_object_update_features (WP_OBJECT (self), WP_NODE_FEATURE_PORTS, 0);
-}
-
-static void
-wp_node_emit_ports_changed (WpObjectManager *ports_om, WpNode * self)
-{
-  g_signal_emit (self, signals[SIGNAL_PORTS_CHANGED], 0);
-}
-
-static void
-wp_node_enable_feature_ports (WpNode * self)
-{
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  guint32 bound_id = wp_proxy_get_bound_id (WP_PROXY (self));
-
-  wp_debug_object (self, "enabling WP_NODE_FEATURE_PORTS, bound_id:%u",
-      bound_id);
-
-  self->ports_om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->ports_om,
-      WP_TYPE_PORT,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_NODE_ID, "=u", bound_id,
-      NULL);
-  wp_object_manager_request_object_features (self->ports_om,
-      WP_TYPE_PORT, WP_OBJECT_FEATURES_ALL);
-
-  g_signal_connect_object (self->ports_om, "installed",
-      G_CALLBACK (wp_node_on_ports_om_installed), self, 0);
-  g_signal_connect_object (self->ports_om, "objects-changed",
-      G_CALLBACK (wp_node_emit_ports_changed), self, 0);
-
-  wp_core_install_object_manager (core, self->ports_om);
-}
-
-static WpObjectFeatures
-wp_node_get_supported_features (WpObject * object)
-{
-  return wp_pw_object_mixin_get_supported_features (object)
-      | WP_NODE_FEATURE_PORTS;
-}
-
-enum {
-  STEP_PORTS = WP_PW_OBJECT_MIXIN_STEP_CUSTOM_START,
-};
-
-static void
 wp_node_activate_execute_step (WpObject * object,
     WpFeatureActivationTransition * transition, guint step,
     WpObjectFeatures missing)
@@ -218,9 +154,6 @@ wp_node_activate_execute_step (WpObject * object,
   case WP_PW_OBJECT_MIXIN_STEP_CACHE_PARAMS:
     wp_pw_object_mixin_cache_params (object, missing);
     break;
-  case STEP_PORTS:
-    wp_node_enable_feature_ports (WP_NODE (object));
-    break;
   default:
     g_assert_not_reached ();
   }
@@ -230,12 +163,6 @@ static void
 wp_node_deactivate (WpObject * object, WpObjectFeatures features)
 {
   wp_pw_object_mixin_deactivate (object, features);
-
-  if (features & WP_NODE_FEATURE_PORTS) {
-    WpNode *self = WP_NODE (object);
-    g_clear_object (&self->ports_om);
-    wp_object_update_features (object, 0, WP_NODE_FEATURE_PORTS);
-  }
 
   WP_OBJECT_CLASS (wp_node_parent_class)->deactivate (object, features);
 }
@@ -256,12 +183,7 @@ wp_node_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 static void
 wp_node_pw_proxy_destroyed (WpProxy * proxy)
 {
-  WpNode *self = WP_NODE (proxy);
-
   wp_pw_object_mixin_handle_pw_proxy_destroyed (proxy);
-
-  g_clear_object (&self->ports_om);
-  wp_object_update_features (WP_OBJECT (self), 0, WP_NODE_FEATURE_PORTS);
 
   WP_PROXY_CLASS (wp_node_parent_class)->pw_proxy_destroyed (proxy);
 }
@@ -275,7 +197,8 @@ wp_node_class_init (WpNodeClass * klass)
 
   object_class->get_property = wp_node_get_property;
 
-  wpobject_class->get_supported_features = wp_node_get_supported_features;
+  wpobject_class->get_supported_features =
+      wp_pw_object_mixin_get_supported_features;
   wpobject_class->activate_get_next_step =
       wp_pw_object_mixin_activate_get_next_step;
   wpobject_class->activate_execute_step = wp_node_activate_execute_step;
@@ -312,10 +235,6 @@ wp_node_class_init (WpNodeClass * klass)
       "state-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
       WP_TYPE_NODE_STATE, WP_TYPE_NODE_STATE);
-
-  signals[SIGNAL_PORTS_CHANGED] = g_signal_new (
-      "ports-changed", G_TYPE_FROM_CLASS (klass),
-      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 static void
@@ -470,146 +389,6 @@ wp_node_get_n_output_ports (WpNode * self, guint * max)
   if (max)
     *max = info->max_output_ports;
   return info->n_output_ports;
-}
-
-/*!
- * \brief Gets the number of ports of this node
- *
- * Note that this number may not add up to
- * wp_node_get_n_input_ports() + wp_node_get_n_output_ports()
- * because it is discovered by looking at the number of available ports
- * in the registry, however ports may appear there with a delay or may
- * not appear at all if this client does not have permission to read them
- *
- * \remarks Requires WP_NODE_FEATURE_PORTS
- *
- * \ingroup wpnode
- * \param self the node
- * \returns the number of ports of this node.
- */
-guint
-wp_node_get_n_ports (WpNode * self)
-{
-  g_return_val_if_fail (WP_IS_NODE (self), 0);
-  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
-          WP_NODE_FEATURE_PORTS), 0);
-
-  return wp_object_manager_get_n_objects (self->ports_om);
-}
-
-/*!
- * \brief Gets a new iterator that iterates over all the ports that belong
- * to this node
- *
- * \remarks Requires WP_NODE_FEATURE_PORTS
- *
- * \ingroup wpnode
- * \param self the node
- * \returns (transfer full): a WpIterator that iterates over WpPort objects
- */
-WpIterator *
-wp_node_new_ports_iterator (WpNode * self)
-{
-  g_return_val_if_fail (WP_IS_NODE (self), NULL);
-  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
-          WP_NODE_FEATURE_PORTS), NULL);
-
-  return wp_object_manager_new_iterator (self->ports_om);
-}
-
-/*!
- * \brief Gets a new iterator that iterates over all
- * the ports that belong to this node and match the constraints
- *
- * The constraints specified in the variable arguments must follow the rules
- * documented in wp_object_interest_new().
- *
- * \remarks Requires WP_NODE_FEATURE_PORTS
- *
- * \ingroup wpnode
- * \param self the node
- * \param ... a list of constraints, terminated by NULL
- * \returns (transfer full): a WpIterator that iterates over WpPort objects
- */
-WpIterator *
-wp_node_new_ports_filtered_iterator (WpNode * self, ...)
-{
-  WpObjectInterest *interest;
-  va_list args;
-  va_start (args, self);
-  interest = wp_object_interest_new_valist (WP_TYPE_PORT, &args);
-  va_end (args);
-  return wp_node_new_ports_filtered_iterator_full (self, interest);
-}
-
-/*!
- * \brief Gets a new iterator that iterates over all
- * the ports that belong to this node and match the \a interest
- *
- * \remarks Requires WP_NODE_FEATURE_PORTS
- *
- * \ingroup wpnode
- * \param self the node
- * \param interest (transfer full): the interest
- * \returns (transfer full): a WpIterator that iterates over WpPort objects
- */
-WpIterator *
-wp_node_new_ports_filtered_iterator_full (WpNode * self,
-    WpObjectInterest * interest)
-{
-  g_return_val_if_fail (WP_IS_NODE (self), NULL);
-  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
-          WP_NODE_FEATURE_PORTS), NULL);
-
-  return wp_object_manager_new_filtered_iterator_full (self->ports_om,
-      interest);
-}
-
-/*!
- * \brief Retrieves the first port that matches the constraints
- *
- * The constraints specified in the variable arguments must follow the rules
- * documented in wp_object_interest_new().
- *
- * \remarks Requires WP_NODE_FEATURE_PORTS
- *
- * \ingroup wpnode
- * \param self the node
- * \param ... a list of constraints, terminated by NULL
- * \returns (transfer full) (nullable): the first port that matches the
- *    constraints, or NULL if there is no such port
- */
-WpPort *
-wp_node_lookup_port (WpNode * self, ...)
-{
-  WpObjectInterest *interest;
-  va_list args;
-  va_start (args, self);
-  interest = wp_object_interest_new_valist (WP_TYPE_PORT, &args);
-  va_end (args);
-  return wp_node_lookup_port_full (self, interest);
-}
-
-/*!
- * \brief Retrieves the first port that matches the \a interest
- *
- * \remarks Requires WP_NODE_FEATURE_PORTS
- *
- * \ingroup wpnode
- * \param self the node
- * \param interest (transfer full): the interest
- * \returns (transfer full) (nullable): the first port that matches the
- *    \a interest, or NULL if there is no such port
- */
-WpPort *
-wp_node_lookup_port_full (WpNode * self, WpObjectInterest * interest)
-{
-  g_return_val_if_fail (WP_IS_NODE (self), NULL);
-  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
-          WP_NODE_FEATURE_PORTS), NULL);
-
-  return (WpPort *)
-      wp_object_manager_lookup_full (self->ports_om, interest);
 }
 
 /*!

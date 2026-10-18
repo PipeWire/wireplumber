@@ -51,15 +51,15 @@ directly pass the declaration table as argument instead of using the
 
 .. code-block:: lua
 
-   local fl_port = node:lookup_port {
-     Constraint { "port.name", "equals", "playback_FL" }
+   local node = om:lookup {
+     Constraint { "node.name", "equals", "alsa_output.pci-0000_00_1f.3" }
    }
 
-In the above example, we lookup a port in a node. The :func:`Node.lookup_port`
-method takes an *Interest* as an argument, but we can pass the interest
-declaration table directly. Note also that such a method does not require
-declaring the ``type`` of the interest, as it has :c:struct:`WpPort` as a
-hardcoded default.
+In the above example, we lookup a node in an object manager. The
+:func:`ObjectManager.lookup` method takes an *Interest* as an argument, but we
+can pass the interest declaration table directly. Note also that such a method
+does not require declaring the ``type`` of the interest, as it matches any
+object type by default.
 
 The type
 ........

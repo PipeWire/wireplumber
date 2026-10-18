@@ -86,7 +86,6 @@ Constant                                     Applies to
 ``Feature.PipewireObject.PARAM_PORT_CONFIG`` nodes
 ``Feature.PipewireObject.PARAM_ROUTE``       devices
 ``Feature.SpaDevice.ENABLED``                :ref:`SpaDevice <lua_spa_device_api>`
-``Feature.Node.PORTS``                       :ref:`Node <lua_proxies_api>`
 ``Feature.Metadata.DATA``                    :ref:`Metadata <lua_proxies_api>`
 ``Feature.Stream.ACTIVE``                    :ref:`Stream <lua_streams_api>`
 ``Feature.StreamLink.ACTIVE``                :ref:`StreamLink <lua_stream_links_api>`
@@ -106,5 +105,6 @@ Since features are a bitmask, they are combined with the bitwise or operator:
 
 .. code-block:: lua
 
-   node:activate (Features.PipewireObject.MINIMAL | Feature.Node.PORTS,
+   node:activate (Features.PipewireObject.MINIMAL |
+       Feature.PipewireObject.PARAM_PROPS,
        function (n, err) --[[ ... ]] end)

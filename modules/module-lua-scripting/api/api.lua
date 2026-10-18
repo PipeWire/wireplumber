@@ -172,9 +172,6 @@ local Feature = {
   SpaDevice = {
     ENABLED           = (1 << 16),
   },
-  Node = {
-    PORTS             = (1 << 16),
-  },
   Metadata = {
     DATA              = (1 << 16),
   },
