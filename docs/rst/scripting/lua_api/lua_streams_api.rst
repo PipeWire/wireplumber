@@ -98,7 +98,9 @@ Stream methods
 
    Returns the stream's properties. These are a copy of the node's properties
    taken when the stream was created, so they do not follow later changes on
-   the node.
+   the node. The keys set in the node's ``stream.props.<port-group>`` property
+   replace the node ones, so the node value of such a key can only be read
+   from the node itself.
 
    :param self: the stream
    :returns: the stream properties

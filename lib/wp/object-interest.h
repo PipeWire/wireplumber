@@ -30,6 +30,9 @@ typedef enum {
   WP_CONSTRAINT_TYPE_PW_PROPERTY,
   /*! constraint applies to a GObject property of the object */
   WP_CONSTRAINT_TYPE_G_PROPERTY,
+  /*! constraint applies to a WirePlumber property of the object
+   *  (the ones returned by wp_stream_get_properties()) */
+  WP_CONSTRAINT_TYPE_WP_PROPERTY,
 } WpConstraintType;
 
 /*!
@@ -67,6 +70,7 @@ typedef enum { /*< flags >*/
   WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES = (1 << 1),
   WP_INTEREST_MATCH_PW_PROPERTIES = (1 << 2),
   WP_INTEREST_MATCH_G_PROPERTIES = (1 << 3),
+  WP_INTEREST_MATCH_WP_PROPERTIES = (1 << 4),
 
   /*!
    * Special WpInterestMatch value that indicates that all constraints
@@ -76,7 +80,8 @@ typedef enum { /*< flags >*/
     (WP_INTEREST_MATCH_GTYPE |
      WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES |
      WP_INTEREST_MATCH_PW_PROPERTIES |
-     WP_INTEREST_MATCH_G_PROPERTIES),
+     WP_INTEREST_MATCH_G_PROPERTIES |
+     WP_INTEREST_MATCH_WP_PROPERTIES),
 } WpInterestMatch;
 
 /*!

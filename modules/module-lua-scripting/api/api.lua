@@ -38,7 +38,7 @@ local function Constraint (spec)
   -- check and convert type to its integer value
   local type = spec["type"]
   if type then
-    local valid_types = { "pw-global", "pw", "gobject" }
+    local valid_types = { "pw-global", "pw", "gobject", "wp" }
     local type_is_valid = false
 
     for i, v in ipairs(valid_types) do

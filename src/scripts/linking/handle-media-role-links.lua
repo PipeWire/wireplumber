@@ -125,7 +125,7 @@ function set_volume (streams_om, device_stream, level)
   -- regardless of the link direction
   local other_stream = streams_om:lookup {
     type = "Stream",
-    Constraint { "node.link-group", "=", link_group },
+    Constraint { "node.link-group", "=", link_group, type = "wp" },
     Constraint { "id", "!", device_stream.id, type = "gobject" },
   }
   if other_stream == nil then

@@ -538,11 +538,7 @@ wp_stream_get_shape (WpStream *self)
 
   priv = wp_stream_get_instance_private (self);
 
-  /* The stream specific media class has priority over the node one */
-  mc = wp_properties_get (priv->properties,
-      STREAM_PROPS_PREFIX PW_KEY_MEDIA_CLASS);
-  if (!mc)
-    mc = wp_properties_get (priv->properties, PW_KEY_MEDIA_CLASS);
+  mc = wp_properties_get (priv->properties, PW_KEY_MEDIA_CLASS);
   if (!mc)
     return WP_STREAM_SHAPE_UNKNOWN;
 

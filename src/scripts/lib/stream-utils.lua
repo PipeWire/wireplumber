@@ -28,7 +28,7 @@ end
 -- "stream.props.<port-group>" property, or the "node.<name>" property, which
 -- applies to all the streams of the node, if the stream one is not set
 function module.get_boolean_property (stream_props, name)
-  local value = stream_props:get_boolean ("stream.props.stream." .. name)
+  local value = stream_props:get_boolean ("stream." .. name)
   if value == nil then
     value = stream_props:get_boolean ("node." .. name)
   end
@@ -127,8 +127,8 @@ function module.can_link (stream, target)
       target_props:get_boolean ("policy.role-based.target") and
       cutils.get_object_manager ("stream"):lookup {
         type = "Stream",
-        Constraint { "node.link-group", "=", stream_link_group },
-        Constraint { "policy.role-based.target", "=", true },
+        Constraint { "node.link-group", "=", stream_link_group, type = "wp" },
+        Constraint { "policy.role-based.target", "=", true, type = "wp" },
       } then
     return false
   end

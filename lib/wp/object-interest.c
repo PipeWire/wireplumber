@@ -326,13 +326,14 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
     const GVariantType *value_type = NULL;
 
     if (c->type <= WP_CONSTRAINT_TYPE_NONE ||
-        c->type > WP_CONSTRAINT_TYPE_G_PROPERTY) {
+        c->type > WP_CONSTRAINT_TYPE_WP_PROPERTY) {
       g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
           "invalid constraint type %d", c->type);
       return FALSE;
     }
 
-    if (is_props && c->type == WP_CONSTRAINT_TYPE_G_PROPERTY) {
+    if (is_props && (c->type == WP_CONSTRAINT_TYPE_G_PROPERTY ||
+                     c->type == WP_CONSTRAINT_TYPE_WP_PROPERTY)) {
       g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
           "constraint type %d cannot apply to type '%s'",
           c->type, g_type_name (self->gtype));
@@ -704,6 +705,9 @@ wp_object_interest_matches (WpObjectInterest * self, gpointer object)
  * then \a pw_props and \a pw_global_props, if required, will be internally
  * retrieved from \a object by calling wp_pipewire_object_get_properties() and
  * wp_global_proxy_get_global_properties() respectively.
+ * If \a object is a WpStream, they are retrieved from the stream's node
+ * instead, and constraints of type WP_CONSTRAINT_TYPE_WP_PROPERTY are checked
+ * against the properties returned by wp_stream_get_properties().
  *
  * When \a flags contains WP_INTEREST_MATCH_FLAGS_CHECK_ALL, all the constraints
  * are checked and the returned value contains accurate information about which
@@ -718,7 +722,8 @@ wp_object_interest_matches (WpObjectInterest * self, gpointer object)
  * \param flags flags to alter the behavior of this function
  * \param object_type the type to be checked against the interest's type
  * \param object (type GObject)(transfer none)(nullable): the object to be used for
- *   checking constraints of type WP_CONSTRAINT_TYPE_G_PROPERTY
+ *   checking constraints of type WP_CONSTRAINT_TYPE_G_PROPERTY and
+ *   WP_CONSTRAINT_TYPE_WP_PROPERTY
  * \param pw_props (transfer none)(nullable): the properties to be used for
  *   checking constraints of type WP_CONSTRAINT_TYPE_PW_PROPERTY
  * \param pw_global_props (transfer none)(nullable): the properties to be used for
@@ -736,6 +741,8 @@ wp_object_interest_matches_full (WpObjectInterest * self,
   WpInterestMatch result = WP_INTEREST_MATCH_ALL;
   g_autoptr (WpProperties) props = NULL;
   g_autoptr (WpProperties) global_props = NULL;
+  g_autoptr (WpProperties) wp_props = NULL;
+  g_autoptr (WpNode) node = NULL;
   g_autoptr (GError) error = NULL;
   struct constraint *c;
 
@@ -753,25 +760,27 @@ wp_object_interest_matches_full (WpObjectInterest * self,
 
   /* prepare for constraint lookups on proxy properties */
   if (object) {
-    if (!pw_global_props && WP_IS_GLOBAL_PROXY (object)) {
-      WpGlobalProxy *pwg = (WpGlobalProxy *) object;
+    gpointer proxy = object;
+
+    /* streams have their own properties; the PipeWire ones come from the node */
+    if (WP_IS_STREAM (object)) {
+      WpStream *stream = (WpStream *) object;
+      wp_props = wp_stream_get_properties (stream);
+      proxy = node = wp_stream_get_node (stream);
+    }
+
+    if (!pw_global_props && WP_IS_GLOBAL_PROXY (proxy)) {
+      WpGlobalProxy *pwg = (WpGlobalProxy *) proxy;
       pw_global_props = global_props =
           wp_global_proxy_get_global_properties (pwg);
     }
 
-    if (!pw_props && WP_IS_PIPEWIRE_OBJECT (object)) {
-      WpObject *oo = (WpObject *) object;
-      WpPipewireObject *pwo = (WpPipewireObject *) object;
+    if (!pw_props && WP_IS_PIPEWIRE_OBJECT (proxy)) {
+      WpObject *oo = (WpObject *) proxy;
+      WpPipewireObject *pwo = (WpPipewireObject *) proxy;
 
       if (wp_object_test_active_features (oo, WP_PIPEWIRE_OBJECT_FEATURE_INFO))
         pw_props = props = wp_pipewire_object_get_properties (pwo);
-    }
-
-    if (!pw_global_props && WP_IS_STREAM (object)) {
-      WpStream *stream = (WpStream *) object;
-      pw_global_props = props = wp_stream_get_properties (stream);
-      if (!pw_props)
-        pw_props = props;
     }
   }
 
@@ -789,7 +798,9 @@ wp_object_interest_matches_full (WpObjectInterest * self,
     /* collect, check & convert the subject property */
     switch (c->type) {
       case WP_CONSTRAINT_TYPE_PW_PROPERTY:
-        lookup_props = pw_props;
+      case WP_CONSTRAINT_TYPE_WP_PROPERTY:
+        lookup_props = (c->type == WP_CONSTRAINT_TYPE_PW_PROPERTY) ?
+            pw_props : wp_props;
         SPA_FALLTHROUGH;
 
       case WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY: {

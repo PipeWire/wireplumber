@@ -53,7 +53,7 @@ SimpleEventHook {
     for target_stream in streams_om:iterate {
       type = "Stream",
       Constraint { "direction", "=", target_direction, type = "gobject" },
-      Constraint { "device.intended-roles", "+" },
+      Constraint { "device.intended-roles", "+", type = "wp" },
     } do
       -- Make sure the target stream is compatible
       local compatible, enc_only = stream:is_compatible (target_stream)

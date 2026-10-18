@@ -328,8 +328,8 @@ local function rescanFilters (om, metadata_om)
     filter.main_stream = stream
     filter.stream = om:lookup {
       type = "Stream",
-      Constraint { "node.link-group", "=", filter.link_group },
-      Constraint { "media.class", "#", "Stream/*" }
+      Constraint { "node.link-group", "=", filter.link_group, type = "wp" },
+      Constraint { "media.class", "#", "Stream/*", type = "wp" }
     }
 
     -- Add the filter to the list sorted by before and after

@@ -166,6 +166,7 @@ type      value
 pw-global :c:enum:`WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY`
 pw        :c:enum:`WP_CONSTRAINT_TYPE_PW_PROPERTY`
 gobject   :c:enum:`WP_CONSTRAINT_TYPE_G_PROPERTY`
+wp        :c:enum:`WP_CONSTRAINT_TYPE_WP_PROPERTY`
 ========= ===============================================
 
 Methods

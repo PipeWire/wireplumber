@@ -91,7 +91,7 @@ properties on the nodes.
   link 2 stream nodes together. An example of this case is the monitoring nodes
   created by ``pavucontrol`` to monitor audio of all audio devices and streams.
 
-- **stream.props.target.stream**:
+- **target.stream** (stream property):
 
   A JSON object defining the desired stream for this stream to be linked with.
   Its ``target.object`` key selects the target node, the same way as the
@@ -126,8 +126,8 @@ properties on the nodes.
   an error to the client. The logic is implemented in the ``linking/prepare-link.lua``
   Lua script.
 
-- **stream.props.stream.autoconnect**, **stream.props.stream.dont-reconnect**
-  and **stream.props.stream.exclusive**:
+- **stream.autoconnect**, **stream.dont-reconnect** and **stream.exclusive**
+  (stream properties):
 
   The ``node.autoconnect``, ``node.dont-reconnect`` and ``node.exclusive``
   properties apply to all the streams of a node. The ``stream.autoconnect``,

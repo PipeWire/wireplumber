@@ -66,7 +66,7 @@ function unlink_disabled_filters (source)
   local om = source:call ("get-object-manager", "stream")
   for stream in om:iterate {
       type = "Stream",
-      Constraint { "node.link-group", "+" },
+      Constraint { "node.link-group", "+", type = "wp" },
   } do
     local link_group = stream:get_properties () ["node.link-group"]
     local direction = stream_utils.get_target_direction (stream)

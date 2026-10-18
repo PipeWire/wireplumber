@@ -7,7 +7,7 @@
 -- Check if the target stream is defined explicitly.
 -- This definition can be done in four ways, from lowest to highest priority:
 -- 1. "node.target"/"target.object" in the node properties
--- 2. "stream.props.target.stream" in the stream properties
+-- 2. "target.stream" in the stream properties
 -- 3. "target.node"/"target.object" in the default metadata
 -- 4. "target.stream.<port-group>" in the default metadata
 --
@@ -86,7 +86,7 @@ SimpleEventHook {
 
     -- Get the target key and value
     local object, group = parse_target_stream (
-        stream_props ["stream.props.target.stream"])
+        stream_props ["target.stream"])
     if object ~= nil then
       target_value = object
       target_port_group = group

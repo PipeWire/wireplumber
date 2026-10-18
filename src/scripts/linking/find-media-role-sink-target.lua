@@ -43,8 +43,8 @@ SimpleEventHook {
     local streams_om = source:call ("get-object-manager", "stream")
     local input_stream = streams_om:lookup {
       type = "Stream",
-      Constraint { "media.class", "=", "Audio/Sink" },
-      Constraint { "node.link-group", "=", link_group },
+      Constraint { "media.class", "=", "Audio/Sink", type = "wp" },
+      Constraint { "node.link-group", "=", link_group, type = "wp" },
     }
     if input_stream == nil then
       log:warning (stream, string.format ("no input stream for %s found", link_group))
@@ -61,12 +61,12 @@ SimpleEventHook {
     -- Find the target stream
     local target_stream = streams_om:lookup {
       type = "Stream",
-      Constraint { "node.name", "=", target_name },
+      Constraint { "node.name", "=", target_name, type = "wp" },
     }
     if target_stream == nil then
       target_stream = streams_om:lookup {
         type = "Stream",
-        Constraint { "node.nick", "=", target_name },
+        Constraint { "node.nick", "=", target_name, type = "wp" },
       }
     end
 

@@ -19,6 +19,9 @@
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-stream-manager")
 
+/* The prefix of the node properties that hold the properties of each stream */
+#define STREAM_PROPS_PREFIX "stream.props."
+
 /* WpStreamManager */
 
 /*! \defgroup wpstreammanager WpStreamManager */
@@ -126,28 +129,41 @@ is_stream_group_property (const gchar * key, const gchar * value)
   return wp_spa_json_is_object (json);
 }
 
-/* Builds the properties of a stream of the node: the node properties apply to
- * all its streams, and the stream specific ones, given as a JSON object in the
- * node's "stream.props.<port-group>" property, are added to them with the
- * "stream.props." prefix */
+static void
+add_node_properties (WpProperties * props, WpProperties * node_props)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+
+  if (!node_props)
+    return;
+
+  /* Add all of them, except the stream group objects */
+  it = wp_properties_new_iterator (node_props);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpPropertiesItem *item = g_value_get_boxed (&val);
+    const gchar *key = wp_properties_item_get_key (item);
+    const gchar *value = wp_properties_item_get_value (item);
+    if (!is_stream_group_property (key, value))
+      wp_properties_set (props, key, value);
+  }
+}
+
+/* Builds the properties of a stream of the node: the node global and PipeWire
+ * properties apply to all its streams, and the stream specific ones, given as
+ * a JSON object in the node's "stream.props.<port-group>" property, replace
+ * them */
 static WpProperties *
-build_stream_properties (WpStreamManager * self, WpProperties * node_props,
-    const gchar * port_group)
+build_stream_properties (WpStreamManager * self, WpNode * node,
+    WpProperties * node_props, const gchar * port_group)
 {
   g_autoptr (WpProperties) props = wp_properties_new_empty ();
+  g_autoptr (WpProperties) global_props =
+      wp_global_proxy_get_global_properties (WP_GLOBAL_PROXY (node));
 
-  /* Add the node ones, except the stream group objects */
-  {
-    g_autoptr (WpIterator) it = wp_properties_new_iterator (node_props);
-    g_auto (GValue) val = G_VALUE_INIT;
-    for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-      WpPropertiesItem *item = g_value_get_boxed (&val);
-      const gchar *key = wp_properties_item_get_key (item);
-      const gchar *value = wp_properties_item_get_value (item);
-      if (!is_stream_group_property (key, value))
-        wp_properties_set (props, key, value);
-    }
-  }
+  /* Add the node ones */
+  add_node_properties (props, global_props);
+  add_node_properties (props, node_props);
 
   /* Add the stream specific ones */
   if (port_group) {
@@ -161,9 +177,7 @@ build_stream_properties (WpStreamManager * self, WpProperties * node_props,
         g_auto (GValue) val = G_VALUE_INIT;
         for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
           WpPropertiesItem *item = g_value_get_boxed (&val);
-          g_autofree gchar *prop_key = g_strconcat (STREAM_PROPS_PREFIX,
-              wp_properties_item_get_key (item), NULL);
-          wp_properties_set (props, prop_key,
+          wp_properties_set (props, wp_properties_item_get_key (item),
               wp_properties_item_get_value (item));
         }
       } else {
@@ -285,19 +299,12 @@ parse_stream_media (const gchar * media_type, const gchar * media_class)
   return STREAM_MEDIA_UNKNOWN;
 }
 
-/* A node can have both audio and video streams, so the stream specific media
- * type and class are used if any, and the node ones otherwise */
+/* A node can have both audio and video streams, so the media is taken from
+ * the stream properties, where the stream specific media type and class
+ * replace the node ones */
 static StreamMedia
 get_stream_media (WpProperties * stream_props)
 {
-  const gchar *media_type = wp_properties_get (stream_props,
-      STREAM_PROPS_PREFIX PW_KEY_MEDIA_TYPE);
-  const gchar *media_class = wp_properties_get (stream_props,
-      STREAM_PROPS_PREFIX PW_KEY_MEDIA_CLASS);
-
-  if (media_type || media_class)
-    return parse_stream_media (media_type, media_class);
-
   return parse_stream_media (
       wp_properties_get (stream_props, PW_KEY_MEDIA_TYPE),
       wp_properties_get (stream_props, PW_KEY_MEDIA_CLASS));
@@ -393,7 +400,7 @@ on_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
       continue;
 
     /* Create the stream with its own properties and media */
-    stream_props = build_stream_properties (self, props, port_group);
+    stream_props = build_stream_properties (self, node, props, port_group);
     media = get_stream_media (stream_props);
     if (media == STREAM_MEDIA_UNKNOWN) {
       wp_info_object (self, "unknown media for stream '%s' of node %u",
@@ -471,7 +478,7 @@ create_all_node_streams (WpStreamManager *self, WpNode *node)
       (strstr (media_class, "Source") || strstr (media_class, "Output")))
     dir = WP_DIRECTION_OUTPUT;
 
-  create_stream (self, node, build_stream_properties (self, props, NULL),
+  create_stream (self, node, build_stream_properties (self, node, props, NULL),
       STREAM_MEDIA_VIDEO, dir, NULL);
 }
 
