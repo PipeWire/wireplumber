@@ -281,7 +281,15 @@ wp_dot_emit_node (WpDot *self, FILE *out, WpNode *node)
       " CELLSPACING=\"2\" CELLPADDING=\"2\">\n");
   fprintf (out, "            <TR><TD><B>Node %u</B></TD></TR>\n", node_id);
   {
-    const struct spa_dict *dict = wp_properties_peek_dict (node_props);
+    const gchar *node_name = node_props ?
+        wp_properties_get (node_props, PW_KEY_NODE_NAME) : NULL;
+    fprintf (out, "            <TR><TD>");
+    fputs_html_escaped (out, node_name ? node_name : "");
+    fprintf (out, "</TD></TR>\n");
+  }
+  if (self->show_pipewire_object_properties) {
+    const struct spa_dict *dict =
+        node_props ? wp_properties_peek_dict (node_props) : NULL;
     const struct spa_dict_item *item;
     if (dict) {
       fprintf (out,
@@ -345,6 +353,27 @@ wp_dot_emit_node (WpDot *self, FILE *out, WpNode *node)
           wp_object_get_id (WP_OBJECT (stream)), hdr_color);
       fputs_html_escaped (out, port_group);
       fprintf (out, "<BR/>direction: %s</TD></TR>\n", dir_str);
+
+      if (self->show_pipewire_object_properties) {
+        g_autoptr (WpProperties) stream_props =
+            wp_stream_get_properties (stream);
+        const struct spa_dict *dict =
+            stream_props ? wp_properties_peek_dict (stream_props) : NULL;
+        const struct spa_dict_item *item;
+
+        if (dict && dict->n_items > 0) {
+          fprintf (out,
+              "            <TR><TD BGCOLOR=\"#f5f5f5\" ALIGN=\"LEFT\">"
+              "<B>Properties</B><BR ALIGN=\"LEFT\"/>");
+          spa_dict_for_each (item, dict) {
+            fputs_html_escaped (out, item->key);
+            fprintf (out, " = ");
+            fputs_html_escaped_truncated (out, item->value, 64);
+            fprintf (out, "<BR ALIGN=\"LEFT\"/>");
+          }
+          fprintf (out, "</TD></TR>\n");
+        }
+      }
 
       pit = wp_stream_new_ports_iterator (stream);
       for (; wp_iterator_next (pit, &pval); g_value_unset (&pval)) {
