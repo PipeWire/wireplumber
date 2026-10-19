@@ -177,6 +177,15 @@ monitor:
 
    :Type: boolean
 
+.. describe:: device.recover-on-error
+
+   When a node of the device goes into the error state, closes and re-opens
+   the device by setting its profile to "Off" and then restoring it. This can
+   recover some devices that stop working after an error, but all the nodes of
+   the device are re-created. The default is to not recover.
+
+   :Type: boolean
+
 .. note::
 
    Profile and route (ACP "port") selection is handled by WirePlumber itself,

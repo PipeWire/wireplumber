@@ -268,8 +268,13 @@ function monitorNodeError (node)
         return
       end
 
-      -- Get current profile
       local dev_name = device:get_property ("device.name")
+      if not cutils.parseBool (device:get_property ("device.recover-on-error")) then
+        log:info ("Recovery not enabled on ALSA device " .. dev_name)
+        return
+      end
+
+      -- Get current profile
       for p in device:iterate_params ("Profile") do
         local curr_profile = cutils.parseParam (p, "Profile")
         curr_profile_index = curr_profile.index
