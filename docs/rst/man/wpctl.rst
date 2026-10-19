@@ -87,10 +87,13 @@ Options:
 set-default
 ^^^^^^^^^^^
 
-**wpctl set-default** *ID*
+**wpctl set-default** *ID* [**-s** *PORT_GROUP*\|\ **--stream** *PORT_GROUP*]
 
-Sets the specified device node to be the default target of its kind (capture or
-playback) for new streams that require auto-connection.
+Sets the streams of the specified device node to be the default targets of
+their kind (capture or playback) for new streams that require auto-connection.
+Each stream is set as the default of its media class (Audio/Sink, Audio/Source
+or Video/Source), and if the node has several streams of the same media class,
+the first one is used.
 
 The selection is remembered across restarts, in the ``default-streams``
 :ref:`state file <state_locations>`, and takes precedence over the automatic,
@@ -100,6 +103,12 @@ priority-based selection that WirePlumber would otherwise make. Use
 Arguments:
   *ID*
     Sink or source node ID
+
+Options:
+  **-s** *PORT_GROUP*, **--stream** *PORT_GROUP*
+    Only set the stream with this port group as the default of its media
+    class. If that stream cannot be linked, the first stream of the node that
+    can be linked is used.
 
 set-volume
 ^^^^^^^^^^

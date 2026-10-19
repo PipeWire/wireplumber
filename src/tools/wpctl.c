@@ -70,6 +70,7 @@ static struct {
     } inspect;
     struct {
       guint64 id;
+      gchar *stream;
     } set_default;
     struct {
       guint64 id;
@@ -1352,7 +1353,9 @@ set_default_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_default_prepare (WpCtl * self, GError ** error)
 {
-  request_default_streams (self, cmdline.set_default.id);
+  /* the default media classes are taken from the streams of the node */
+  request_streams (self);
+  wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", (guint32) cmdline.set_default.id,
@@ -1362,14 +1365,30 @@ set_default_prepare (WpCtl * self, GError ** error)
   return TRUE;
 }
 
+static gint
+get_default_media_class_index (const gchar * media_class)
+{
+  if (!media_class || g_str_has_suffix (media_class, "/Internal"))
+    return -1;
+
+  for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++)
+    if (g_str_has_prefix (media_class, DEFAULT_NODE_MEDIA_CLASSES[i]))
+      return i;
+  return -1;
+}
+
 static void
 set_default_run (WpCtl * self)
 {
   g_autoptr (WpPlugin) def_streams_api = NULL;
   g_autoptr (WpProxy) proxy = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  WpStream *streams[G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES)] = { NULL, };
   guint32 id;
   g_autoptr (GError) error = NULL;
-  const gchar *media_class;
+  const gchar *name;
+  gboolean found = FALSE;
 
   def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   if (!def_streams_api) {
@@ -1378,7 +1397,7 @@ set_default_run (WpCtl * self)
   }
 
   if (!translate_id (def_streams_api, cmdline.set_default.id, &id, &error)) {
-    fprintf(stderr, "Translate ID error: %s\n\n", error->message);
+    fprintf (stderr, "Translate ID error: %s\n\n", error->message);
     goto out;
   }
 
@@ -1388,35 +1407,66 @@ set_default_run (WpCtl * self)
     goto out;
   }
 
-  media_class = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
-      PW_KEY_MEDIA_CLASS);
+  name = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
+      PW_KEY_NODE_NAME);
+  if (!name) {
+    fprintf (stderr, "node %u does not have a valid node.name\n", id);
+    goto out;
+  }
+
+  /* without a port group, the first stream of each default media class is
+   * set as the default stream of that class */
+  it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_STREAM, NULL);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpStream *stream = g_value_get_object (&val);
+    gint i;
+
+    if (wp_stream_get_node_bound_id (stream) != id)
+      continue;
+    if (cmdline.set_default.stream && g_strcmp0 (cmdline.set_default.stream,
+            wp_stream_get_port_group (stream)))
+      continue;
+
+    i = get_default_media_class_index (
+        wp_stream_object_get_property (stream, PW_KEY_MEDIA_CLASS));
+    if (i >= 0 && !streams[i])
+      streams[i] = g_object_ref (stream);
+  }
+
   for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
-    if (g_str_has_prefix (media_class, DEFAULT_NODE_MEDIA_CLASSES[i]) &&
-        !g_str_has_suffix (media_class, "/Internal")) {
-      gboolean res = FALSE;
-      const gchar *name = wp_pipewire_object_get_property (
-          WP_PIPEWIRE_OBJECT (proxy), PW_KEY_NODE_NAME);
-      if (!name) {
-        fprintf (stderr, "node %u does not have a valid node.name\n", id);
-        goto out;
-      }
+    gboolean res = FALSE;
 
-      g_signal_emit_by_name (def_streams_api, "set-default-configured-stream",
-          DEFAULT_NODE_MEDIA_CLASSES[i], name, NULL, &res);
-      if (!res) {
-        fprintf (stderr, "failed to set default node %u (media.class = %s)\n", id,
-            media_class);
-        goto out;
-      }
+    if (!streams[i])
+      continue;
+    found = TRUE;
 
-      wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
-      return;
+    g_signal_emit_by_name (def_streams_api, "set-default-configured-stream",
+        DEFAULT_NODE_MEDIA_CLASSES[i], name,
+        wp_stream_get_port_group (streams[i]), &res);
+    if (!res) {
+      fprintf (stderr, "failed to set default %s stream of node %u\n",
+          DEFAULT_NODE_MEDIA_CLASSES[i], id);
+      goto out;
     }
   }
 
-  fprintf (stderr, "%u is not a device node (media.class = %s)\n", id, media_class);
+  if (!found) {
+    if (cmdline.set_default.stream)
+      fprintf (stderr, "node %u has no device stream '%s'\n", id,
+          cmdline.set_default.stream);
+    else
+      fprintf (stderr, "node %u has no device streams\n", id);
+    goto out;
+  }
+
+  for (guint i = 0; i < G_N_ELEMENTS (streams); i++)
+    g_clear_object (&streams[i]);
+  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  return;
 
 out:
+  for (guint i = 0; i < G_N_ELEMENTS (streams); i++)
+    g_clear_object (&streams[i]);
   self->exit_code = 3;
   g_main_loop_quit (self->loop);
 }
@@ -3087,10 +3137,16 @@ static const struct subcommand {
   {
     .name = "set-default",
     .positional_args = "ID",
-    .summary = "Sets ID to be the default object of its kind "
-               "(capture/playback) in its session",
+    .summary = "Sets the streams of ID to be the default streams of their "
+               "kind (capture/playback) in its session",
     .description = NULL,
-    .entries = { { NULL } },
+    .entries = {
+      { "stream", 's', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
+        &cmdline.set_default.stream,
+        "Only sets the stream of ID with this port group as default",
+        "PORT_GROUP" },
+      { NULL }
+    },
     .parse_positional = set_default_parse_positional,
     .prepare = set_default_prepare,
     .run = set_default_run,
