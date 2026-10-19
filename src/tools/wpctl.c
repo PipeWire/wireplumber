@@ -284,6 +284,28 @@ on_manager_activated (WpObject * o, GAsyncResult * res, WpCtl * ctl)
   on_plugin_ready (ctl);
 }
 
+static void
+on_stream_manager_activated (WpObject * o, GAsyncResult * res, WpCtl * ctl)
+{
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpStreamLinkManager) stream_link_manager = NULL;
+
+  if (!wp_object_activate_finish (o, res, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    ctl->exit_code = 1;
+    g_main_loop_quit (ctl->loop);
+    return;
+  }
+
+  wp_core_register_object (ctl->core, g_object_ref (o));
+  on_plugin_ready (ctl);
+
+  /* the stream links are made from the streams, so they need to exist */
+  stream_link_manager = wp_stream_link_manager_new (ctl->core, NULL);
+  wp_object_activate (WP_OBJECT (stream_link_manager), WP_OBJECT_FEATURES_ALL,
+      NULL, (GAsyncReadyCallback) on_manager_activated, ctl);
+}
+
 /* the streams are only known by the stream manager */
 static void
 request_streams (WpCtl * self)
@@ -312,17 +334,21 @@ request_default_streams (WpCtl * self, guint64 id)
 static gboolean
 status_prepare (WpCtl * self, GError ** error)
 {
-  /* the default devices are found from the default streams */
-  request_streams (self);
+  g_autoptr (WpStreamManager) stream_manager = wp_stream_manager_new (self->core);
+
+  /* the streams and stream links are only known by their managers */
+  self->pending_plugins += 2;
+  wp_object_activate (WP_OBJECT (stream_manager), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) on_stream_manager_activated, self);
 
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_PORT, NULL);
-  wp_object_manager_add_interest (self->om, WP_TYPE_LINK, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   return TRUE;
 }
 
@@ -334,9 +360,8 @@ status_prepare (WpCtl * self, GError ** error)
 struct print_context
 {
   WpCtl *self;
-  guint32 default_node;
+  guint32 default_nodes[G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES)];
   WpPlugin *mixer_api;
-  GHashTable *printed_filters;
 };
 
 static void
@@ -358,6 +383,125 @@ print_controls (guint32 id, struct print_context *context)
 }
 
 static void
+print_stream_links (WpCtl *self, const gchar *indent, WpStream *stream)
+{
+  g_autoptr (WpStreamLinkManager) slm = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  g_autoptr (GEnumClass) klass = g_type_class_ref (WP_TYPE_LINK_STATE);
+
+  slm = wp_stream_link_manager_find (self->core, NULL);
+  if (!slm)
+    return;
+
+  it = wp_stream_link_manager_new_links_iterator (slm, stream);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpStreamLink *sl = g_value_get_object (&val);
+    g_autoptr (WpStream) output = NULL;
+    g_autoptr (WpIterator) lit = NULL;
+    g_auto (GValue) lval = G_VALUE_INIT;
+    gboolean is_monitor = FALSE;
+    gboolean is_output;
+
+    output = wp_stream_link_get_output_stream (sl, &is_monitor);
+    is_output = (output == stream);
+
+    lit = wp_stream_link_new_links_iterator (sl);
+    for (; wp_iterator_next (lit, &lval); g_value_unset (&lval)) {
+      WpLink *link = g_value_get_object (&lval);
+      g_autoptr (WpPipewireObject) port = NULL;
+      g_autoptr (WpPipewireObject) peer = NULL;
+      guint32 out_port_id = SPA_ID_INVALID, in_port_id = SPA_ID_INVALID;
+      const gchar *port_name = NULL, *peer_name = NULL;
+      GEnumValue *state;
+
+      wp_link_get_linked_object_ids (link, NULL, &out_port_id, NULL,
+          &in_port_id);
+      port = wp_object_manager_lookup (self->om, WP_TYPE_PORT,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u",
+          is_output ? out_port_id : in_port_id, NULL);
+      peer = wp_object_manager_lookup (self->om, WP_TYPE_PORT,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u",
+          is_output ? in_port_id : out_port_id, NULL);
+      if (port)
+        port_name = wp_pipewire_object_get_property (port, PW_KEY_PORT_NAME);
+      if (peer)
+        peer_name = wp_pipewire_object_get_property (peer, PW_KEY_PORT_ALIAS);
+      state = g_enum_get_value (klass, wp_link_get_state (link, NULL));
+
+      printf ("%s      %4u. %-15s %c %s\t[%s%s]\n", indent,
+          wp_proxy_get_bound_id (WP_PROXY (link)),
+          port_name ? port_name : "(unknown)", is_output ? '>' : '<',
+          peer_name ? peer_name : "(unknown)",
+          state ? state->value_nick : "unknown",
+          is_monitor ? ", monitor" : "");
+    }
+  }
+}
+
+static gboolean
+is_stream_node (WpPipewireObject *obj)
+{
+  const gchar *media_class =
+      wp_pipewire_object_get_property (obj, PW_KEY_MEDIA_CLASS);
+  return media_class && g_str_has_prefix (media_class, "Stream/");
+}
+
+static const gchar *
+get_node_display_name (WpPipewireObject *obj, gboolean nicknames,
+    gboolean names)
+{
+  gboolean is_stream = is_stream_node (obj);
+  const gchar *name = NULL;
+
+  if (is_stream)
+    name = wp_pipewire_object_get_property (obj, PW_KEY_APP_NAME);
+  else if (nicknames)
+    name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NICK);
+  else if (names)
+    name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
+
+  if (!name)
+    name = wp_pipewire_object_get_property (obj,
+        is_stream ? PW_KEY_NODE_NAME : PW_KEY_NODE_DESCRIPTION);
+  if (!name)
+    name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
+  return name;
+}
+
+static void
+print_node_streams (WpCtl *self, WpPipewireObject *node, GType type,
+    WpStreamShape shape, WpStream *default_stream, const gchar *indent)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  guint32 node_id = wp_proxy_get_bound_id (WP_PROXY (node));
+  const gchar *name = get_node_display_name (node,
+      cmdline.status.display_nicknames, cmdline.status.display_names);
+
+  it = wp_object_manager_new_filtered_iterator (self->om, type, NULL);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpStream *stream = g_value_get_object (&val);
+    const gchar *port_group;
+    gboolean is_default;
+
+    if (wp_stream_get_node_bound_id (stream) != node_id ||
+        wp_stream_get_shape (stream) != shape)
+      continue;
+
+    port_group = wp_stream_get_port_group (stream);
+    is_default = (stream == default_stream);
+    printf ("%s%c %4u. %s - %s\n", indent, is_default ? '*' : ' ', node_id,
+        port_group ? port_group : "(none)", name);
+
+    /* the links are shown on the streams of client nodes only, so that each
+     * link is not shown twice */
+    if (is_stream_node (node))
+      print_stream_links (self, indent, stream);
+  }
+}
+
+static void
 print_device (const GValue *item, gpointer data)
 {
   WpPipewireObject *obj = g_value_get_object (item);
@@ -376,126 +520,79 @@ print_device (const GValue *item, gpointer data)
   printf (TREE_INDENT_LINE "  %4u. %-35s [%s]\n", id, name, api);
 }
 
+/* Nodes with several streams have no media class, so the media is also taken
+ * from the properties of their streams */
+static gboolean
+node_has_media (WpCtl *self, WpPipewireObject *node, const gchar *media_type)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  guint32 id = wp_proxy_get_bound_id (WP_PROXY (node));
+  const gchar *media_class =
+      wp_pipewire_object_get_property (node, PW_KEY_MEDIA_CLASS);
+
+  if (media_class && strstr (media_class, media_type))
+    return TRUE;
+
+  it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_STREAM, NULL);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpStream *stream = g_value_get_object (&val);
+    g_autoptr (WpProperties) props = NULL;
+    const gchar *stream_type, *stream_class;
+
+    if (wp_stream_get_node_bound_id (stream) != id)
+      continue;
+
+    props = wp_stream_get_properties (stream);
+    stream_type = wp_properties_get (props, PW_KEY_MEDIA_TYPE);
+    stream_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
+    if (g_strcmp0 (stream_type, media_type) == 0 ||
+        (stream_class && strstr (stream_class, media_type)))
+      return TRUE;
+  }
+
+  return FALSE;
+}
+
+static gboolean
+node_has_any_media (WpCtl *self, WpPipewireObject *obj)
+{
+  return node_has_media (self, obj, "Audio") ||
+      node_has_media (self, obj, "Video");
+}
+
 static void
-print_dev_node (const GValue *item, gpointer data)
+print_node (const GValue *item, gpointer data)
 {
   WpPipewireObject *obj = g_value_get_object (item);
   struct print_context *context = data;
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
-  gboolean is_default = (context->default_node == id);
-  const gchar *name = NULL;
+  gboolean is_default = FALSE;
 
-  if (cmdline.status.display_nicknames)
-    name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NICK);
-  else if (cmdline.status.display_names)
-    name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
+  if (!node_has_any_media (context->self, obj))
+    return;
 
-  if (!name)
-    name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_DESCRIPTION);
+  for (guint i = 0; i < G_N_ELEMENTS (context->default_nodes); i++)
+    is_default |= (context->default_nodes[i] == id);
 
-  printf (TREE_INDENT_LINE "%c %4u. %-35s", is_default ? '*' : ' ', id, name);
+  printf (TREE_INDENT_EMPTY "%c %4u. %-35s", is_default ? '*' : ' ', id,
+      get_node_display_name (obj, cmdline.status.display_nicknames,
+          cmdline.status.display_names));
   print_controls (id, context);
 }
 
 static void
-print_filter_node (const GValue *item, gpointer data)
+print_default_stream (const gchar *indent, guint index, WpPipewireObject *node,
+    const gchar *name, const gchar *stream)
 {
-  struct print_context *context = data;
-  g_autoptr (WpPlugin) def_streams_api = NULL;
-  WpPipewireObject *obj = g_value_get_object (item);
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) val = G_VALUE_INIT;
-  const gchar *link_group;
+  g_autofree gchar *media_class =
+      g_strconcat (DEFAULT_NODE_MEDIA_CLASSES[index], ":", NULL);
 
-  /* Skip already printed filters */
-  link_group = wp_pipewire_object_get_property (obj, PW_KEY_NODE_LINK_GROUP);
-  if (g_hash_table_contains (context->printed_filters, link_group))
-    return;
-
-  def_streams_api = wp_plugin_find (context->self->core, "default-streams-api");
-
-  /* Print all nodes for this link_group */
-  printf (TREE_INDENT_LINE "  - %-60s\n", link_group);
-  it = wp_object_manager_new_filtered_iterator (context->self->om,
-      WP_TYPE_NODE,
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "=s", link_group,
-      NULL);
-  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-    WpPipewireObject *node = g_value_get_object (&val);
-    guint32 id = wp_proxy_get_bound_id (WP_PROXY (node));
-    const gchar *name, *media_class;
-
+  if (!name && node)
     name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NAME);
-    if (cmdline.status.display_nicknames)
-      name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NICK);
-    else if (cmdline.status.display_names)
-      name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NAME);
-    if (!name)
-      name = wp_pipewire_object_get_property (node, PW_KEY_NODE_DESCRIPTION);
-    media_class = wp_pipewire_object_get_property (node, PW_KEY_MEDIA_CLASS);
 
-    context->default_node = get_default_node (def_streams_api, media_class);
-
-    printf (TREE_INDENT_LINE "%c %4u. %-60s [%s]\n",
-        context->default_node == id ? '*' : ' ', id, name, media_class);
-  }
-  g_clear_pointer (&it, wp_iterator_unref);
-
-  /* Insert link-group in table to not print them again */
-  g_hash_table_insert (context->printed_filters, g_strdup (link_group),
-      NULL);
-}
-
-static void
-print_stream_node (const GValue *item, gpointer data)
-{
-  WpCtl * self = data;
-  WpPipewireObject *obj = g_value_get_object (item);
-  guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
-  const gchar *name = wp_pipewire_object_get_property (obj, PW_KEY_APP_NAME);
-  if (!name)
-    name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
-
-  printf (TREE_INDENT_EMPTY "  %4u. %-60s\n", id, name);
-
-  g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (self->om,
-      WP_TYPE_PORT, WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_ID, "=u", id,
-      NULL);
-  g_auto (GValue) val = G_VALUE_INIT;
-
-  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-    WpPort *port = g_value_get_object (&val);
-    obj = WP_PIPEWIRE_OBJECT (port);
-    id = wp_proxy_get_bound_id (WP_PROXY (obj));
-    name = wp_pipewire_object_get_property (obj, PW_KEY_PORT_NAME);
-    WpDirection dir = wp_port_get_direction (port);
-
-    printf (TREE_INDENT_EMPTY "       %4u. %-15s", id, name);
-
-    g_autoptr (WpLink) link = wp_object_manager_lookup (self->om, WP_TYPE_LINK,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, (dir == WP_DIRECTION_OUTPUT) ?
-            PW_KEY_LINK_OUTPUT_PORT : PW_KEY_LINK_INPUT_PORT, "=u", id,
-        NULL);
-    if (link) {
-      guint32 peer_id = -1;
-      wp_link_get_linked_object_ids(link,
-          NULL, (dir == WP_DIRECTION_INPUT) ? &peer_id : NULL,
-          NULL, (dir == WP_DIRECTION_OUTPUT) ? &peer_id : NULL);
-      g_autoptr (WpPipewireObject) peer = wp_object_manager_lookup (
-          self->om, WP_TYPE_PORT,
-          WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", peer_id,
-          NULL);
-      name = wp_pipewire_object_get_property (peer, PW_KEY_PORT_ALIAS);
-
-      g_autoptr (GEnumClass) klass = g_type_class_ref (WP_TYPE_LINK_STATE);
-      GEnumValue *state = g_enum_get_value (klass, wp_link_get_state (link, NULL));
-
-      printf (" %c %s\t[%s]\n", (dir == WP_DIRECTION_OUTPUT) ? '>' : '<', name,
-          state->value_nick);
-    } else {
-      printf ("\n");
-    }
-  }
+  printf ("%s  %4u. %-13s %s - %s\n", indent, index, media_class,
+      stream ? stream : "(none)", name ? name : "(unknown)");
 }
 
 static void
@@ -517,14 +614,14 @@ status_run (WpCtl * self)
       wp_core_get_remote_host_name (self->core),
       wp_core_get_remote_cookie (self->core));
 
-  printf (TREE_INDENT_END "Clients:\n");
+  printf (TREE_INDENT_NODE "Clients:\n");
   it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_CLIENT, NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpProxy *client = g_value_get_object (&val);
     g_autoptr (WpProperties) properties =
         wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (client));
 
-    printf (TREE_INDENT_EMPTY "  %4u. %-35s [%s, %s@%s, pid:%s]\n",
+    printf (TREE_INDENT_LINE "  %4u. %-35s [%s, %s@%s, pid:%s]\n",
         wp_proxy_get_bound_id (client),
         wp_properties_get (properties, PW_KEY_APP_NAME),
         wp_properties_get (properties, PW_KEY_CORE_VERSION),
@@ -533,101 +630,124 @@ status_run (WpCtl * self)
         wp_properties_get (properties, PW_KEY_APP_PROCESS_ID));
   }
   g_clear_pointer (&it, wp_iterator_unref);
+  printf (TREE_INDENT_LINE "\n");
+
+  /* nodes; a node can have both audio and video streams */
+  printf (TREE_INDENT_END "Nodes:\n");
+  for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
+    g_autoptr (WpStream) stream = NULL;
+
+    context.default_nodes[i] = -1;
+    if (def_streams_api)
+      g_signal_emit_by_name (def_streams_api, "get-default-stream",
+          DEFAULT_NODE_MEDIA_CLASSES[i], &stream);
+    if (stream)
+      context.default_nodes[i] = wp_stream_get_node_bound_id (stream);
+  }
+  it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_NODE, NULL);
+  wp_iterator_foreach (it, print_node, (gpointer) &context);
   printf ("\n");
 
-  /* sessions */
-  const gchar *MEDIA_TYPES[] = { "Audio", "Video" };
+  /* streams, by media and shape */
+  const struct {
+    const gchar *name;
+    GType type;
+  } MEDIA[] = {
+    { "Audio", WP_TYPE_AUDIO_STREAM },
+    { "Video", WP_TYPE_VIDEO_STREAM },
+  };
+  const struct {
+    const gchar *name;
+    WpStreamShape shape;
+    /* the default node media class suffix, if the shape can have defaults */
+    const gchar *default_class;
+  } SHAPES[] = {
+    { "Sinks", WP_STREAM_SHAPE_SINK, "Sink" },
+    { "Sources", WP_STREAM_SHAPE_SOURCE, "Source" },
+    { "Inputs", WP_STREAM_SHAPE_INPUT, NULL },
+    { "Outputs", WP_STREAM_SHAPE_OUTPUT, NULL },
+  };
 
-  for (guint i = 0; i < G_N_ELEMENTS (MEDIA_TYPES); i++) {
-    const gchar *media_type = MEDIA_TYPES[i];
-    g_autoptr (WpIterator) child_it = NULL;
+  for (guint i = 0; i < G_N_ELEMENTS (MEDIA); i++) {
+    g_autoptr (WpIterator) dev_it = NULL;
+    g_autofree gchar *media_type_glob =
+        g_strdup_printf ("*%s*", MEDIA[i].name);
 
-    printf ("%s\n", media_type);
+    printf ("%s\n", MEDIA[i].name);
 
-    if (media_type && *media_type != '\0') {
-      gchar media_type_glob[16];
-      gchar media_class[24];
+    printf (TREE_INDENT_NODE "Devices:\n");
+    dev_it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_DEVICE,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+        NULL);
+    wp_iterator_foreach (dev_it, print_device, self);
+    printf (TREE_INDENT_LINE "\n");
 
-      g_snprintf (media_type_glob, sizeof(media_type_glob), "*%s*", media_type);
+    for (guint j = 0; j < G_N_ELEMENTS (SHAPES); j++) {
+      gboolean is_last = (j == G_N_ELEMENTS (SHAPES) - 1);
+      const gchar *indent = is_last ? TREE_INDENT_EMPTY : TREE_INDENT_LINE;
+      g_auto (GValue) node_val = G_VALUE_INIT;
+      g_autoptr (WpStream) default_stream = NULL;
 
-      printf (TREE_INDENT_NODE "Devices:\n");
-      child_it = wp_object_manager_new_filtered_iterator (self->om,
-          WP_TYPE_DEVICE,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
-          NULL);
-      wp_iterator_foreach (child_it, print_device, self);
-      g_clear_pointer (&child_it, wp_iterator_unref);
+      if (def_streams_api && SHAPES[j].default_class) {
+        g_autofree gchar *media_class = g_strdup_printf ("%s/%s",
+            MEDIA[i].name, SHAPES[j].default_class);
+        g_signal_emit_by_name (def_streams_api, "get-default-stream",
+            media_class, &default_stream);
+      }
 
-      printf (TREE_INDENT_LINE "\n");
-
-      printf (TREE_INDENT_NODE "Sinks:\n");
-      g_snprintf (media_class, sizeof(media_class), "%s/Sink", media_type);
-      context.default_node = get_default_node (def_streams_api, media_class);
-      child_it = wp_object_manager_new_filtered_iterator (self->om,
-          WP_TYPE_NODE,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
-          NULL);
-      wp_iterator_foreach (child_it, print_dev_node, (gpointer) &context);
-      g_clear_pointer (&child_it, wp_iterator_unref);
-
-      printf (TREE_INDENT_LINE "\n");
-
-      printf (TREE_INDENT_NODE "Sources:\n");
-      g_snprintf (media_class, sizeof(media_class), "%s/Source", media_type);
-      context.default_node = get_default_node (def_streams_api, media_class);
-      child_it = wp_object_manager_new_filtered_iterator (self->om,
-          WP_TYPE_NODE,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
-          NULL);
-      wp_iterator_foreach (child_it, print_dev_node, (gpointer) &context);
-      g_clear_pointer (&child_it, wp_iterator_unref);
-
-      printf (TREE_INDENT_LINE "\n");
-
-      printf (TREE_INDENT_NODE "Filters:\n");
-      context.printed_filters = g_hash_table_new_full (g_str_hash,
-          g_str_equal, g_free, NULL);
-      child_it = wp_object_manager_new_filtered_iterator (self->om,
-          WP_TYPE_NODE,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "+",
-          NULL);
-      wp_iterator_foreach (child_it, print_filter_node, (gpointer) &context);
-      g_clear_pointer (&child_it, wp_iterator_unref);
-      g_clear_pointer (&context.printed_filters, g_hash_table_unref);
-
-      printf (TREE_INDENT_LINE "\n");
-
-      printf (TREE_INDENT_END "Streams:\n");
-      child_it = wp_object_manager_new_filtered_iterator (self->om,
-          WP_TYPE_NODE,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "Stream/*",
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
-          NULL);
-      wp_iterator_foreach (child_it, print_stream_node, self);
-      g_clear_pointer (&child_it, wp_iterator_unref);
+      printf ("%s%s:\n", is_last ? TREE_INDENT_END : TREE_INDENT_NODE,
+          SHAPES[j].name);
+      wp_iterator_reset (it);
+      for (; wp_iterator_next (it, &node_val); g_value_unset (&node_val))
+        print_node_streams (self, g_value_get_object (&node_val),
+            MEDIA[i].type, SHAPES[j].shape, default_stream, indent);
+      printf ("%s\n", is_last ? "" : TREE_INDENT_LINE);
     }
-
-    printf ("\n");
   }
+  g_clear_pointer (&it, wp_iterator_unref);
 
-  /* Settings */
-  printf ("Settings\n");
+  /* Default */
+  printf ("Default\n");
 
-  printf (TREE_INDENT_END "Default Configured Devices:\n");
+  printf (TREE_INDENT_NODE "Current:\n");
+  if (def_streams_api) {
+    for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
+      g_autoptr (WpStream) stream = NULL;
+      g_autoptr (WpPipewireObject) node = NULL;
+
+      g_signal_emit_by_name (def_streams_api, "get-default-stream",
+          DEFAULT_NODE_MEDIA_CLASSES[i], &stream);
+      if (!stream)
+        continue;
+
+      node = wp_object_manager_lookup (self->om, WP_TYPE_NODE,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u",
+          wp_stream_get_node_bound_id (stream), NULL);
+      print_default_stream (TREE_INDENT_LINE, i, node, NULL,
+          wp_stream_get_port_group (stream));
+    }
+  }
+  printf (TREE_INDENT_LINE "\n");
+
+  printf (TREE_INDENT_END "Configured:\n");
   if (def_streams_api) {
     for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
       g_autofree gchar *name = NULL;
-      g_signal_emit_by_name (def_streams_api, "get-default-configured-node-name",
+      g_autofree gchar *stream = NULL;
+      g_autoptr (WpPipewireObject) node = NULL;
+
+      g_signal_emit_by_name (def_streams_api,
+          "get-default-configured-node-name",
           DEFAULT_NODE_MEDIA_CLASSES[i], &name);
-      if (name)
-        printf (TREE_INDENT_EMPTY "  %4u. %-12s  %s\n", i,
-            DEFAULT_NODE_MEDIA_CLASSES[i], name);
+      g_signal_emit_by_name (def_streams_api,
+          "get-default-configured-stream-name",
+          DEFAULT_NODE_MEDIA_CLASSES[i], &stream);
+      if (!name)
+        continue;
+
+      node = wp_object_manager_lookup (self->om, WP_TYPE_NODE,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_NAME, "=s", name, NULL);
+      print_default_stream (TREE_INDENT_EMPTY, i, node, name, stream);
     }
   }
 
@@ -1466,20 +1586,6 @@ get_device_display_name (WpPipewireObject *device)
   return name ? name : "(unnamed)";
 }
 
-static const gchar *
-get_node_display_name (WpPipewireObject *node)
-{
-  const gchar *name =
-      wp_pipewire_object_get_property (node, PW_KEY_NODE_DESCRIPTION);
-
-  if (!name)
-    name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NICK);
-  if (!name)
-    name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NAME);
-
-  return name;
-}
-
 /*
  * Read the currently selected Profile.index from cached device parameters.
  * Return -1 if no selected profile is exposed or parsing fails.
@@ -1854,7 +1960,7 @@ print_logical_device_nodes (WpCtl *self, guint32 device_id,
     WpPipewireObject *node = g_value_get_object (&val);
     const gchar *media_class =
         wp_pipewire_object_get_property (node, PW_KEY_MEDIA_CLASS);
-    const gchar *name = get_node_display_name (node);
+    const gchar *name = get_node_display_name (node, FALSE, FALSE);
     guint32 node_id = wp_proxy_get_bound_id (WP_PROXY (node));
 
     if (first) {
