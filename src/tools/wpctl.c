@@ -616,6 +616,8 @@ list_prepare (WpCtl * self, GError ** error)
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
 
