@@ -228,18 +228,6 @@ translate_id (WpPlugin *def_streams_api, guint64 id, guint32 *res,
   return TRUE;
 }
 
-/* the default node is the node of the default stream */
-static guint32
-get_default_node (WpPlugin *def_streams_api, const gchar *media_class)
-{
-  g_autoptr (WpStream) stream = NULL;
-
-  if (def_streams_api)
-    g_signal_emit_by_name (def_streams_api, "get-default-stream", media_class,
-        &stream);
-  return stream ? wp_stream_get_node_bound_id (stream) : SPA_ID_INVALID;
-}
-
 static gboolean
 run_nodes_by_pid (WpObjectManager *om, guint32 pid,
     WpIteratorFoldFunc func, gpointer data)
@@ -797,12 +785,13 @@ list_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 list_prepare (WpCtl * self, GError ** error)
 {
-  /* the default devices are found from the default streams */
+  /* the sinks and sources are listed by stream */
   request_streams (self);
 
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
@@ -810,7 +799,9 @@ list_prepare (WpCtl * self, GError ** error)
 
 struct list_context
 {
-  guint32 default_node;
+  WpCtl *self;
+  WpStream *default_stream;
+  WpStreamShape shape;
   const gchar *media_type;
   const gchar *object_type;
 };
@@ -826,29 +817,72 @@ list_print_device (const GValue *item, gpointer data)
 }
 
 static void
-list_print_dev_node (const GValue *item, gpointer data)
+list_print_stream (const GValue *item, gpointer data)
 {
-  WpPipewireObject *obj = g_value_get_object (item);
+  WpStream *stream = g_value_get_object (item);
   struct list_context *context = data;
-  guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
-  gboolean is_default = (context->default_node == id);
-  const gchar *name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
-  printf ("%u\t%s\t%s/%s\t%c\n", id, name, context->media_type, context->object_type, is_default ? '*' : ' ');
+  guint32 id = wp_stream_get_node_bound_id (stream);
+  const gchar *port_group = wp_stream_get_port_group (stream);
+  g_autoptr (WpPipewireObject) node = NULL;
+  gboolean is_default;
+  const gchar *name;
+
+  if (wp_stream_get_shape (stream) != context->shape)
+    return;
+
+  /* nodes of a link group are internal to their filter */
+  node = wp_object_manager_lookup (context->self->om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id,
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
+      NULL);
+  if (!node)
+    return;
+
+  is_default = (stream == context->default_stream);
+  name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NAME);
+  printf ("%u\t%s\t%s/%s\t%c", id, name, context->media_type,
+      context->object_type, is_default ? '*' : ' ');
+  if (port_group)
+    printf ("\t%s", port_group);
+  printf ("\n");
+}
+
+static void
+list_print_streams (WpCtl * self, struct list_context *context,
+    WpPlugin *def_streams_api, const gchar *media_type, GType type,
+    WpStreamShape shape)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_autofree gchar *media_class = g_strdup_printf ("%s/%s", media_type,
+      shape == WP_STREAM_SHAPE_SINK ? "Sink" : "Source");
+
+  context->default_stream = NULL;
+  context->object_type =
+      shape == WP_STREAM_SHAPE_SINK ? "sink" : "source";
+  if (def_streams_api)
+    g_signal_emit_by_name (def_streams_api, "get-default-stream", media_class,
+        &context->default_stream);
+
+  context->shape = shape;
+  it = wp_object_manager_new_filtered_iterator (self->om, type, NULL);
+  wp_iterator_foreach (it, list_print_stream, context);
+  g_clear_object (&context->default_stream);
 }
 
 static const struct {
   const gchar *title_name;
   const gchar *lower_name;
   ListMediaType value;
+  GType (*stream_type) (void);
 } list_media_types[] = {
-  { "Audio", "audio", LIST_MEDIA_AUDIO },
-  { "Video", "video", LIST_MEDIA_VIDEO },
+  { "Audio", "audio", LIST_MEDIA_AUDIO, wp_audio_stream_get_type },
+  { "Video", "video", LIST_MEDIA_VIDEO, wp_video_stream_get_type },
 };
 
 static void
 list_run (WpCtl * self)
 {
-  struct list_context context;
+  struct list_context context = { .self = self };
   g_autoptr (WpPlugin) def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   const ListMediaType media_filter = cmdline.list.media_type;
   const ListObjectType object_filter = cmdline.list.object_type;
@@ -861,7 +895,6 @@ list_run (WpCtl * self)
     const gchar *media_type = list_media_types[i].title_name;
     context.media_type = list_media_types[i].lower_name;
     gchar media_type_glob[16];
-    gchar media_class[24];
 
     g_snprintf (media_type_glob, sizeof(media_type_glob), "*%s*", media_type);
 
@@ -876,32 +909,14 @@ list_run (WpCtl * self)
     }
 
     /* Sinks */
-    if (object_filter == LIST_OBJECT_ALL || object_filter == LIST_OBJECT_SINKS) {
-      g_snprintf (media_class, sizeof(media_class), "%s/Sink", media_type);
-      context.object_type = "sink";
-      context.default_node = get_default_node (def_streams_api, media_class);
-      g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (self->om,
-          WP_TYPE_NODE,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
-          NULL);
-      wp_iterator_foreach (it, list_print_dev_node, &context);
-    }
+    if (object_filter == LIST_OBJECT_ALL || object_filter == LIST_OBJECT_SINKS)
+      list_print_streams (self, &context, def_streams_api, media_type,
+          list_media_types[i].stream_type (), WP_STREAM_SHAPE_SINK);
 
     /* Sources */
-    if (object_filter == LIST_OBJECT_ALL || object_filter == LIST_OBJECT_SOURCES) {
-      g_snprintf (media_class, sizeof(media_class), "%s/Source", media_type);
-      context.object_type = "source";
-      context.default_node = get_default_node (def_streams_api, media_class);
-      g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (self->om,
-          WP_TYPE_NODE,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
-          NULL);
-      wp_iterator_foreach (it, list_print_dev_node, &context);
-    }
+    if (object_filter == LIST_OBJECT_ALL || object_filter == LIST_OBJECT_SOURCES)
+      list_print_streams (self, &context, def_streams_api, media_type,
+          list_media_types[i].stream_type (), WP_STREAM_SHAPE_SOURCE);
   }
 
   g_main_loop_quit (self->loop);
