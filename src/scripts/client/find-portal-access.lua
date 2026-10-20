@@ -142,7 +142,7 @@ portal_pm:connect ("client-properties-changed", function (pm, c)
   local app_name = c:get_property ("application.name")
   local gated = c:get_property ("pipewire.access.portal.gated")
   if gated == "true" then
-    c:update_permissions { [0] = "all" }
+    c:update_permissions { [0] = Perm.ALL }
     log:info (c, string.format (
         "Ungated portal client '%s' (via property change)",
         app_name))

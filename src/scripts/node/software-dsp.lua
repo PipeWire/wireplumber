@@ -55,7 +55,7 @@ SimpleEventHook {
           log:debug("Setting permissions to '-' on " .. node.properties["node.name"] .. " for open clients")
           for client in clients_om:iterate{ type = "client" } do
             if not client["properties"]["wireplumber.daemon"] then
-              client:update_permissions{ [bound_id] = "-" }
+              client:update_permissions { [bound_id] = Perm.NONE }
             end
           end
           hidden_nodes[node.id] = bound_id
@@ -86,7 +86,7 @@ SimpleEventHook {
 clients_om:connect("object-added", function (om, client)
   for _, id in pairs(hidden_nodes) do
     if not client["properties"]["wireplumber.daemon"] then
-      client:update_permissions { [id] = "-" }
+      client:update_permissions { [id] = Perm.NONE }
     end
   end
 end)

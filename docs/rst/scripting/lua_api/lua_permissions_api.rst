@@ -186,7 +186,7 @@ Signals
 
       pm:connect ("client-properties-changed", function (pm, client)
         if client:get_property ("my.gated") == "true" then
-          client:update_permissions { [0] = "rwx" }
+          client:update_permissions { [0] = Perm.RWX }
         end
       end)
 
