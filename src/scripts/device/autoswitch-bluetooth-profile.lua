@@ -581,6 +581,43 @@ local device_profile_changed_hook = SimpleEventHook {
   end
 }
 
+-- select-profile.lua ignores EnumProfile changes while autoswitch is enabled,
+-- so restore here a non-headset profile that became available, unless a
+-- capture stream is switching to or using the headset profile
+local device_enumprofile_changed_hook = SimpleEventHook {
+  name = "bluez-enumprofile-changed@autoswitch-bluetooth-profile",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "device-params-changed" },
+      Constraint { "event.subject.param-id", "=", "EnumProfile" },
+      Constraint { "device.api", "=", "bluez5" },
+    },
+  },
+  execute = function (event)
+    local source = event:get_source ()
+    local device = event:get_subject ()
+    local node_om = source:call ("get-object-manager", "node")
+    local link_om = source:call ("get-object-manager", "link")
+    local dev_id = tostring (device["bound-id"])
+
+    if switch_timeout_source[dev_id] ~= nil then
+      return
+    end
+
+    local bt_node = node_om:lookup {
+      Constraint { "media.class", "matches", "Audio/Source" },
+      Constraint { "device.id", "=", dev_id },
+      Constraint { "bluez5.loopback", "=", "true", type = "pw" }
+    }
+    if bt_node ~= nil and
+        isBluetoothLoopbackSourceNodeLinkedToStream (bt_node, node_om, link_om) then
+      return
+    end
+
+    triggerRestoreProfile (source, dev_id)
+  end
+}
+
 function evaluatePersistentStorage ()
   if Settings.get_boolean ("bluetooth.use-persistent-storage") and
       not persistent_storage_hooks_registered then
@@ -608,6 +645,7 @@ function evaluateAutoswitch ()
     state_changed_hook:register ()
     node_added_hook:register ()
     device_profile_changed_hook:register ()
+    device_enumprofile_changed_hook:register ()
     autoswitch_hooks_registered = true
   elseif autoswitch_hooks_registered then
     capture_stream_links = nil
@@ -621,6 +659,7 @@ function evaluateAutoswitch ()
     state_changed_hook:remove ()
     node_added_hook:remove ()
     device_profile_changed_hook:remove ()
+    device_enumprofile_changed_hook:remove ()
     autoswitch_hooks_registered = false
   end
 end
