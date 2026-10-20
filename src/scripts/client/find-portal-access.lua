@@ -14,6 +14,8 @@ camera_permissions_loaded = false
 MEDIA_ROLE_NONE = 0
 MEDIA_ROLE_CAMERA = 1 << 0
 
+DEFAULT_PERMISSIONS = Perm.ALL
+
 function hasPermission (permissions, app_id, lookup)
   if permissions then
     for key, values in pairs(permissions) do
@@ -58,7 +60,7 @@ Core.update_properties {
 
 -- The portal permission manager
 portal_pm = PermissionManager ()
-portal_pm:set_default_permissions (Perm.ALL)
+portal_pm:set_default_permissions (DEFAULT_PERMISSIONS)
 
 -- Add interest in camera video source nodes
 portal_pm:add_interest_match (
@@ -72,27 +74,27 @@ portal_pm:add_interest_match (
     -- Give all permissions if portal-permissionstore plugin is not loaded
     if pps_plugin == nil then
       log:info (client, "Portal permission store plugin not loaded")
-      return Perm.ALL
+      return DEFAULT_PERMISSIONS
     end
 
     -- Give all permissions to the portal itself
     str_prop = client:get_property ("pipewire.access.portal.is_portal")
     if str_prop == "yes" then
       log:info (client, "client is the portal itself")
-      return Perm.ALL
+      return DEFAULT_PERMISSIONS
     end
 
     -- Give all permissions to clients without portal App ID
     str_prop = client:get_property ("pipewire.access.portal.app_id")
     if str_prop == nil then
       log:info (client, "Portal managed client did not set app_id")
-      return Perm.ALL
+      return DEFAULT_PERMISSIONS
     end
 
     -- Ignore portal check for non-sandboxed client
     if str_prop == "" then
       log:info (client, "Ignoring portal check for non-sandboxed client")
-      return Perm.ALL
+      return DEFAULT_PERMISSIONS
     end
     app_id = str_prop
 
@@ -100,14 +102,14 @@ portal_pm:add_interest_match (
     str_prop = client:get_property ("pipewire.access.portal.media_roles")
     if str_prop == nil then
       log:info (client, "Portal managed client did not set media_roles")
-      return Perm.ALL
+      return DEFAULT_PERMISSIONS
     end
 
     -- Give all permissions to clients without camera role
     media_roles = parseMediaRoles (str_prop)
     if (media_roles & MEDIA_ROLE_CAMERA) == 0 then
       log:info (client, "Ignoring portal check for clients without camera role")
-      return Perm.ALL
+      return DEFAULT_PERMISSIONS
     end
 
     -- Check whether the client has allowed access or not
@@ -117,7 +119,7 @@ portal_pm:add_interest_match (
     -- Return the allowed or not allowed permissions
     log:info (client, "Setting portal camera permissions to " ..
         (allowed and "all" or "none"))
-    return allowed and Perm.ALL or Perm.NONE
+    return allowed and DEFAULT_PERMISSIONS or Perm.NONE
   end,
   Interest {
     type = "node",
@@ -142,7 +144,7 @@ portal_pm:connect ("client-properties-changed", function (pm, c)
   local app_name = c:get_property ("application.name")
   local gated = c:get_property ("pipewire.access.portal.gated")
   if gated == "true" then
-    c:update_permissions { [0] = Perm.ALL }
+    c:update_permissions { [0] = DEFAULT_PERMISSIONS }
     log:info (c, string.format (
         "Ungated portal client '%s' (via property change)",
         app_name))
