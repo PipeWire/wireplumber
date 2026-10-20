@@ -224,7 +224,8 @@ constants and the ``PermissionManager`` object that these methods work with.
    Binds :c:func:`wp_client_update_permissions`
 
    Takes a table where the keys are object identifiers and the values are
-   permission strings.
+   either permission strings or permission numbers, such as the ``Perm``
+   constants.
 
    Valid object identifiers are:
 
@@ -251,6 +252,7 @@ constants and the ``PermissionManager`` object that these methods work with.
       client:update_permissions {
         ["all"] = "r-x",
         [35] = "rwxm",
+        [42] = Perm.RWX,
       }
 
    :param self: the proxy

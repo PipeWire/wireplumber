@@ -1363,8 +1363,14 @@ client_update_permissions (lua_State *L)
     else
       luaL_error (L, "invalid key for permissions array");
 
-    if (!client_parse_permissions (lua_tostring (L, -1), &perm.permissions))
-      luaL_error (L, "invalid permission string: '%s'", lua_tostring (L, -1));
+    if (lua_type (L, -1) == LUA_TNUMBER) {
+      if (!lua_isinteger (L, -1))
+        luaL_error (L, "invalid permission number: %f", lua_tonumber (L, -1));
+      perm.permissions = lua_tointeger (L, -1);
+    } else if (lua_type (L, -1) != LUA_TSTRING ||
+        !client_parse_permissions (lua_tostring (L, -1), &perm.permissions))
+      luaL_error (L, "invalid permission string: '%s'",
+          luaL_tolstring (L, -1, NULL));
 
     if (!arr)
       arr = g_array_new (FALSE, FALSE, sizeof (struct pw_permission));
