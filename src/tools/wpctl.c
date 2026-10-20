@@ -1011,7 +1011,13 @@ inspect_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 inspect_prepare (WpCtl * self, GError ** error)
 {
+  /* the streams of a node are shown with its associated objects */
+  if (cmdline.inspect.show_associated) {
+    request_streams (self);
+    wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
+  }
   request_default_streams (self, cmdline.inspect.id);
+
   /* collect all objects */
   wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
@@ -1019,13 +1025,29 @@ inspect_prepare (WpCtl * self, GError ** error)
   return TRUE;
 }
 
+/* indent holds the tree lines of the parent objects, and last is set if the
+ * object is the last one of its parent, so that no tree line is drawn below it */
 static inline void
-inspect_prefix_line (guint nest_level, gboolean node)
+inspect_prefix_line (guint nest_level, const gchar *indent, gboolean last,
+    gboolean node)
 {
-  for (guint i = 1; i < nest_level; i++)
-    printf (TREE_INDENT_EMPTY TREE_INDENT_LINE);
-  if (nest_level > 0)
-    printf (TREE_INDENT_EMPTY "%s", node ? TREE_INDENT_NODE : TREE_INDENT_LINE);
+  if (nest_level == 0)
+    return;
+  if (node)
+    printf ("%s" TREE_INDENT_EMPTY "%s", indent,
+        last ? TREE_INDENT_END : TREE_INDENT_NODE);
+  else
+    printf ("%s" TREE_INDENT_EMPTY "%s", indent,
+        last ? TREE_INDENT_EMPTY : TREE_INDENT_LINE);
+}
+
+static inline gchar *
+inspect_new_child_indent (guint nest_level, const gchar *indent, gboolean last)
+{
+  if (nest_level == 0)
+    return g_strdup ("");
+  return g_strconcat (indent, TREE_INDENT_EMPTY,
+      last ? TREE_INDENT_EMPTY : TREE_INDENT_LINE, NULL);
 }
 
 struct {
@@ -1077,20 +1099,116 @@ property_item_compare (gconstpointer a, gconstpointer b)
       ((struct property_item *) b)->key);
 }
 
-static void
-inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
+static GArray *
+new_sorted_property_items (WpProperties * properties)
 {
+  GArray *array = g_array_new (FALSE, FALSE, sizeof (struct property_item));
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
+
+  /* copy key/value pointers to an array for sorting */
+  for (it = wp_properties_new_iterator (properties);
+        wp_iterator_next (it, &item);
+        g_value_unset (&item)) {
+    WpPropertiesItem *pi = g_value_get_boxed (&item);
+    struct property_item prop_item = {
+      .key = wp_properties_item_get_key (pi),
+      .value = wp_properties_item_get_value (pi),
+    };
+    g_array_append_val (array, prop_item);
+  }
+
+  g_array_sort (array, property_item_compare);
+  return array;
+}
+
+static void inspect_print_object (WpCtl * self, WpProxy * proxy,
+    guint nest_level, const gchar *indent, gboolean last);
+
+static inline gboolean
+stream_has_any_port (WpStream * stream, guint32 port_id)
+{
+  return wp_stream_has_port (stream, port_id) ||
+      wp_stream_has_monitor_port (stream, port_id) ||
+      wp_stream_has_control_port (stream, port_id);
+}
+
+static gboolean
+node_streams_have_port (WpCtl * self, guint32 node_id, guint32 port_id)
+{
+  g_autoptr (WpIterator) it =
+      wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_STREAM, NULL);
+  g_auto (GValue) item = G_VALUE_INIT;
+
+  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+    WpStream *stream = g_value_get_object (&item);
+    if (wp_stream_get_node_bound_id (stream) == node_id &&
+        stream_has_any_port (stream, port_id))
+      return TRUE;
+  }
+  return FALSE;
+}
+
+static void
+inspect_print_stream (WpCtl * self, WpStream * stream, guint nest_level,
+    const gchar *indent, gboolean last)
+{
+  g_autofree gchar *child_indent =
+      inspect_new_child_indent (nest_level, indent, last);
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
+  g_autoptr (GPtrArray) ports = g_ptr_array_new_with_free_func (g_object_unref);
+  g_autoptr (WpProperties) properties = wp_stream_get_properties (stream);
+  g_autoptr (GArray) array = new_sorted_property_items (properties);
+  const gchar *port_group = wp_stream_get_port_group (stream);
+
+  inspect_prefix_line (nest_level, indent, last, TRUE);
+  printf ("stream %s, type %s\n", port_group ? port_group : "(none)",
+      G_OBJECT_TYPE_NAME (stream));
+
+  for (guint i = 0; i < array->len; i++) {
+    struct property_item *prop_item =
+        &g_array_index (array, struct property_item, i);
+
+    inspect_prefix_line (nest_level, indent, last, FALSE);
+    printf ("    %s = \"%s\"\n", prop_item->key, prop_item->value);
+  }
+
+  /* print the ports of the stream */
+  inspect_prefix_line (nest_level, indent, last, FALSE);
+  printf ("\n");
+  inspect_prefix_line (nest_level, indent, last, FALSE);
+  printf ("Associated Objects:\n");
+  it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_PORT,
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_ID, "=u",
+      wp_stream_get_node_bound_id (stream), NULL);
+  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+    WpProxy *port = g_value_get_object (&item);
+    if (stream_has_any_port (stream, wp_proxy_get_bound_id (port)))
+      g_ptr_array_add (ports, g_object_ref (port));
+  }
+
+  for (guint i = 0; i < ports->len; i++)
+    inspect_print_object (self, g_ptr_array_index (ports, i), nest_level + 1,
+        child_indent, i == ports->len - 1);
+}
+
+static void
+inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level,
+    const gchar *indent, gboolean last)
+{
+  g_autofree gchar *child_indent =
+      inspect_new_child_indent (nest_level, indent, last);
   g_autoptr (WpProperties) properties =
       WP_IS_PIPEWIRE_OBJECT (proxy) ?
       wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (proxy)) :
       wp_properties_new_empty ();
   g_autoptr (WpProperties) global_p =
       wp_global_proxy_get_global_properties (WP_GLOBAL_PROXY (proxy));
-  g_autoptr (GArray) array =
-      g_array_new (FALSE, FALSE, sizeof (struct property_item));
+  g_autoptr (GArray) array = NULL;
 
   /* print basic object info */
-  inspect_prefix_line (nest_level, TRUE);
+  inspect_prefix_line (nest_level, indent, last, TRUE);
   printf ("id %u, type %s\n",
       wp_proxy_get_bound_id (proxy),
       WP_PROXY_GET_CLASS (proxy)->pw_iface_type);
@@ -1100,25 +1218,7 @@ inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
   wp_properties_add (properties, global_p);
   wp_properties_set (properties, "object.id", NULL);
 
-  /* copy key/value pointers to an array for sorting */
-  {
-    g_autoptr (WpIterator) it = NULL;
-    g_auto (GValue) item = G_VALUE_INIT;
-
-    for (it = wp_properties_new_iterator (properties);
-          wp_iterator_next (it, &item);
-          g_value_unset (&item)) {
-      WpPropertiesItem *pi = g_value_get_boxed (&item);
-      struct property_item prop_item = {
-        .key = wp_properties_item_get_key (pi),
-        .value = wp_properties_item_get_value (pi),
-      };
-      g_array_append_val (array, prop_item);
-    }
-  }
-
-  /* sort */
-  g_array_sort (array, property_item_compare);
+  array = new_sorted_property_items (properties);
 
   /* print */
   for (guint i = 0; i < array->len; i++) {
@@ -1127,7 +1227,7 @@ inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
     gboolean is_global =
         (wp_properties_get (global_p, prop_item->key) != NULL);
 
-    inspect_prefix_line (nest_level, FALSE);
+    inspect_prefix_line (nest_level, indent, last, FALSE);
     printf ("  %c %s = \"%s\"\n", is_global ? '*' : ' ',
         prop_item->key, prop_item->value);
 
@@ -1140,8 +1240,10 @@ inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
           wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
               WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
 
+      /* it is the only object under its property */
       if (refer_proxy)
-        inspect_print_object (self, refer_proxy, nest_level + 1);
+        inspect_print_object (self, refer_proxy, nest_level + 1,
+            child_indent, TRUE);
     }
   }
 
@@ -1154,13 +1256,50 @@ inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
               WP_TYPE_PIPEWIRE_OBJECT, WP_CONSTRAINT_TYPE_PW_PROPERTY,
               lookup_key, "=u", wp_proxy_get_bound_id (proxy), NULL);
       g_auto (GValue) item = G_VALUE_INIT;
+      g_autoptr (GPtrArray) assoc_objects =
+          g_ptr_array_new_with_free_func (g_object_unref);
 
-      inspect_prefix_line (nest_level, TRUE);
-      printf ("associated objects:\n");
+      inspect_prefix_line (nest_level, indent, last, FALSE);
+      printf ("\n");
+      inspect_prefix_line (nest_level, indent, last, TRUE);
+      printf ("Associated Objects:\n");
 
       for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
         WpProxy *assoc_proxy = g_value_get_object (&item);
-        inspect_print_object (self, assoc_proxy, nest_level + 1);
+
+        /* the ports of a stream are printed with that stream */
+        if (WP_IS_PORT (assoc_proxy) && node_streams_have_port (self,
+                wp_proxy_get_bound_id (proxy),
+                wp_proxy_get_bound_id (assoc_proxy)))
+          continue;
+
+        g_ptr_array_add (assoc_objects, g_object_ref (assoc_proxy));
+      }
+
+      /* the streams are not pipewire objects, so look them up separately */
+      if (WP_IS_NODE (proxy)) {
+        g_autoptr (WpIterator) stream_it =
+            wp_object_manager_new_filtered_iterator (self->om,
+                WP_TYPE_STREAM, NULL);
+
+        for (; wp_iterator_next (stream_it, &item); g_value_unset (&item)) {
+          WpStream *stream = g_value_get_object (&item);
+          if (wp_stream_get_node_bound_id (stream) ==
+              wp_proxy_get_bound_id (proxy))
+            g_ptr_array_add (assoc_objects, g_object_ref (stream));
+        }
+      }
+
+      for (guint i = 0; i < assoc_objects->len; i++) {
+        gpointer obj = g_ptr_array_index (assoc_objects, i);
+        gboolean obj_last = (i == assoc_objects->len - 1);
+
+        if (WP_IS_STREAM (obj))
+          inspect_print_stream (self, obj, nest_level + 1, child_indent,
+              obj_last);
+        else
+          inspect_print_object (self, obj, nest_level + 1, child_indent,
+              obj_last);
       }
     }
   }
@@ -1187,7 +1326,7 @@ inspect_run (WpCtl * self)
     goto out_err;
   }
 
-  inspect_print_object (self, proxy, 0);
+  inspect_print_object (self, proxy, 0, "", FALSE);
 
 out:
   g_main_loop_quit (self->loop);
