@@ -7,8 +7,8 @@ _wpctl_pw_defaults() {
 _wpctl() {
   local cur prev words cword
   local commands="status get-volume inspect set-default set-volume set-mute
-                  set-profile set-route clear-default settings set-log-level
-                  list reset"
+                  get-profile set-profile get-route set-route clear-default
+                  settings set-log-level list reset"
 
   _init_completion -n = || return
 
@@ -18,7 +18,7 @@ _wpctl() {
   fi
 
   case $prev in
-  get-volume | inspect | set-volume | set-mute | set-profile | set-route)
+  get-volume | get-route | inspect | set-volume | set-mute | set-profile | set-route)
     _wpctl_pw_defaults
     ;;
 

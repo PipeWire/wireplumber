@@ -151,6 +151,20 @@ Options:
   **-p**, **--pid**
     Treat ID as a process ID and affect all nodes associated with it
 
+get-profile
+^^^^^^^^^^^
+
+**wpctl get-profile** *DEVICE_ID*
+
+Shows the active profile and the available profiles of the specified PipeWire
+device. The output identifies the device by ID and description. The number on
+each profile line is the profile index accepted by **set-profile**. The active
+profile is marked with ``*`` and its availability is shown separately.
+
+Arguments:
+  *DEVICE_ID*
+    PipeWire device ID
+
 set-profile
 ^^^^^^^^^^^
 
@@ -162,7 +176,32 @@ Arguments:
   *ID*
     Device ID or special identifier
   *INDEX*
-    Profile index (integer, 0 typically means 'off')
+    Profile index displayed by **wpctl get-profile** *ID*
+
+get-route
+^^^^^^^^^
+
+**wpctl get-route** *DEVICE_OR_NODE_ID*
+
+Shows reported route assignments and enumerated route choices. With a device
+ID, it shows the complete route inventory, including the associated profile
+and logical-device indices. With a node ID, it shows the routes applicable to
+that node's logical device and the currently active profile. The output also
+identifies the parent device by its description and shows the active profile's
+description when available. Reported assignments identify matching active
+nodes by media class, node ID and description when that information is
+available, and include the referenced profile's description when it can be
+resolved.
+
+A reported route assignment can remain after the active profile changes. Only
+an assignment applicable to the current profile is marked with ``*`` in the
+route-choice list. The number on each route-choice line is the route index
+accepted by **set-route**; availability is shown separately.
+
+Arguments:
+  *DEVICE_OR_NODE_ID*
+    PipeWire device or node ID, or a special node identifier (see
+    `SPECIAL IDENTIFIERS`_)
 
 set-route
 ^^^^^^^^^
@@ -175,7 +214,8 @@ Arguments:
   *ID*
     Device node ID or special identifier
   *INDEX*
-    Route index (integer, 0 typically means 'off')
+    Route index displayed by **wpctl get-route** *ID* for the corresponding
+    node. This is not a logical-device index.
 
 clear-default
 ^^^^^^^^^^^^^

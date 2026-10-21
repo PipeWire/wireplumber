@@ -12,6 +12,8 @@
 #include <libintl.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
+#include <spa/param/param.h>
+#include <spa/pod/iter.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/keys.h>
 #include <pipewire/extensions/session-manager/keys.h>
@@ -88,8 +90,16 @@ static struct {
 
     struct {
       guint64 id;
+    } get_profile;
+
+    struct {
+      guint64 id;
       gint index;
     } set_profile;
+
+    struct {
+      guint64 id;
+    } get_route;
 
     struct {
       guint64 id;
@@ -121,6 +131,7 @@ static struct {
       gboolean dry_run;
       gboolean yes;
     } reset;
+
   };
 } cmdline;
 
@@ -1342,6 +1353,191 @@ out:
   g_main_loop_quit (self->loop);
 }
 
+/*
+ * Return a human-readable SPA availability status.
+ * SPA_PARAM_AVAILABILITY_unknown is not equivalent to unavailable.
+ */
+static const gchar *
+availability_to_string (guint32 availability)
+{
+  switch (availability) {
+  case SPA_PARAM_AVAILABILITY_yes:
+    return "available";
+  case SPA_PARAM_AVAILABILITY_no:
+    return "unavailable";
+  default:
+    return "unknown";
+  }
+}
+
+/* Return the same device description that the default status view uses. */
+static const gchar *
+get_device_display_name (WpPipewireObject *device)
+{
+  const gchar *name =
+      wp_pipewire_object_get_property (device, PW_KEY_DEVICE_DESCRIPTION);
+
+  if (!name)
+    name = wp_pipewire_object_get_property (device, PW_KEY_DEVICE_NICK);
+  if (!name)
+    name = wp_pipewire_object_get_property (device, PW_KEY_DEVICE_NAME);
+
+  return name ? name : "(unnamed)";
+}
+
+static const gchar *
+get_node_display_name (WpPipewireObject *node)
+{
+  const gchar *name =
+      wp_pipewire_object_get_property (node, PW_KEY_NODE_DESCRIPTION);
+
+  if (!name)
+    name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NICK);
+  if (!name)
+    name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NAME);
+
+  return name;
+}
+
+/*
+ * Read the currently selected Profile.index from cached device parameters.
+ * Return -1 if no selected profile is exposed or parsing fails.
+ */
+static gint32
+get_active_profile_index (WpPipewireObject *device)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  gint32 active_index = -1;
+
+  it = wp_pipewire_object_enum_params_sync (device, "Profile", NULL);
+
+  for (; it && wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpSpaPod *pod = g_value_get_boxed (&val);
+    gint32 index = -1;
+
+    if (wp_spa_pod_get_object (pod, NULL,
+            "index", "i", &index,
+            NULL))
+      active_index = index;
+  }
+
+  return active_index;
+}
+
+/* Find the user-facing description of a profile by its backend index. */
+static gchar *
+get_profile_display_name (WpPipewireObject *device, gint32 wanted_index)
+{
+  g_autoptr (WpIterator) it =
+      wp_pipewire_object_enum_params_sync (device, "EnumProfile", NULL);
+  g_auto (GValue) val = G_VALUE_INIT;
+
+  for (; it && wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpSpaPod *pod = g_value_get_boxed (&val);
+    gint32 index = -1;
+    const gchar *name = NULL;
+    const gchar *description = NULL;
+
+    if (wp_spa_pod_get_object (pod, NULL,
+            "index", "i", &index,
+            "name", "?s", &name,
+            "description", "?s", &description,
+            NULL) && index == wanted_index)
+      return g_strdup (description ? description :
+          (name ? name : "(unnamed)"));
+  }
+
+  return NULL;
+}
+
+/* get-profile */
+
+static gboolean
+get_profile_parse_positional (gint argc, gchar **argv, GError **error)
+{
+  if (argc < 3) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "DEVICE_ID is required");
+    return FALSE;
+  }
+
+  /* Profiles belong to Device objects; default node aliases are not valid. */
+  return parse_id (FALSE, FALSE, argv[2], &cmdline.get_profile.id, error);
+}
+
+static gboolean
+get_profile_prepare (WpCtl *self, GError **error)
+{
+  wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
+
+  wp_object_manager_request_object_features (self->om, WP_TYPE_DEVICE,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
+      WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROFILE);
+
+  return TRUE;
+}
+
+static void
+get_profile_run (WpCtl *self)
+{
+  g_autoptr (WpDevice) device = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  guint32 id = (guint32) cmdline.get_profile.id;
+  gint32 active_index;
+  guint count = 0;
+
+  device = wp_object_manager_lookup (self->om, WP_TYPE_DEVICE,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
+  if (!device) {
+    fprintf (stderr, "Device '%u' not found\n", id);
+    self->exit_code = 3;
+    goto out;
+  }
+
+  WpPipewireObject *obj = WP_PIPEWIRE_OBJECT (device);
+  active_index = get_active_profile_index (obj);
+  it = wp_pipewire_object_enum_params_sync (obj, "EnumProfile", NULL);
+  if (!it) {
+    fprintf (stderr, "Device '%u' does not expose cached profiles\n", id);
+    self->exit_code = 3;
+    goto out;
+  }
+
+  printf ("Profiles for device %u (%s):\n", id,
+      get_device_display_name (obj));
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpSpaPod *pod = g_value_get_boxed (&val);
+    gint32 index = -1;
+    const gchar *name = NULL;
+    const gchar *description = NULL;
+    guint32 available = SPA_PARAM_AVAILABILITY_unknown;
+
+    if (!wp_spa_pod_get_object (pod, NULL,
+            "index", "i", &index,
+            "name", "?s", &name,
+            "description", "?s", &description,
+            "available", "?I", &available,
+            NULL))
+      continue;
+
+    printf (" %c %d  %s [%s]\n",
+        index == active_index ? '*' : ' ', index,
+        description ? description : (name ? name : "(unnamed)"),
+        availability_to_string (available));
+    count++;
+  }
+
+  if (count == 0)
+    printf ("  (no profiles enumerated)\n");
+  if (active_index < 0)
+    printf ("Active profile: not reported\n");
+
+out:
+  g_main_loop_quit (self->loop);
+}
+
 /* set-profile */
 
 static gboolean
@@ -1395,6 +1591,397 @@ set_profile_run (WpCtl * self)
   return;
 
 out:
+  self->exit_code = 3;
+  g_main_loop_quit (self->loop);
+}
+
+/* get-route */
+
+/* Parse decimal PipeWire properties such as "device.id" safely. */
+static gboolean
+parse_uint32_property (const gchar *str, guint32 *result)
+{
+  gchar *end = NULL;
+  guint64 value;
+
+  if (!str || !g_ascii_isdigit (str[0]))
+    return FALSE;
+
+  value = g_ascii_strtoull (str, &end, 10);
+  if (*end != '\0' || value > G_MAXUINT32)
+    return FALSE;
+
+  *result = (guint32) value;
+  return TRUE;
+}
+
+/*
+ * Check if an optional SPA int array property contains the requested index.
+ * A missing array is treated as 'unrestricted', by design.
+ * A present but malformed array is rejected.
+ */
+static gboolean
+route_array_matches (WpSpaPod *route, const gchar *property,
+    gint32 wanted)
+{
+  g_autoptr (WpSpaPod) values = NULL;
+  const struct spa_pod_array *array;
+  const gint32 *entry;
+
+  if (!wp_spa_pod_get_object (route, NULL,
+          property, "?P", &values, NULL))
+    return FALSE;
+
+  if (!values)
+    return TRUE;
+  if (!wp_spa_pod_is_array (values))
+    return FALSE;
+
+  array = (const struct spa_pod_array *)
+      wp_spa_pod_get_spa_pod (values);
+  if (array->body.child.type != SPA_TYPE_Int ||
+      array->body.child.size != sizeof (gint32))
+    return FALSE;
+
+  SPA_POD_ARRAY_FOREACH (array, entry) {
+    if (*entry == wanted)
+      return TRUE;
+  }
+  return FALSE;
+}
+
+/* Print optional SPA array values, such as devices=[19] or profiles=[240,237]. */
+static void
+print_int_array (WpSpaPod *route, const gchar *property)
+{
+  g_autoptr (WpSpaPod) values = NULL;
+  const struct spa_pod_array *array;
+  const gint32 *entry;
+  gboolean first = TRUE;
+
+  if (!wp_spa_pod_get_object (route, NULL,
+          property, "?P", &values, NULL) || !values ||
+      !wp_spa_pod_is_array (values)) {
+    printf ("?");
+    return;
+  }
+  array = (const struct spa_pod_array *)
+      wp_spa_pod_get_spa_pod (values);
+  if (array->body.child.type != SPA_TYPE_Int ||
+      array->body.child.size != sizeof (gint32)) {
+    printf ("?");
+    return;
+  }
+
+  printf ("[");
+  SPA_POD_ARRAY_FOREACH (array, entry) {
+    printf ("%s%d", first ? "" : ",", *entry);
+    first = FALSE;
+  }
+  printf ("]");
+}
+
+typedef struct {
+  gint32 index;   /* selected Route.index */
+  gint32 device;  /* logical card.profile.device index */
+  gint32 profile; /* optional Route.profile; -1 when not reported */
+} ActiveRoute;
+
+/* A selected route is identified by the pair (index, logical device). */
+static GArray *
+collect_active_routes (WpPipewireObject *device)
+{
+  GArray *routes = g_array_new (FALSE, FALSE, sizeof (ActiveRoute));
+  g_autoptr (WpIterator) it =
+      wp_pipewire_object_enum_params_sync (device, "Route", NULL);
+  g_auto (GValue) val = G_VALUE_INIT;
+
+  for (; it && wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpSpaPod *pod = g_value_get_boxed (&val);
+    ActiveRoute selected = { .index = -1, .device = -1, .profile = -1 };
+
+    if (wp_spa_pod_get_object (pod, NULL,
+            "index", "i", &selected.index,
+            "device", "i", &selected.device,
+            "profile", "?i", &selected.profile,
+            NULL) && selected.index >= 0 && selected.device >= 0)
+      g_array_append_val (routes, selected);
+  }
+  return routes;
+}
+
+/*
+ * Add context from active nodes that belong to this profile-device index.
+ * More than one node may refer to the same index, so print every match.
+ */
+static void
+print_logical_device_nodes (WpCtl *self, guint32 device_id,
+    gint32 logical_device)
+{
+  g_autofree gchar *device_id_str = g_strdup_printf ("%u", device_id);
+  g_autofree gchar *logical_device_str =
+      g_strdup_printf ("%d", logical_device);
+  g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (
+      self->om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_DEVICE_ID, "=s", device_id_str,
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "card.profile.device", "=s",
+      logical_device_str,
+      NULL);
+  g_auto (GValue) val = G_VALUE_INIT;
+  gboolean first = TRUE;
+
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpPipewireObject *node = g_value_get_object (&val);
+    const gchar *media_class =
+        wp_pipewire_object_get_property (node, PW_KEY_MEDIA_CLASS);
+    const gchar *name = get_node_display_name (node);
+    guint32 node_id = wp_proxy_get_bound_id (WP_PROXY (node));
+
+    if (first) {
+      printf (" [");
+      if (media_class)
+        printf ("%s,", media_class);
+    } else {
+      printf (";");
+    }
+    printf ("\n\tnode %u:", node_id);
+    if (name)
+      printf (" %s", name);
+    first = FALSE;
+  }
+
+  if (!first)
+    printf ("]");
+}
+
+/*
+ * An EnumRoute choice is marked active only when a reported Route assignment
+ * applies to the CURRENT profile and the correct logical device. A Route
+ * parameter may remain reported after set-profile changes the profile.
+ *
+ * 'profiles' is an association list (not Route.profile). Both conditions
+ * matter: a matching route index alone does not establish current activity.
+ */
+static gboolean
+route_is_active (WpSpaPod *route, gint32 route_index,
+    const GArray *selected, gint32 filter_device, gint32 active_profile)
+{
+  /* Without a reported active profile we cannot assert current activity. */
+  if (active_profile < 0 ||
+      !route_array_matches (route, "profiles", active_profile))
+    return FALSE;
+
+  for (guint i = 0; i < selected->len; i++) {
+    const ActiveRoute *active = &g_array_index (selected, ActiveRoute, i);
+    if (active->index != route_index)
+      continue;
+    if (filter_device >= 0 && active->device != filter_device)
+      continue;
+    if (active->profile >= 0 && active->profile != active_profile)
+      continue;
+    if (route_array_matches (route, "devices", active->device))
+      return TRUE;
+  }
+  return FALSE;
+}
+
+static gboolean
+get_route_parse_positional (gint argc, gchar **argv, GError **error)
+{
+  if (argc < 3) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "DEVICE_OR_NODE_ID is required");
+    return FALSE;
+  }
+
+  /* Default sink/source aliases resolve to node IDs. */
+  return parse_id (TRUE, TRUE, argv[2], &cmdline.get_route.id, error);
+}
+
+static gboolean
+get_route_prepare (WpCtl *self, GError **error)
+{
+  wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
+
+  wp_object_manager_request_object_features (self->om, WP_TYPE_NODE,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+
+  wp_object_manager_request_object_features (self->om, WP_TYPE_DEVICE,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
+      WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROFILE |
+      WP_PIPEWIRE_OBJECT_FEATURE_PARAM_ROUTE);
+  return TRUE;
+}
+
+static void
+get_route_run (WpCtl *self)
+{
+  g_autoptr (WpPlugin) def_nodes_api =
+      wp_plugin_find (self->core, "default-nodes-api");
+  g_autoptr (WpDevice) device = NULL;
+  g_autoptr (WpNode) node = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_autoptr (GArray) active_routes = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  g_autoptr (GError) error = NULL;
+  guint32 id, device_id = 0, logical_id = 0;
+  gint32 filtered_logical_device = -1;
+  gint32 active_profile = -1;
+  guint shown = 0;
+
+  if (!translate_id (def_nodes_api, cmdline.get_route.id, &id, &error)) {
+    fprintf (stderr, "ID error: %s\n", error->message);
+    goto fail;
+  }
+
+  /* Try a device ID first: this is the unfiltered route inventory view. */
+  device = wp_object_manager_lookup (self->om, WP_TYPE_DEVICE,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
+
+  if (!device) {
+    /* Otherwise the supplied ID must identify a playback/capture node. */
+    node = wp_object_manager_lookup (self->om, WP_TYPE_NODE,
+        WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
+    if (!node) {
+      fprintf (stderr, "No device or node with ID '%u'\n", id);
+      goto fail;
+    }
+
+    WpPipewireObject *node_obj = WP_PIPEWIRE_OBJECT (node);
+    if (!parse_uint32_property (
+            wp_pipewire_object_get_property (node_obj, "device.id"),
+            &device_id) ||
+        !parse_uint32_property (
+            wp_pipewire_object_get_property (node_obj, "card.profile.device"),
+            &logical_id) ||
+        logical_id > G_MAXINT32) {
+      fprintf (stderr,
+          "Node %u has no usable device.id/card.profile.device\n", id);
+      goto fail;
+    }
+    filtered_logical_device = (gint32) logical_id;
+
+    device = wp_object_manager_lookup (self->om, WP_TYPE_DEVICE,
+        WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", device_id, NULL);
+    if (!device) {
+      fprintf (stderr, "Parent Device %u not found\n", device_id);
+      goto fail;
+    }
+  } else {
+    device_id = id;
+  }
+
+  WpPipewireObject *dev_obj = WP_PIPEWIRE_OBJECT (device);
+  active_profile = get_active_profile_index (dev_obj);
+  active_routes = collect_active_routes (dev_obj);
+
+  if (node)
+    printf ("Routes for node %u (parent device %u: %s):\n", id, device_id,
+        get_device_display_name (dev_obj));
+  else
+    printf ("Routes for device %u (%s):\n", device_id,
+        get_device_display_name (dev_obj));
+
+  if (active_profile >= 0) {
+    g_autofree gchar *active_profile_name =
+        get_profile_display_name (dev_obj, active_profile);
+
+    if (active_profile_name)
+      printf ("Active profile index: %d (%s)\n", active_profile,
+          active_profile_name);
+    else
+      printf ("Active profile index: %d\n", active_profile);
+  } else {
+    printf ("Active profile: not reported\n");
+  }
+
+  printf ("Reported Route assignments:\n");
+  guint configured = 0;
+  for (guint i = 0; i < active_routes->len; i++) {
+    const ActiveRoute *active =
+        &g_array_index (active_routes, ActiveRoute, i);
+    if (filtered_logical_device >= 0 &&
+        active->device != filtered_logical_device)
+      continue;
+    printf ("  logical device %d", active->device);
+    print_logical_device_nodes (self, device_id, active->device);
+    printf ("\n\t-> route %d", active->index);
+    if (active->profile >= 0) {
+      g_autofree gchar *profile_name =
+          get_profile_display_name (dev_obj, active->profile);
+      const gchar *not_current =
+          active_profile >= 0 && active->profile != active_profile ?
+              ", not current" : "";
+
+      if (profile_name)
+        printf (" (profile %d: %s%s)", active->profile, profile_name,
+            not_current);
+      else
+        printf (" (profile %d%s)", active->profile, not_current);
+    }
+    printf ("\n");
+    configured++;
+  }
+  if (configured == 0)
+    printf ("  (none reported)\n");
+
+  it = wp_pipewire_object_enum_params_sync (dev_obj, "EnumRoute", NULL);
+  if (!it) {
+    fprintf (stderr, "No cached EnumRoute parameters on Device %u\n",
+        device_id);
+    goto fail;
+  }
+
+  printf ("Available route choices:\n");
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpSpaPod *pod = g_value_get_boxed (&val);
+    gint32 index = -1;
+    const gchar *name = NULL;
+    const gchar *description = NULL;
+    guint32 available = SPA_PARAM_AVAILABILITY_unknown;
+
+    if (!wp_spa_pod_get_object (pod, NULL,
+            "index", "i", &index,
+            "name", "?s", &name,
+            "description", "?s", &description,
+            "available", "?I", &available,
+            NULL))
+      continue;
+
+    if (filtered_logical_device >= 0) {
+      /* Node view: match set-route's logical device context. */
+      if (!route_array_matches (pod, "devices", filtered_logical_device))
+        continue;
+      if (active_profile >= 0 &&
+          !route_array_matches (pod, "profiles", active_profile))
+        continue;
+    }
+
+    printf (" %c %d  %s [%s]",
+        route_is_active (pod, index, active_routes,
+            filtered_logical_device, active_profile) ? '*' : ' ',
+        index, description ? description : (name ? name : "(unnamed)"),
+        availability_to_string (available));
+
+    /* On full-card inventory, explain *where* each route applies. */
+    if (filtered_logical_device < 0) {
+      printf ("  devices=");
+      print_int_array (pod, "devices");
+      printf (" profiles=");
+      print_int_array (pod, "profiles");
+    }
+    printf ("\n");
+    shown++;
+  }
+
+  if (shown == 0)
+    printf ("  (no matching routes; this can be normal)\n");
+
+  g_main_loop_quit (self->loop);
+  return;
+
+fail:
   self->exit_code = 3;
   g_main_loop_quit (self->loop);
 }
@@ -2152,6 +2739,16 @@ static const struct subcommand {
     .run = set_mute_run,
   },
   {
+    .name = "get-profile",
+    .positional_args = "DEVICE_ID",
+    .summary = "Shows active and available profiles for a device",
+    .description = NULL,
+    .entries = { { NULL } },
+    .parse_positional = get_profile_parse_positional,
+    .prepare = get_profile_prepare,
+    .run = get_profile_run,
+  },
+  {
     .name = "set-profile",
     .positional_args = "ID INDEX",
     .summary = "Sets the profile of ID to INDEX (integer, 0 is 'off')",
@@ -2160,6 +2757,16 @@ static const struct subcommand {
     .parse_positional = set_profile_parse_positional,
     .prepare = set_profile_prepare,
     .run = set_profile_run,
+  },
+  {
+    .name = "get-route",
+    .positional_args = "DEVICE_OR_NODE_ID",
+    .summary = "Shows active and available routes for a device or node",
+    .description = NULL,
+    .entries = { { NULL } },
+    .parse_positional = get_route_parse_positional,
+    .prepare = get_route_prepare,
+    .run = get_route_run,
   },
   {
     .name = "set-route",
@@ -2242,7 +2849,7 @@ static const struct subcommand {
     .parse_positional = reset_parse_positional,
     .prepare = reset_prepare,
     .run = reset_run,
-  }
+  },
 };
 
 static void

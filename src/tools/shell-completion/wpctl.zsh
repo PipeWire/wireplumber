@@ -51,7 +51,9 @@ _regex_words wpctl-commands 'wpctl commands' \
   'set-default:set a default node:$node_id' \
   'set-volume:set object volume:$set_volume' \
   'set-mute:set object mute:$set_mute' \
+  'get-profile:show active and available device profiles' \
   'set-profile:set object profile:$set_profile' \
+  'get-route:show active and available device/node routes:$node_id' \
   'set-route:set object route:$set_route' \
   'clear-default:unset a configured default node:$clear_default_id' \
   'settings:show or change settings' \
