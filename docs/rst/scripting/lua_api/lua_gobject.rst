@@ -82,12 +82,13 @@ You may call an action signal using the *call* method:
 
    .. code-block:: lua
 
-      Core.require_api("default-nodes", "mixer", function(...)
-        local default_nodes, mixer = ...
+      Core.require_api("default-streams", "mixer", function(...)
+        local default_streams, mixer = ...
 
-        -- "get-default-node" and "get-volume" are action signals of the
-        -- "default-nodes-api" and "mixer-api" plugins respectively
-        local id = default_nodes:call("get-default-node", "Audio/Sink")
+        -- "get-default-stream" and "get-volume" are action signals of the
+        -- "default-streams-api" and "mixer-api" plugins respectively
+        local stream = default_streams:call("get-default-stream", "Audio/Sink")
+        local id = stream:get_node_bound_id()
         local volume = mixer:call("get-volume", id)
 
         -- the return value of "get-volume" is a GVariant(a{sv}),

@@ -35,6 +35,7 @@ struct _WpCtl
   WpObjectManager *om;
   guint pending_plugins;
   gint exit_code;
+  gboolean streams_requested;
 };
 
 typedef enum {
@@ -183,9 +184,11 @@ parse_id (gboolean allow_def_audio, gboolean allow_def_video, gchar *arg, guint6
 }
 
 static gboolean
-translate_id (WpPlugin *def_nodes_api, guint64 id, guint32 *res, GError **error)
+translate_id (WpPlugin *def_streams_api, guint64 id, guint32 *res,
+    GError **error)
 {
   gchar *media_class = NULL;
+  g_autoptr (WpStream) stream = NULL;
 
   if (id == DEFAULT_AUDIO_SINK_ID) {
     media_class = "Audio/Sink";
@@ -207,21 +210,34 @@ translate_id (WpPlugin *def_nodes_api, guint64 id, guint32 *res, GError **error)
     return TRUE;
   }
 
-  if (!def_nodes_api) {
+  if (!def_streams_api) {
     g_set_error (error, wpctl_error_domain_quark(), 0,
-        "Default nodes API is not loaded\n");
+        "Default streams API is not loaded\n");
     return FALSE;
   }
 
-  g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class, res);
-
-  if (*res <= 0 || *res >= G_MAXUINT32) {
+  g_signal_emit_by_name (def_streams_api, "get-default-stream", media_class,
+      &stream);
+  if (!stream) {
     g_set_error (error, wpctl_error_domain_quark(), 0,
-        "'%d' is not a valid ID (returned by default-nodes-api)", *res);
+        "No default stream for '%s'", media_class);
     return FALSE;
   }
 
+  *res = wp_stream_get_node_bound_id (stream);
   return TRUE;
+}
+
+/* the default node is the node of the default stream */
+static guint32
+get_default_node (WpPlugin *def_streams_api, const gchar *media_class)
+{
+  g_autoptr (WpStream) stream = NULL;
+
+  if (def_streams_api)
+    g_signal_emit_by_name (def_streams_api, "get-default-stream", media_class,
+        &stream);
+  return stream ? wp_stream_get_node_bound_id (stream) : SPA_ID_INVALID;
 }
 
 static gboolean
@@ -250,9 +266,55 @@ run_nodes_by_pid (WpObjectManager *om, guint32 pid,
 
 /* status */
 
+static void on_plugin_ready (WpCtl * ctl);
+
+static void
+on_manager_activated (WpObject * o, GAsyncResult * res, WpCtl * ctl)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (o, res, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    ctl->exit_code = 1;
+    g_main_loop_quit (ctl->loop);
+    return;
+  }
+
+  wp_core_register_object (ctl->core, g_object_ref (o));
+  on_plugin_ready (ctl);
+}
+
+/* the streams are only known by the stream manager */
+static void
+request_streams (WpCtl * self)
+{
+  g_autoptr (WpStreamManager) stream_manager = NULL;
+
+  if (self->streams_requested)
+    return;
+  self->streams_requested = TRUE;
+
+  stream_manager = wp_stream_manager_new (self->core);
+  self->pending_plugins++;
+  wp_object_activate (WP_OBJECT (stream_manager), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) on_manager_activated, self);
+}
+
+/* the default streams are needed to translate the default IDs */
+static void
+request_default_streams (WpCtl * self, guint64 id)
+{
+  if (id == DEFAULT_AUDIO_SINK_ID || id == DEFAULT_AUDIO_SOURCE_ID ||
+      id == DEFAULT_VIDEO_SOURCE_ID)
+    request_streams (self);
+}
+
 static gboolean
 status_prepare (WpCtl * self, GError ** error)
 {
+  /* the default devices are found from the default streams */
+  request_streams (self);
+
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
@@ -339,7 +401,7 @@ static void
 print_filter_node (const GValue *item, gpointer data)
 {
   struct print_context *context = data;
-  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  g_autoptr (WpPlugin) def_streams_api = NULL;
   WpPipewireObject *obj = g_value_get_object (item);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
@@ -350,7 +412,7 @@ print_filter_node (const GValue *item, gpointer data)
   if (g_hash_table_contains (context->printed_filters, link_group))
     return;
 
-  def_nodes_api = wp_plugin_find (context->self->core, "default-nodes-api");
+  def_streams_api = wp_plugin_find (context->self->core, "default-streams-api");
 
   /* Print all nodes for this link_group */
   printf (TREE_INDENT_LINE "  - %-60s\n", link_group);
@@ -372,10 +434,7 @@ print_filter_node (const GValue *item, gpointer data)
       name = wp_pipewire_object_get_property (node, PW_KEY_NODE_DESCRIPTION);
     media_class = wp_pipewire_object_get_property (node, PW_KEY_MEDIA_CLASS);
 
-    context->default_node = -1;
-    if (def_nodes_api)
-      g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
-          &context->default_node);
+    context->default_node = get_default_node (def_streams_api, media_class);
 
     printf (TREE_INDENT_LINE "%c %4u. %-60s [%s]\n",
         context->default_node == id ? '*' : ' ', id, name, media_class);
@@ -444,10 +503,10 @@ status_run (WpCtl * self)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
-  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  g_autoptr (WpPlugin) def_streams_api = NULL;
   struct print_context context = { .self = self };
 
-  def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   context.mixer_api = wp_plugin_find (self->core, "mixer-api");
 
   /* server + clients */
@@ -503,10 +562,7 @@ status_run (WpCtl * self)
 
       printf (TREE_INDENT_NODE "Sinks:\n");
       g_snprintf (media_class, sizeof(media_class), "%s/Sink", media_type);
-      context.default_node = -1;
-      if (def_nodes_api)
-        g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
-            &context.default_node);
+      context.default_node = get_default_node (def_streams_api, media_class);
       child_it = wp_object_manager_new_filtered_iterator (self->om,
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
@@ -520,10 +576,7 @@ status_run (WpCtl * self)
 
       printf (TREE_INDENT_NODE "Sources:\n");
       g_snprintf (media_class, sizeof(media_class), "%s/Source", media_type);
-      context.default_node = -1;
-      if (def_nodes_api)
-        g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
-            &context.default_node);
+      context.default_node = get_default_node (def_streams_api, media_class);
       child_it = wp_object_manager_new_filtered_iterator (self->om,
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
@@ -567,10 +620,10 @@ status_run (WpCtl * self)
   printf ("Settings\n");
 
   printf (TREE_INDENT_END "Default Configured Devices:\n");
-  if (def_nodes_api) {
+  if (def_streams_api) {
     for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
       g_autofree gchar *name = NULL;
-      g_signal_emit_by_name (def_nodes_api, "get-default-configured-node-name",
+      g_signal_emit_by_name (def_streams_api, "get-default-configured-node-name",
           DEFAULT_NODE_MEDIA_CLASSES[i], &name);
       if (name)
         printf (TREE_INDENT_EMPTY "  %4u. %-12s  %s\n", i,
@@ -624,6 +677,9 @@ list_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 list_prepare (WpCtl * self, GError ** error)
 {
+  /* the default devices are found from the default streams */
+  request_streams (self);
+
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
@@ -673,7 +729,7 @@ static void
 list_run (WpCtl * self)
 {
   struct list_context context;
-  g_autoptr (WpPlugin) def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  g_autoptr (WpPlugin) def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   const ListMediaType media_filter = cmdline.list.media_type;
   const ListObjectType object_filter = cmdline.list.object_type;
 
@@ -702,11 +758,8 @@ list_run (WpCtl * self)
     /* Sinks */
     if (object_filter == LIST_OBJECT_ALL || object_filter == LIST_OBJECT_SINKS) {
       g_snprintf (media_class, sizeof(media_class), "%s/Sink", media_type);
-      context.default_node = -1;
       context.object_type = "sink";
-      if (def_nodes_api)
-        g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
-            &context.default_node);
+      context.default_node = get_default_node (def_streams_api, media_class);
       g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (self->om,
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
@@ -719,11 +772,8 @@ list_run (WpCtl * self)
     /* Sources */
     if (object_filter == LIST_OBJECT_ALL || object_filter == LIST_OBJECT_SOURCES) {
       g_snprintf (media_class, sizeof(media_class), "%s/Source", media_type);
-      context.default_node = -1;
       context.object_type = "source";
-      if (def_nodes_api)
-        g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
-            &context.default_node);
+      context.default_node = get_default_node (def_streams_api, media_class);
       g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (self->om,
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
@@ -754,6 +804,7 @@ get_volume_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 get_volume_prepare (WpCtl * self, GError ** error)
 {
+  request_default_streams (self, cmdline.get_volume.id);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
@@ -784,14 +835,14 @@ do_print_volume (WpCtl * self, WpPipewireObject *proxy)
 static void
 get_volume_run (WpCtl * self)
 {
-  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  g_autoptr (WpPlugin) def_streams_api = NULL;
   g_autoptr (GError) error = NULL;
   g_autoptr (WpPipewireObject) proxy = NULL;
   guint32 id;
 
-  def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  def_streams_api = wp_plugin_find (self->core, "default-streams-api");
 
-  if (!translate_id (def_nodes_api, cmdline.get_volume.id, &id, &error)) {
+  if (!translate_id (def_streams_api, cmdline.get_volume.id, &id, &error)) {
     fprintf(stderr, "Translate ID error: %s\n\n", error->message);
     goto out;
   }
@@ -825,6 +876,7 @@ inspect_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 inspect_prepare (WpCtl * self, GError ** error)
 {
+  request_default_streams (self, cmdline.inspect.id);
   /* collect all objects */
   wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
@@ -983,12 +1035,12 @@ static void
 inspect_run (WpCtl * self)
 {
   g_autoptr (WpProxy) proxy = NULL;
-  g_autoptr (WpPlugin) def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  g_autoptr (WpPlugin) def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   g_autoptr (GError) error = NULL;
   guint32 id;
 
 
-  if (!translate_id (def_nodes_api, cmdline.inspect.id, &id, &error)) {
+  if (!translate_id (def_streams_api, cmdline.inspect.id, &id, &error)) {
     fprintf(stderr, "Translate ID error: %s\n\n", error->message);
     goto out_err;
   }
@@ -1026,6 +1078,7 @@ set_default_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_default_prepare (WpCtl * self, GError ** error)
 {
+  request_default_streams (self, cmdline.set_default.id);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", (guint32) cmdline.set_default.id,
@@ -1038,19 +1091,19 @@ set_default_prepare (WpCtl * self, GError ** error)
 static void
 set_default_run (WpCtl * self)
 {
-  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  g_autoptr (WpPlugin) def_streams_api = NULL;
   g_autoptr (WpProxy) proxy = NULL;
   guint32 id;
   g_autoptr (GError) error = NULL;
   const gchar *media_class;
 
-  def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
-  if (!def_nodes_api) {
-    fprintf (stderr, "Default nodes API not loaded\n");
+  def_streams_api = wp_plugin_find (self->core, "default-streams-api");
+  if (!def_streams_api) {
+    fprintf (stderr, "Default streams API not loaded\n");
     goto out;
   }
 
-  if (!translate_id (def_nodes_api, cmdline.set_default.id, &id, &error)) {
+  if (!translate_id (def_streams_api, cmdline.set_default.id, &id, &error)) {
     fprintf(stderr, "Translate ID error: %s\n\n", error->message);
     goto out;
   }
@@ -1074,8 +1127,8 @@ set_default_run (WpCtl * self)
         goto out;
       }
 
-      g_signal_emit_by_name (def_nodes_api, "set-default-configured-node-name",
-          DEFAULT_NODE_MEDIA_CLASSES[i], name, &res);
+      g_signal_emit_by_name (def_streams_api, "set-default-configured-stream",
+          DEFAULT_NODE_MEDIA_CLASSES[i], name, NULL, &res);
       if (!res) {
         fprintf (stderr, "failed to set default node %u (media.class = %s)\n", id,
             media_class);
@@ -1142,6 +1195,7 @@ set_volume_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_volume_prepare (WpCtl * self, GError ** error)
 {
+  request_default_streams (self, cmdline.set_volume.id);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
@@ -1206,11 +1260,11 @@ static void
 set_volume_run (WpCtl * self)
 {
   g_autoptr (WpPipewireObject) proxy = NULL;
-  g_autoptr (WpPlugin) def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  g_autoptr (WpPlugin) def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   g_autoptr (GError) error = NULL;
   guint32 id;
 
-  if (!translate_id (def_nodes_api, cmdline.set_volume.id, &id, &error)) {
+  if (!translate_id (def_streams_api, cmdline.set_volume.id, &id, &error)) {
     fprintf(stderr, "Translate ID error: %s\n\n", error->message);
     goto out;
   }
@@ -1269,6 +1323,7 @@ set_mute_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_mute_prepare (WpCtl * self, GError ** error)
 {
+  request_default_streams (self, cmdline.set_mute.id);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
@@ -1320,11 +1375,11 @@ static void
 set_mute_run (WpCtl * self)
 {
   g_autoptr (WpPipewireObject) proxy = NULL;
-  g_autoptr (WpPlugin) def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  g_autoptr (WpPlugin) def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   g_autoptr (GError) error = NULL;
   guint32 id;
 
-  if (!translate_id (def_nodes_api, cmdline.set_mute.id, &id, &error)) {
+  if (!translate_id (def_streams_api, cmdline.set_mute.id, &id, &error)) {
     fprintf(stderr, "Translate ID error: %s\n\n", error->message);
     goto out;
   }
@@ -1589,6 +1644,7 @@ set_profile_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_profile_prepare (WpCtl * self, GError ** error)
 {
+  request_default_streams (self, cmdline.set_profile.id);
   wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
@@ -1598,12 +1654,13 @@ set_profile_prepare (WpCtl * self, GError ** error)
 static void
 set_profile_run (WpCtl * self)
 {
-  g_autoptr (WpPlugin) def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  g_autoptr (WpPlugin) def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   g_autoptr (WpPipewireObject) proxy = NULL;
   g_autoptr (GError) error = NULL;
   guint32 node_id;
 
-  if (!translate_id (def_nodes_api, cmdline.set_profile.id, &node_id, &error)) {
+  if (!translate_id (def_streams_api, cmdline.set_profile.id, &node_id,
+          &error)) {
     fprintf(stderr, "Translate ID error: %s\n\n", error->message);
     goto out;
   }
@@ -2079,6 +2136,7 @@ set_route_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_route_prepare (WpCtl * self, GError ** error)
 {
+  request_default_streams (self, cmdline.set_route.id);
   wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
@@ -2088,13 +2146,13 @@ set_route_prepare (WpCtl * self, GError ** error)
 static void
 set_route_run (WpCtl * self)
 {
-  g_autoptr (WpPlugin) def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  g_autoptr (WpPlugin) def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   g_autoptr (WpPipewireObject) proxy = NULL;
   g_autoptr (WpPipewireObject) device_proxy = NULL;
   g_autoptr (GError) error = NULL;
   guint32 node_id;
 
-  if (!translate_id (def_nodes_api, cmdline.set_route.id, &node_id, &error)) {
+  if (!translate_id (def_streams_api, cmdline.set_route.id, &node_id, &error)) {
     fprintf(stderr, "Translate ID error: %s\n\n", error->message);
     goto out;
   }
@@ -2171,20 +2229,20 @@ clear_default_prepare (WpCtl * self, GError ** error)
 static void
 clear_default_run (WpCtl * self)
 {
-  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  g_autoptr (WpPlugin) def_streams_api = NULL;
   gboolean res = FALSE;
 
-  def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
-  if (!def_nodes_api) {
-    fprintf (stderr, "Default nodes API not loaded\n");
+  def_streams_api = wp_plugin_find (self->core, "default-streams-api");
+  if (!def_streams_api) {
+    fprintf (stderr, "Default streams API not loaded\n");
     goto out;
   }
 
   /* clear all defaults if id was not given */
   if (cmdline.clear_default.id == SPA_ID_INVALID) {
     for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
-      g_signal_emit_by_name (def_nodes_api, "set-default-configured-node-name",
-          DEFAULT_NODE_MEDIA_CLASSES[i], NULL, &res);
+      g_signal_emit_by_name (def_streams_api, "set-default-configured-stream",
+          DEFAULT_NODE_MEDIA_CLASSES[i], NULL, NULL, &res);
       if (!res) {
         fprintf (stderr, "failed to clear default configured node (%s)\n",
             DEFAULT_NODE_MEDIA_CLASSES[i]);
@@ -2192,8 +2250,9 @@ clear_default_run (WpCtl * self)
       }
     }
   } else {
-    g_signal_emit_by_name (def_nodes_api, "set-default-configured-node-name",
-        DEFAULT_NODE_MEDIA_CLASSES[cmdline.clear_default.id], NULL, &res);
+    g_signal_emit_by_name (def_streams_api, "set-default-configured-stream",
+        DEFAULT_NODE_MEDIA_CLASSES[cmdline.clear_default.id], NULL, NULL,
+        &res);
     if (!res) {
       fprintf (stderr, "failed to clear default configured node (%s)\n",
           DEFAULT_NODE_MEDIA_CLASSES[cmdline.clear_default.id]);
@@ -2486,7 +2545,7 @@ set_log_level_prepare (WpCtl * self, GError ** error)
 static void
 set_log_level_run (WpCtl * self)
 {
-  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  g_autoptr (WpPlugin) def_streams_api = NULL;
   g_autoptr (GError) error = NULL;
   g_autoptr (WpIterator) client_it = NULL;
   g_auto (GValue) client_val = G_VALUE_INIT;
@@ -2954,8 +3013,14 @@ on_plugin_loaded (WpCore * core, GAsyncResult * res, WpCtl *ctl)
     return;
   }
 
+  on_plugin_ready (ctl);
+}
+
+static void
+on_plugin_ready (WpCtl * ctl)
+{
   if (--ctl->pending_plugins == 0) {
-    g_autoptr (WpPlugin) mixer_api = wp_plugin_find (core, "mixer-api");
+    g_autoptr (WpPlugin) mixer_api = wp_plugin_find (ctl->core, "mixer-api");
     g_object_set (mixer_api, "scale", 1 /* cubic */, NULL);
     wp_core_install_object_manager (ctl->core, ctl->om);
   }
@@ -3072,7 +3137,7 @@ main (gint argc, gchar **argv)
 
   /* load required API modules */
   ctl.pending_plugins++;
-  wp_core_load_component (ctl.core, "libwireplumber-module-default-nodes-api",
+  wp_core_load_component (ctl.core, "libwireplumber-module-default-streams-api",
       "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
   ctl.pending_plugins++;
   wp_core_load_component (ctl.core, "libwireplumber-module-mixer-api",

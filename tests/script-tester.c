@@ -418,7 +418,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "default-nodes/rescan.lua", "script/lua");
 
     load_component (f, "metadata.lua", "script/lua");
-    load_component (f, "libwireplumber-module-default-nodes-api", "module");
+    load_component (f, "libwireplumber-module-default-streams-api", "module");
 
     load_component (f, "node/suspend-node.lua", "script/lua");
 

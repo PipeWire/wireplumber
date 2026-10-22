@@ -23,9 +23,9 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-default-nodes-api',
+  'wireplumber-module-default-streams-api',
   [
-    'module-default-nodes-api.c',
+    'module-default-streams-api.c',
   ],
   install : true,
   install_dir : wireplumber_module_dir,

@@ -9,14 +9,15 @@
 --
 
 -- Load the necessary wireplumber api modules
-Core.require_api("default-nodes", "mixer", function(...)
-  local default_nodes, mixer = ...
+Core.require_api("default-streams", "mixer", function(...)
+  local default_streams, mixer = ...
 
   -- configure volumes to be printed in the cubic scale
   -- this is also what the pulseaudio API shows
   mixer.scale = "cubic"
 
-  local id = default_nodes:call("get-default-node", "Audio/Sink")
+  local stream = default_streams:call("get-default-stream", "Audio/Sink")
+  local id = stream:get_node_bound_id()
   local volume = mixer:call("get-volume", id)
 
   -- dump everything

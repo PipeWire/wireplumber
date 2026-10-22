@@ -102,7 +102,7 @@ Plugin
    Binds :c:func:`wp_plugin_find`
 
    Looks up a loaded plugin by name. This is how scripts reach the API plugins,
-   such as *standard-event-source*, *mixer-api* or *default-nodes-api*, whose
+   such as *standard-event-source*, *mixer-api* or *default-streams-api*, whose
    functionality is exposed through GObject action signals; see
    :func:`GObject.call`.
 

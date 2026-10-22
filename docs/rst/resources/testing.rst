@@ -107,7 +107,7 @@ The following examples are available:
 
   - **get-default-sink-volume.lua**: prints the volume of the default sink,
     demonstrating :ref:`Core.require_api() <lua_core_api>` with the
-    *default-nodes* and *mixer* plugins
+    *default-streams* and *mixer* plugins
   - **interactive.lua**: an interactive script that also demonstrates how
     arguments are passed to a script; it accepts a JSON object as its second
     argument, for example::

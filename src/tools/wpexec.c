@@ -96,7 +96,7 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
 
   case STEP_ACTIVATE_PLUGINS: {
     WpInitTransition *self = WP_INIT_TRANSITION (transition);
-    if (self->plugins_loaded == 2)
+    if (self->plugins_loaded == 3)
       return STEP_ACTIVATE_SCRIPT;
     else
       return STEP_ACTIVATE_PLUGINS;
@@ -151,6 +151,9 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
         "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, self);
     wp_core_load_component (core, "libwireplumber-module-standard-event-source",
         "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, self);
+    /* the streams are needed by the default streams API */
+    wp_core_load_component (core, "stream-manager", "built-in", NULL, NULL,
+        NULL, (GAsyncReadyCallback) on_plugin_loaded, self);
     break;
   }
 

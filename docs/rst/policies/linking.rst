@@ -53,6 +53,20 @@ default device nodes for all the 3 different device media classes using tools
 such as ``pavucontrol`` or ``wpctl``. The logic is implemented in the
 ``linking/find-default-target.lua`` Lua script.
 
+As a node can have several streams, the default metadata value can also
+select the default stream of the default node with an optional ``stream`` key,
+which is the port group of that stream:
+
+.. code-block::
+
+  id:0
+  key:'default.configured.audio.sink'
+  value:'{"name":"the-node-name", "stream":"the-port-group"}'
+  type:'Spa:String:JSON'
+
+If ``stream`` is not defined, or the stream cannot be linked, the first stream
+of the default node that can be linked is used instead.
+
 If there isn't any default node configured, or there is a default node
 configured but the node does not exist, WirePlumber will instead select the
 best device node available. The best device node is the node with highest

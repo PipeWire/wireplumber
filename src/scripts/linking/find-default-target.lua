@@ -4,13 +4,61 @@
 --
 -- SPDX-License-Identifier: MIT
 --
--- Check if a default stream can be picked up as target from a default node.
+-- Check if the default stream can be picked up as target, otherwise the first
+-- usable stream of the default stream node.
 
 stream_utils = require ("stream-utils")
 
 log = Log.open_topic ("s-linking")
 
-default_nodes = Plugin.find ("default-nodes-api")
+default_streams = Plugin.find ("default-streams-api")
+
+function can_use_target (stream, target)
+  -- Make sure the target stream can be linked
+  if not stream_utils.can_link (stream, target) then
+    log:debug (stream, "... cannot link, ignoring default target")
+    return false
+  end
+
+  -- Make sure target stream is compatible
+  local compatible, enc_only = stream:is_compatible (target)
+  if not compatible then
+    log:debug (stream, "... not compatible, ignoring default target")
+    return false
+  end
+
+  return true
+end
+
+function find_default_target (source, stream, target_mc)
+  local default_stream =
+      default_streams:call ("get-default-stream", target_mc)
+  if default_stream == nil then
+    log:debug (stream, "no default stream for " .. target_mc)
+    return nil
+  end
+
+  local default_node_id = default_stream:get_node_bound_id ()
+  log:debug (stream, string.format (
+      "default stream: media_class:%s stream:%d (node:%d)",
+      target_mc, default_stream.id, default_node_id))
+
+  if can_use_target (stream, default_stream) then
+    return default_stream
+  end
+
+  -- Otherwise use the first usable stream of the default stream node
+  local streams_om = source:call ("get-object-manager", "stream")
+  for target_stream in streams_om:iterate { type = "Stream" } do
+    if target_stream ~= default_stream and
+        target_stream:get_node_bound_id () == default_node_id and
+        can_use_target (stream, target_stream) then
+      return target_stream
+    end
+  end
+
+  return nil
+end
 
 SimpleEventHook {
   name = "linking/find-default-target",
@@ -41,48 +89,14 @@ SimpleEventHook {
     log:info (stream, string.format ("handling stream:%d (node:%d): %s",
         stream_id, node_id, tostring (stream_props["node.name"])))
 
-    if default_nodes ~= nil then
+    if default_streams ~= nil then
       -- Get the target node media class for this stream
       target_mc = stream_utils.get_target_media_class (stream)
       if target_mc ~= nil then
-        local target_node_id = nil
-        local streams_om = nil
-
-        -- get the default node for the target node media class
-        target_node_id = default_nodes:call ("get-default-node", target_mc)
-        log:debug (stream, string.format ("default node: media_class:%s id:%d",
-            target_mc, target_node_id))
-
-        -- find the default target stream
-        streams_om = source:call ("get-object-manager", "stream")
-        for target_stream in streams_om:iterate { type = "Stream" } do
-          local target_stream_node_id = target_stream:get_node_bound_id ()
-          if target_stream_node_id ~= target_node_id then
-            goto skip_target
-          end
-
-          -- Make sure the target stream can be linked
-          if not stream_utils.can_link (stream, target_stream) then
-            log:debug (stream, "... cannot link, ignoring default target")
-            goto skip_target
-          end
-
-          -- Make sure target stream is compatible
-          local compatible, enc_only = stream:is_compatible (target_stream)
-          if not compatible then
-            log:debug (stream, "... not compatible, ignoring default target")
-            goto skip_target
-          end
-
-          -- use this target
-          target = target_stream
-          break;
-
-          ::skip_target::
-        end
+        target = find_default_target (source, stream, target_mc)
       end
     else
-      log:debug (stream, "default nodes API module not found")
+      log:debug (stream, "default streams API module not found")
     end
 
     if target ~= nil then
