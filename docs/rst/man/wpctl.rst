@@ -92,7 +92,7 @@ set-default
 Sets the specified device node to be the default target of its kind (capture or
 playback) for new streams that require auto-connection.
 
-The selection is remembered across restarts, in the ``default-nodes``
+The selection is remembered across restarts, in the ``default-streams``
 :ref:`state file <state_locations>`, and takes precedence over the automatic,
 priority-based selection that WirePlumber would otherwise make. Use
 **clear-default** to undo it.

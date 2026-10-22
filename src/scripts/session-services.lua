@@ -13,7 +13,7 @@ local features_to_services = {
   ["monitor.libcamera"] = { "video-capture", "api.libcamera" },
   ["policy.device.profile"] = { "policy.device.profile" },
   ["policy.device.routes"] = { "policy.device.routes" },
-  ["policy.default-nodes"] = { "policy.default-nodes" },
+  ["policy.default-streams"] = { "policy.default-streams" },
   ["policy.linking.standard"] = { "policy.linking.standard" },
   ["policy.linking.role-based"] = { "policy.linking.role-based" },
 }

@@ -1,11 +1,11 @@
--- check if default keys are restored correctly by the default-nodes hooks on
+-- check if default keys are restored correctly by the default-streams hooks on
 -- bootup.
 
 -- First we create a bunch of devices and update the default.configured.* keys
 -- in other words select the default device.
 -- then reload the metadata plugin which recreates the default metadata.
--- default-node/* scripts are supposed to restore the previously selected
--- default device.
+-- default-streams/* scripts are supposed to restore the previously selected
+-- default device and stream.
 
 local tu = require ("test-utils")
 
@@ -32,7 +32,7 @@ local expected_values_table = {
 }
 
 SimpleEventHook {
-  name = "node/test-default-nodes",
+  name = "node/test-default-streams",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-added" },
@@ -48,7 +48,7 @@ SimpleEventHook {
     device_match_count = device_match_count + 1
 
     tu.default_metadata:set (0, key, "Spa:String:JSON",
-        Json.Object { ["name"] = name }:to_string ())
+        Json.Object { ["name"] = name, ["stream"] = "test-group" }:to_string ())
 
     if device_match_count == 3 then
       tu.restartPlugin ("script:metadata.lua")
@@ -58,8 +58,8 @@ SimpleEventHook {
 }:register ()
 
 metadata_added_hook = SimpleEventHook {
-  name = "test-default-nodes/metadata-added",
-  after = "default-nodes/metadata-added",
+  name = "test-default-streams/metadata-added",
+  after = "default-streams/metadata-added",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-added" },
@@ -74,8 +74,8 @@ metadata_added_hook = SimpleEventHook {
     for k, v in pairs (expected_values_table) do
       local obj = metadata:find (0, k)
       if obj then
-        local json = Json.Raw (obj)
-        if json:parse ().name == v then
+        local value = Json.Raw (obj):parse ()
+        if value.name == v and value.stream == "test-group" then
           device_match_count = device_match_count + 1
         end
       end

@@ -1,5 +1,5 @@
 scripts_doc_files_relative = [
-  'default-nodes'/'README.rst',
+  'default-streams'/'README.rst',
   'device'/'README.rst',
   'linking'/'README.rst',
 ]

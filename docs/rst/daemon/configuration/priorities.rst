@@ -12,7 +12,7 @@ lowering it is how one device is preferred over another.
    Priorities only decide the default node as long as there is no saved
    user selection. A node that was selected with ``wpctl set-default`` — or
    by any other client that sets the default, such as a desktop volume
-   applet — is remembered in the ``default-nodes``
+   applet — is remembered in the ``default-streams``
    :ref:`state file <state_locations>` and outranks every
    ``priority.session`` value on all subsequent starts, which makes changes
    to this property appear to have no effect at all. The saved selections

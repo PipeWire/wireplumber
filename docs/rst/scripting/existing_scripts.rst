@@ -10,6 +10,6 @@ information on how to extend the logic with additional custom scripts & hooks.
 .. toctree::
    :maxdepth: 1
 
-   existing_scripts/default_nodes.rst
+   existing_scripts/default_streams.rst
    existing_scripts/device.rst
    existing_scripts/linking.rst

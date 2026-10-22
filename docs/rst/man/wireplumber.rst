@@ -109,8 +109,8 @@ The remaining locations are not searched in any order:
   modules are loaded from PipeWire's own module directories instead.
 
 *$XDG_STATE_HOME*\ ``/wireplumber/``
-  Saved state: default nodes, device profiles and routes, stream properties and
-  settings that were changed at runtime. This is
+  Saved state: default streams, device profiles and routes, stream properties
+  and settings that were changed at runtime. This is
   ``~/.local/state/wireplumber/`` unless *$XDG_STATE_HOME* is set.
 
 EXIT STATUS

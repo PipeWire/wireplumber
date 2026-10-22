@@ -38,7 +38,7 @@ typedef enum {
 
 typedef enum {
   RESCAN_CONTEXT_LINKING,
-  RESCAN_CONTEXT_DEFAULT_NODES,
+  RESCAN_CONTEXT_DEFAULT_STREAMS,
   RESCAN_CONTEXT_MEDIA_ROLE_VOLUME,
   N_RESCAN_CONTEXTS,
 } RescanContext;
@@ -49,7 +49,7 @@ rescan_context_get_type (void)
   static gsize gtype_id = 0;
   static const GEnumValue values[] = {
     { RESCAN_CONTEXT_LINKING, "RESCAN_CONTEXT_LINKING", "linking" },
-    { RESCAN_CONTEXT_DEFAULT_NODES, "RESCAN_CONTEXT_DEFAULT_NODES", "default-nodes" },
+    { RESCAN_CONTEXT_DEFAULT_STREAMS, "RESCAN_CONTEXT_DEFAULT_STREAMS", "default-streams" },
     { RESCAN_CONTEXT_MEDIA_ROLE_VOLUME, "RESCAN_CONTEXT_MEDIA_ROLE_VOLUME", "media-role-volume" },
     { 0, NULL, NULL }
   };
@@ -164,7 +164,7 @@ get_default_event_priority (const gchar *event_type)
     return 500;
   if (g_str_has_prefix(event_type, "autoswitch-"))
     return 400;
-  else if (!g_strcmp0 (event_type, "rescan-for-default-nodes"))
+  else if (!g_strcmp0 (event_type, "rescan-for-default-streams"))
     return -490;
   else if (!g_strcmp0 (event_type, "rescan-for-linking"))
     return -500;

@@ -1,6 +1,6 @@
 # you need to add here any files you add to the toc directory as well
 sphinx_files += files(
-  'default_nodes.rst',
+  'default_streams.rst',
   'device.rst',
   'linking.rst',
 )

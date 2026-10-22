@@ -2,7 +2,7 @@
 
 nutils = require ("node-utils")
 
--- Mirrors the selection loop of default-nodes/find-best-default-node.
+-- Mirrors the selection loop of default-streams/find-best-default-stream.
 function elect (rankings)
   local selected = nil
 

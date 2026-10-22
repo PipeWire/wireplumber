@@ -208,12 +208,12 @@ can additionally be switched off at runtime with a setting:
   :feature: ``hooks.device.profile.autoswitch-bluetooth``
   :settings: ``bluetooth.use-persistent-storage``
 
-``default-nodes``
-  The nodes that the user has selected as the default sink, source, etc.
+``default-streams``
+  The streams that the user has selected as the default sink, source, etc.
   These selections take precedence over the automatic, priority-based
   selection; ``wpctl clear-default`` erases them.
 
-  :feature: ``hooks.default-nodes.state``
+  :feature: ``hooks.default-streams.state``
   :settings: ``node.restore-default-targets``
 
 ``default-profile``
@@ -254,8 +254,8 @@ A **feature** determines whether the script that maintains the state file is
 loaded at all. Disabling it in a profile is a static decision, taken when the
 daemon starts, and it removes everything that the script does, which may be
 more than just writing the file. For instance, disabling
-``hooks.default-nodes.state`` also stops WirePlumber from remembering the
-*previous* default node choices, which it normally uses to fall back to a
+``hooks.default-streams.state`` also stops WirePlumber from remembering the
+*previous* default stream choices, which it normally uses to fall back to a
 device that the user had preferred earlier, when the current default becomes
 unavailable. See :ref:`config_components_and_profiles` for how to disable a
 feature.
@@ -268,7 +268,7 @@ that store the *policy* state in one go:
    mixin.stateless = {
      hooks.device.profile.state = disabled
      hooks.device.routes.state = disabled
-     hooks.default-nodes.state = disabled
+     hooks.default-streams.state = disabled
      hooks.stream.state = disabled
    }
 

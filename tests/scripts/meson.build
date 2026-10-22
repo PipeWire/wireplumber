@@ -136,9 +136,9 @@ test(
 )
 
 test(
-  'scripts/default-nodes/initial-metadata-update',
+  'scripts/default-streams/initial-metadata-update',
   script_tester,
-  args: ['script-tests', 'default-nodes/initial-metadata-update.lua'],
+  args: ['script-tests', 'default-streams/initial-metadata-update.lua'],
   env: common_env,
 )
 

@@ -412,10 +412,13 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
 
     load_component (f, "libwireplumber-module-standard-event-source", "module");
 
-    load_component (f, "default-nodes/apply-default-node.lua", "script/lua");
-    load_component (f, "default-nodes/state-default-nodes.lua", "script/lua");
-    load_component (f, "default-nodes/find-best-default-node.lua", "script/lua");
-    load_component (f, "default-nodes/rescan.lua", "script/lua");
+    load_component (f, "default-streams/apply-default-stream.lua",
+        "script/lua");
+    load_component (f, "default-streams/state-default-streams.lua",
+        "script/lua");
+    load_component (f, "default-streams/find-best-default-stream.lua",
+        "script/lua");
+    load_component (f, "default-streams/rescan.lua", "script/lua");
 
     load_component (f, "metadata.lua", "script/lua");
     load_component (f, "libwireplumber-module-default-streams-api", "module");

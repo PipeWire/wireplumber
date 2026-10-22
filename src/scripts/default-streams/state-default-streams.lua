@@ -4,67 +4,81 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- the script states the default nodes from the user preferences, it has hooks
+-- the script states the default streams from the user preferences, it has hooks
 -- which stores the user preferences(it stores not just the current preference
 -- but all the previous preferences) in to the state file, retrieves them from
 -- state file during the bootup, finally it has a hook which finds a default
--- node out of the user preferences
+-- stream out of the user preferences
 
-log = Log.open_topic ("s-default-nodes")
+log = Log.open_topic ("s-default-streams")
+
 
 -- the state storage
 state = nil
 state_table = nil
 
-find_stored_default_node_hook = SimpleEventHook {
-  name = "default-nodes/find-stored-default-node",
+find_stored_default_stream_hook = SimpleEventHook {
+  name = "default-streams/find-stored-default-stream",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "select-default-node" },
+      Constraint { "event.type", "=", "select-default-stream" },
     },
   },
   execute = function (event)
     local props = event:get_properties ()
-    local available_nodes = event:get_data ("available-nodes")
-    local selected_prio = event:get_data ("selected-node-priority") or 0
-    local selected_node = event:get_data ("selected-node")
+    local available_streams = event:get_data ("available-streams")
+    local selected_prio = event:get_data ("selected-stream-priority") or 0
+    local selected_stream = nil
 
-    available_nodes = available_nodes and available_nodes:parse ()
-    if not available_nodes then
+    local available_stream_ids =
+        available_streams and available_streams:parse ()
+    if not available_stream_ids then
       return
     end
 
-    local stored = collectStored (props ["default-node.type"])
+    local stored = collectStored (props ["default-stream.type"])
 
-    -- Check if any of the available nodes matches any of the configured
-    for _, node_props in ipairs (available_nodes) do
-      local name = node_props ["node.name"]
+    -- Check if any of the available streams matches any of the configured,
+    -- which matches any stream of the node if it has no stream
+    local source = event:get_source ()
+    local streams_om = source:call ("get-object-manager", "stream")
+    for _, id in ipairs (available_stream_ids) do
+      local stream = streams_om:lookup {
+        type = "Stream",
+        Constraint { "id", "=", id, type = "gobject" },
+      }
+      if stream == nil then
+        goto next_stream
+      end
 
       for i, v in ipairs (stored) do
-        if name == v then
+        if stream:get_property ("node.name") == v.name and
+            (v.stream == nil or stream:get_port_group () == v.stream) then
           -- the position in the stack alone decides; priority.session is
           -- deliberately left out so that it cannot override the user's history
           local priority = 20001 - i
 
           if priority > selected_prio then
             selected_prio = priority
-            selected_node = name
+            selected_stream = stream
           end
 
           break
         end
       end
+
+      ::next_stream::
     end
 
-    if selected_node then
-      event:set_data ("selected-node-priority", selected_prio)
-      event:set_data ("selected-node", selected_node)
+    if selected_stream then
+      event:set_data ("selected-stream-priority", selected_prio)
+      event:set_data ("selected-stream", selected_stream)
     end
   end
 }
 
-store_configured_default_nodes_hook = SimpleEventHook {
-  name = "default-nodes/store-configured-default-nodes",
+store_configured_default_streams_hook = SimpleEventHook {
+  name = "default-streams/store-configured-default-streams",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },
@@ -77,21 +91,22 @@ store_configured_default_nodes_hook = SimpleEventHook {
   execute = function (event)
     local props = event:get_properties ()
     -- get the part after "default.configured." (= 19 chars)
-    local def_node_type = props ["event.subject.key"]:sub (20)
+    local def_stream_type = props ["event.subject.key"]:sub (20)
     local new_value = props ["event.subject.value"]
     local new_stored = {}
 
     if new_value then
-      new_value = Json.Raw (new_value):parse () ["name"]
+      local parsed = Json.Raw (new_value):parse ()
+      new_value = { ["name"] = parsed ["name"], ["stream"] = parsed ["stream"] }
     end
 
-    if new_value then
-      local stored = collectStored (def_node_type)
+    if new_value and new_value.name then
+      local stored = collectStored (def_stream_type)
       local pos = #stored + 1
 
       -- find if the current configured value is already in the stack
       for i, v in ipairs (stored) do
-        if v == new_value then
+        if v.name == new_value.name and v.stream == new_value.stream then
           pos = i
           break
         end
@@ -107,13 +122,13 @@ store_configured_default_nodes_hook = SimpleEventHook {
       end
     end
 
-    updateStored (def_node_type, new_stored)
+    updateStored (def_stream_type, new_stored)
   end
 }
 
 -- set initial values
 metadata_added_hook = SimpleEventHook {
-  name = "default-nodes/metadata-added",
+  name = "default-streams/metadata-added",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-added" },
@@ -129,23 +144,27 @@ metadata_added_hook = SimpleEventHook {
     for _, t in ipairs (types) do
       local v = state_table ["default.configured." .. t]
       if v then
-        metadata:set (0, "default.configured." .. t, "Spa:String:JSON",
-                      Json.Object { ["name"] = v }:to_string ())
+        metadata:set (0, "default.configured." .. t, "Spa:String:JSON", v)
       end
     end
   end
 }
 
--- Collect all the previously configured node names from the state file
-function collectStored (def_node_type)
+-- Collect all the previously configured streams from the state file, as
+-- tables with the node name as "name" and the port group as "stream"
+function collectStored (def_stream_type)
   local stored = {}
-  local key_base = "default.configured." .. def_node_type
+  local key_base = "default.configured." .. def_stream_type
   local key = key_base
 
   local index = 0
   repeat
     local v = state_table [key]
-    table.insert (stored, v)
+    if v then
+      local parsed = Json.Raw (v):parse ()
+      table.insert (stored,
+          { ["name"] = parsed ["name"], ["stream"] = parsed ["stream"] })
+    end
     key = key_base .. "." .. tostring (index)
     index = index + 1
   until v == nil
@@ -153,14 +172,14 @@ function collectStored (def_node_type)
   return stored
 end
 
--- Store the given node names in the state file
-function updateStored (def_node_type, stored)
-  local key_base = "default.configured." .. def_node_type
+-- Store the given streams in the state file
+function updateStored (def_stream_type, stored)
+  local key_base = "default.configured." .. def_stream_type
   local key = key_base
 
   local index = 0
   for _, v in ipairs (stored) do
-    state_table [key] = v
+    state_table [key] = Json.Object (v):to_string ()
     key = key_base .. "." .. tostring (index)
     index = index + 1
   end
@@ -178,16 +197,16 @@ end
 
 function toggleState (enable)
   if enable and not state then
-    state = State ("default-nodes")
+    state = State ("default-streams")
     state_table = state:load ()
-    find_stored_default_node_hook:register ()
-    store_configured_default_nodes_hook:register ()
+    find_stored_default_stream_hook:register ()
+    store_configured_default_streams_hook:register ()
     metadata_added_hook:register ()
   elseif not enable and state then
     state = nil
     state_table = nil
-    find_stored_default_node_hook:remove ()
-    store_configured_default_nodes_hook:remove ()
+    find_stored_default_stream_hook:remove ()
+    store_configured_default_streams_hook:remove ()
     metadata_added_hook:remove ()
   end
 end
