@@ -31,7 +31,7 @@ function get_link_info (stream_link)
     link = stream_link,
     device_stream = device_stream,
     media_role_stream = media_role_stream,
-    media_class = device_stream:get_properties ()["media.class"],
+    media_class = device_stream:get_property ("media.class"),
     priority = get_priority (device_stream),
     plugged = media_role_stream:get_creation_time (),
   }
@@ -55,7 +55,7 @@ function set_priority_media_role_link (media_class, info)
   if info then
     log:debug (string.format (
         "update priority link media role(\"%s\") priority(%d)",
-        tostring (info.media_role_stream:get_properties () ["media.role"]),
+        tostring (info.media_role_stream:get_property ("media.role")),
         info.priority))
   else
     log:debug ("clear priority media role")
@@ -115,7 +115,7 @@ function get_suspend_playback (metadata_om)
 end
 
 function set_volume (streams_om, device_stream, level)
-  local link_group = device_stream:get_properties () ["node.link-group"]
+  local link_group = device_stream:get_property ("node.link-group")
   if link_group == nil then
     return
   end
@@ -139,7 +139,7 @@ function set_volume (streams_om, device_stream, level)
 
   log:info (string.format ("... %s volume of media role node \"%s\" to %f",
       level < 1.0 and "duck" or "restore",
-      tostring (other_stream:get_properties () ["node.name"]), level))
+      tostring (other_stream:get_property ("node.name")), level))
 
   local props = {
     "Spa:Pod:Object:Param:Props",

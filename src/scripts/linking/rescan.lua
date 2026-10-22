@@ -68,7 +68,7 @@ function unlink_disabled_filters (source)
       type = "Stream",
       Constraint { "node.link-group", "+", type = "wp" },
   } do
-    local link_group = stream:get_properties () ["node.link-group"]
+    local link_group = stream:get_property ("node.link-group")
     local direction = stream_utils.get_target_direction (stream)
     if futils.is_filter_smart (direction, link_group) and
         futils.is_filter_disabled (direction, link_group) and
@@ -167,7 +167,7 @@ SimpleEventHook {
   execute = function (event)
     local source = event:get_source ()
     local stream = event:get_subject ()
-    local link_group = stream:get_properties () ["node.link-group"]
+    local link_group = stream:get_property ("node.link-group")
 
     -- Don't handle immediately if this stream has node.link-group, because it
     -- could affect others.

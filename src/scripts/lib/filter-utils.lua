@@ -31,7 +31,7 @@ local function getFilterSmart (metadata, stream)
   end
 
   -- Check stream properties
-  local prop_str = stream:get_properties () ["filter.smart"]
+  local prop_str = stream:get_property ("filter.smart")
   if prop_str ~= nil then
     return cutils.parseBool (prop_str)
   end
@@ -78,7 +78,7 @@ local function getFilterSmartDisabled (metadata, stream)
   end
 
   -- Check stream properties
-  local prop_str = stream:get_properties () ["filter.smart.disabled"]
+  local prop_str = stream:get_property ("filter.smart.disabled")
   if prop_str ~= nil then
     return cutils.parseBool (prop_str)
   end
@@ -101,7 +101,7 @@ local function getFilterSmartTargetable (metadata, stream)
   end
 
   -- Check stream properties
-  local prop_str = stream:get_properties () ["filter.smart.targetable"]
+  local prop_str = stream:get_property ("filter.smart.targetable")
   if prop_str ~= nil then
     return cutils.parseBool (prop_str)
   end
@@ -118,7 +118,7 @@ local function getFilterSmartTarget (metadata, stream, om)
     value_str = metadata:find (id, "filter.smart.target")
   end
   if value_str == nil then
-    value_str = stream:get_properties () ["filter.smart.target"]
+    value_str = stream:get_property ("filter.smart.target")
     if value_str == nil then
       return nil
     end
@@ -166,7 +166,7 @@ local function getFilterSmartTargetless (metadata, stream)
     value_str = metadata:find (id, "filter.smart.target")
   end
   if value_str == nil then
-    value_str = stream:get_properties () ["filter.smart.target"]
+    value_str = stream:get_property ("filter.smart.target")
   end
 
   return value_str == nil
@@ -180,7 +180,7 @@ local function getFilterSmartBefore (metadata, stream)
     value_str = metadata:find (id, "filter.smart.before")
   end
   if value_str == nil then
-    value_str = stream:get_properties () ["filter.smart.before"]
+    value_str = stream:get_property ("filter.smart.before")
     if value_str == nil then
       return nil
     end
@@ -202,7 +202,7 @@ local function getFilterSmartAfter (metadata, stream)
     value_str = metadata:find (id, "filter.smart.after")
   end
   if value_str == nil then
-    value_str = stream:get_properties () ["filter.smart.after"]
+    value_str = stream:get_property ("filter.smart.after")
     if value_str == nil then
       return nil
     end
@@ -479,8 +479,7 @@ function module.get_filter_from_target (direction, media_type, target_stream)
 
   -- If target_stream is a filter, find it and use its target
   if target_stream then
-    local target_link_group =
-        target_stream:get_properties () ["node.link-group"]
+    local target_link_group = target_stream:get_property ("node.link-group")
     if target_link_group ~= nil then
       local filter = nil
       for i, v in ipairs(module.filters) do

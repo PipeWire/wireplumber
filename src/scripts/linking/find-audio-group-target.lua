@@ -49,8 +49,8 @@ SimpleEventHook {
       type = "Stream",
       Constraint { "shape", "=", target_shape, type = "gobject" },
     } do
-      local target_stream_props = target_stream:get_properties ()
-      local target_audio_group = target_stream_props ["session.audio-group"]
+      local target_audio_group =
+          target_stream:get_property ("session.audio-group")
       if target_audio_group == nil or target_audio_group ~= audio_group then
         goto skip_target
       end

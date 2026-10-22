@@ -62,8 +62,7 @@ SimpleEventHook {
       end
 
       -- Make sure the intended-roles property is available
-      local target_stream_props = target_stream:get_properties ()
-      local roles_json = target_stream_props["device.intended-roles"]
+      local roles_json = target_stream:get_property ("device.intended-roles")
       if roles_json == nil then
         goto skip_target
       end

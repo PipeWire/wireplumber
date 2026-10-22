@@ -13,7 +13,6 @@ local nutils = require ("node-utils")
 local module = {}
 
 function module.get_media_type (stream)
-  local stream_props = stream:get_properties ()
   local audio_interest = Interest { type = "AudioStream" }
   local video_interest = Interest { type = "VideoStream" }
   if audio_interest:matches (stream) then
@@ -92,7 +91,6 @@ function module.can_link (stream, target)
   local function can_link_group_check (stream_link_group, target, hops)
     local target_id = target.id
     local target_dir = target:get_direction ()
-    local target_props = target:get_properties ()
 
     -- Sanity check to avoid infinite recursion
     if hops == 8 then
@@ -100,7 +98,7 @@ function module.can_link (stream, target)
     end
 
     -- Allow linking if target has no link-group property
-    local target_link_group = target_props ["node.link-group"]
+    local target_link_group = target:get_property ("node.link-group")
     if target_link_group == nil then
       return true
     end
