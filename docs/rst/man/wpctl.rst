@@ -191,12 +191,14 @@ identifies the parent device by its description and shows the active profile's
 description when available. Reported assignments identify matching active
 nodes by media class, node ID and description when that information is
 available, and include the referenced profile's description when it can be
-resolved.
+resolved. Directional arrows show the audio flow between logical devices and
+their physical routes.
 
 A reported route assignment can remain after the active profile changes. Only
 an assignment applicable to the current profile is marked with ``*`` in the
 route-choice list. The number on each route-choice line is the route index
-accepted by **set-route**; availability is shown separately.
+accepted by **set-route**; availability, direction and priority are shown
+separately.
 
 Arguments:
   *DEVICE_OR_NODE_ID*

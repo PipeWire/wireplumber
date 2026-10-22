@@ -1370,6 +1370,32 @@ availability_to_string (guint32 availability)
   }
 }
 
+static const gchar *
+direction_to_label (guint32 direction)
+{
+  switch (direction) {
+  case SPA_DIRECTION_INPUT:
+    return "[INPUT]";
+  case SPA_DIRECTION_OUTPUT:
+    return "[OUTPUT]";
+  default:
+    return "[UNKNOWN]";
+  }
+}
+
+static const gchar *
+direction_to_arrow (guint32 direction)
+{
+  switch (direction) {
+  case SPA_DIRECTION_INPUT:
+    return "└─<─ ";
+  case SPA_DIRECTION_OUTPUT:
+    return "└─>─ ";
+  default:
+    return "└─ ";
+  }
+}
+
 /* Return the same device description that the default status view uses. */
 static const gchar *
 get_device_display_name (WpPipewireObject *device)
@@ -1710,6 +1736,36 @@ collect_active_routes (WpPipewireObject *device)
   return routes;
 }
 
+/* Look up the direction associated with a reported Route assignment. */
+static guint32
+get_active_route_direction (WpPipewireObject *device,
+    const ActiveRoute *active, gint32 active_profile)
+{
+  g_autoptr (WpIterator) it =
+      wp_pipewire_object_enum_params_sync (device, "EnumRoute", NULL);
+  g_auto (GValue) val = G_VALUE_INIT;
+  gint32 profile = active->profile >= 0 ? active->profile : active_profile;
+
+  for (; it && wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpSpaPod *pod = g_value_get_boxed (&val);
+    gint32 index = -1;
+    guint32 direction = SPA_ID_INVALID;
+
+    if (!wp_spa_pod_get_object (pod, NULL,
+            "index", "i", &index,
+            "direction", "?I", &direction,
+            NULL) || index != active->index ||
+        !route_array_matches (pod, "devices", active->device) ||
+        (profile >= 0 &&
+            !route_array_matches (pod, "profiles", profile)))
+      continue;
+
+    return direction;
+  }
+
+  return SPA_ID_INVALID;
+}
+
 /*
  * Add context from active nodes that belong to this profile-device index.
  * More than one node may refer to the same index, so print every match.
@@ -1738,13 +1794,13 @@ print_logical_device_nodes (WpCtl *self, guint32 device_id,
     guint32 node_id = wp_proxy_get_bound_id (WP_PROXY (node));
 
     if (first) {
-      printf (" [");
+      printf ("[");
       if (media_class)
         printf ("%s,", media_class);
     } else {
       printf (";");
     }
-    printf ("\n\tnode %u:", node_id);
+    printf (" node %u:", node_id);
     if (name)
       printf (" %s", name);
     first = FALSE;
@@ -1901,12 +1957,15 @@ get_route_run (WpCtl *self)
   for (guint i = 0; i < active_routes->len; i++) {
     const ActiveRoute *active =
         &g_array_index (active_routes, ActiveRoute, i);
+    guint32 direction;
+
     if (filtered_logical_device >= 0 &&
         active->device != filtered_logical_device)
       continue;
-    printf ("  logical device %d", active->device);
+    direction = get_active_route_direction (dev_obj, active, active_profile);
+    printf ("  logical device %d\t", active->device);
     print_logical_device_nodes (self, device_id, active->device);
-    printf ("\n\t-> route %d", active->index);
+    printf ("\n\t%sroute %d", direction_to_arrow (direction), active->index);
     if (active->profile >= 0) {
       g_autofree gchar *profile_name =
           get_profile_display_name (dev_obj, active->profile);
@@ -1915,10 +1974,10 @@ get_route_run (WpCtl *self)
               ", not current" : "";
 
       if (profile_name)
-        printf (" (profile %d: %s%s)", active->profile, profile_name,
+        printf ("\t(profile %d: %s%s)", active->profile, profile_name,
             not_current);
       else
-        printf (" (profile %d%s)", active->profile, not_current);
+        printf ("\t(profile %d%s)", active->profile, not_current);
     }
     printf ("\n");
     configured++;
@@ -1940,12 +1999,16 @@ get_route_run (WpCtl *self)
     const gchar *name = NULL;
     const gchar *description = NULL;
     guint32 available = SPA_PARAM_AVAILABILITY_unknown;
+    guint32 direction = SPA_ID_INVALID;
+    gint32 priority = G_MININT32;
 
     if (!wp_spa_pod_get_object (pod, NULL,
             "index", "i", &index,
             "name", "?s", &name,
             "description", "?s", &description,
             "available", "?I", &available,
+            "direction", "?I", &direction,
+            "priority", "?i", &priority,
             NULL))
       continue;
 
@@ -1958,15 +2021,20 @@ get_route_run (WpCtl *self)
         continue;
     }
 
-    printf (" %c %d  %s [%s]",
+    printf (" %c %d  %-8s %s [%s]  prio=",
         route_is_active (pod, index, active_routes,
             filtered_logical_device, active_profile) ? '*' : ' ',
-        index, description ? description : (name ? name : "(unnamed)"),
+        index, direction_to_label (direction),
+        description ? description : (name ? name : "(unnamed)"),
         availability_to_string (available));
+    if (priority != G_MININT32)
+      printf ("%d", priority);
+    else
+      printf ("?");
 
     /* On full-card inventory, explain *where* each route applies. */
     if (filtered_logical_device < 0) {
-      printf ("  devices=");
+      printf (" devices=");
       print_int_array (pod, "devices");
       printf (" profiles=");
       print_int_array (pod, "profiles");
