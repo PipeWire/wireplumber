@@ -666,6 +666,17 @@ wp_impl_node_unlock (WpImplNode * self)
     wp_client_context_unlock (ctx);
 }
 
+static void
+wp_impl_node_run_in_context (WpImplNode * self,
+    WpClientContextInvokeFunc func, gpointer data)
+{
+  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
+  if (ctx)
+    wp_client_context_invoke_sync (ctx, func, data);
+  else
+    func (data);
+}
+
 static void wp_impl_node_pw_object_mixin_priv_interface_init (
     WpPwObjectMixinPrivInterface * iface);
 
@@ -714,13 +725,18 @@ wp_impl_node_dispose (GObject * object)
 }
 
 static void
+wp_impl_node_destroy_node (gpointer data)
+{
+  WpImplNode *self = WP_IMPL_NODE (data);
+  g_clear_pointer (&self->pw_impl_node, pw_impl_node_destroy);
+}
+
+static void
 wp_impl_node_finalize (GObject * object)
 {
   WpImplNode *self = WP_IMPL_NODE (object);
 
-  wp_impl_node_lock (self);
-  g_clear_pointer (&self->pw_impl_node, pw_impl_node_destroy);
-  wp_impl_node_unlock (self);
+  wp_impl_node_run_in_context (self, wp_impl_node_destroy_node, self);
 
   G_OBJECT_CLASS (wp_impl_node_parent_class)->finalize (object);
 }
