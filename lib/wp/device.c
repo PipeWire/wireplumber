@@ -225,6 +225,17 @@ wp_spa_device_unlock (WpSpaDevice * self)
     wp_client_context_unlock (ctx);
 }
 
+static void
+wp_spa_device_run_in_context (WpSpaDevice * self,
+    WpClientContextInvokeFunc func, gpointer data)
+{
+  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
+  if (ctx)
+    wp_client_context_invoke_sync (ctx, func, data);
+  else
+    func (data);
+}
+
 /*
  * TRUE if the spa_device event we are currently handling arrived on the
  * client context's loop thread, so it has to be handed over to the main
@@ -317,14 +328,19 @@ wp_spa_device_constructed (GObject *object)
 }
 
 static void
+wp_spa_device_clear_handle (gpointer data)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (data);
+  self->device = NULL;
+  g_clear_pointer (&self->handle, pw_unload_spa_handle);
+}
+
+static void
 wp_spa_device_finalize (GObject * object)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (object);
 
-  self->device = NULL;
-  wp_spa_device_lock (self);
-  g_clear_pointer (&self->handle, pw_unload_spa_handle);
-  wp_spa_device_unlock (self);
+  wp_spa_device_run_in_context (self, wp_spa_device_clear_handle, self);
 
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->last_enum_params, g_ptr_array_unref);
@@ -789,6 +805,13 @@ wp_spa_device_activate_execute_step (WpObject * object,
 }
 
 static void
+wp_spa_device_remove_listener (gpointer data)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (data);
+  spa_hook_remove (&self->listener);
+}
+
+static void
 wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
 {
   WP_OBJECT_CLASS (wp_spa_device_parent_class)->deactivate (object, features);
@@ -796,9 +819,7 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
   if (features & WP_SPA_DEVICE_FEATURE_ENABLED) {
     WpSpaDevice *self = WP_SPA_DEVICE (object);
 
-    wp_spa_device_lock (self);
-    spa_hook_remove (&self->listener);
-    wp_spa_device_unlock (self);
+    wp_spa_device_run_in_context (self, wp_spa_device_remove_listener, self);
 
     g_clear_pointer (&self->info_params, g_free);
     self->info_n_params = 0;
