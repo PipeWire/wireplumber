@@ -1299,6 +1299,16 @@ stream_get_properties (lua_State *L)
 }
 
 static int
+stream_get_property (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  const char *key = luaL_checkstring (L, 2);
+  const char *val = wp_stream_object_get_property (stream, key);
+  lua_pushstring (L, val);
+  return 1;
+}
+
+static int
 stream_get_direction (lua_State *L)
 {
   WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
@@ -1475,6 +1485,7 @@ stream_is_exclusive (lua_State *L)
 static const luaL_Reg stream_methods[] = {
   { "get_node", stream_get_node },
   { "get_properties", stream_get_properties },
+  { "get_property", stream_get_property },
   { "get_direction", stream_get_direction },
   { "get_port_group", stream_get_port_group },
   { "get_creation_time", stream_get_creation_time },

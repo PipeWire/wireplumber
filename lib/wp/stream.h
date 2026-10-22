@@ -99,6 +99,10 @@ WP_API
 WpProperties * wp_stream_get_properties (WpStream * self);
 
 WP_API
+const gchar * wp_stream_object_get_property (WpStream * self,
+    const gchar * key);
+
+WP_API
 WpDirection wp_stream_get_direction (WpStream * self);
 
 WP_API

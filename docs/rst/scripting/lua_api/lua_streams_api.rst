@@ -106,6 +106,15 @@ Stream methods
    :returns: the stream properties
    :rtype: :ref:`Properties <lua_properties_api>`
 
+.. function:: Stream.get_property(self, key)
+
+   Binds :c:func:`wp_stream_object_get_property`
+
+   :param self: the stream
+   :param string key: the property name
+   :returns: the value of the property, or nil if it does not exist
+   :rtype: string
+
 .. function:: Stream.get_direction(self)
 
    Binds :c:func:`wp_stream_get_direction`

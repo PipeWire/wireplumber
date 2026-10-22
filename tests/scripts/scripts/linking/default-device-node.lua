@@ -48,6 +48,8 @@ SimpleEventHook {
     local link = tu.getStreamLink (stream, target)
     assert (link ~= nil)
     assert (stream_props ["node.name"] == "stream-node")
+    assert (stream:get_property ("node.name") == "stream-node")
+    assert (stream:get_property ("non.existent.key") == nil)
     assert (target.properties ["node.name"] == "default-device-node")
     assert (link:get_active_features () ~= 0)
 

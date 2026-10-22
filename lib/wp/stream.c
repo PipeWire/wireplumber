@@ -423,6 +423,25 @@ wp_stream_get_properties (WpStream * self)
 }
 
 /*!
+ * \brief Gets the value of a single stream property
+ * \ingroup wpstream
+ * \param self the stream
+ * \param key the property name
+ * \returns (transfer none) (nullable): the property value, or NULL if not set
+ */
+const gchar *
+wp_stream_object_get_property (WpStream * self, const gchar * key)
+{
+  WpStreamPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_STREAM (self), NULL);
+
+  priv = wp_stream_get_instance_private (self);
+
+  return priv->properties ? wp_properties_get (priv->properties, key) : NULL;
+}
+
+/*!
  * \brief Gets the stream direction
  * \ingroup wpstream
  * \param self the stream
