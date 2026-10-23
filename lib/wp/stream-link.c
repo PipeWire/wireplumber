@@ -1091,7 +1091,7 @@ wp_audio_stream_link_init (WpAudioStreamLink * self)
  *
  * A configuration request is asynchronous, so this runs again from
  * ports-configured until nothing is left to configure. This also waits for a
- * request that something else sent, such as node/configure-ports.lua when the
+ * request that something else sent, such as stream/configure-ports.lua when the
  * stream appeared: the ports it asked for do not exist yet. With a transition,
  * that is driven by pending_transition and the transition is finished by
  * create_links(); without one, by reconfigure_stream_link(). */

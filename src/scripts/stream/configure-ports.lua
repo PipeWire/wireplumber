@@ -8,7 +8,7 @@
 cutils = require ("common-utils")
 stream_utils = require ("stream-utils")
 
-log = Log.open_topic ("s-node")
+log = Log.open_topic ("s-stream")
 
 
 function reconfigureAudioStreams ()
@@ -62,7 +62,7 @@ Settings.subscribe ("node.features.audio.*", reconfigureAudioStreams)
 -- (targets, non-autoconnect and dont-remix streams), since a node with no
 -- port configuration can't run. Already configured streams are left alone.
 SimpleEventHook {
-  name = "node/configure-ports-on-stream-added",
+  name = "stream/configure-ports-on-stream-added",
   before = "linking/stream-added-immediate",
   interests = {
     EventInterest {

@@ -438,7 +438,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "linking/prepare-stream-link.lua", "script/lua");
     load_component (f, "linking/create-stream-link.lua", "script/lua");
 
-    load_component (f, "node/configure-ports.lua", "script/lua");
+    load_component (f, "stream/configure-ports.lua", "script/lua");
 
     {
       g_autoptr (WpTestServerLocker) lock =

@@ -206,9 +206,9 @@ test(
 )
 
 test(
-  'scripts/node/audio-stream-ports-configured',
+  'scripts/stream/audio-ports-configured',
   script_tester,
-  args: ['script-tests', 'node/audio-stream-ports-configured.lua'],
+  args: ['script-tests', 'stream/audio-ports-configured.lua'],
   env: common_env,
 )
 
@@ -227,9 +227,9 @@ test(
 )
 
 test(
-  'scripts/node/audio-stream-ports-configured-no-dsp',
+  'scripts/stream/audio-ports-configured-no-dsp',
   script_tester,
-  args: ['script-tests', 'node/audio-stream-ports-configured-no-dsp.lua'],
+  args: ['script-tests', 'stream/audio-ports-configured-no-dsp.lua'],
   env: common_env,
 )
 
@@ -262,16 +262,16 @@ test(
 )
 
 test(
-  'scripts/node/audio-stream-mono-setting',
+  'scripts/stream/audio-mono-setting',
   script_tester,
-  args: ['script-tests', 'node/audio-stream-mono-setting.lua'],
+  args: ['script-tests', 'stream/audio-mono-setting.lua'],
   env: common_env,
 )
 
 test(
-  'scripts/node/configure-ports-settings',
+  'scripts/stream/configure-ports-settings',
   script_tester,
-  args: ['script-tests', 'node/configure-ports-settings.lua'],
+  args: ['script-tests', 'stream/configure-ports-settings.lua'],
   env: common_env,
 )
 
@@ -325,9 +325,9 @@ test(
 )
 
 test(
-  'scripts/node/configure-ports-relink',
+  'scripts/stream/configure-ports-relink',
   script_tester,
-  args: ['script-tests', 'node/configure-ports-relink.lua'],
+  args: ['script-tests', 'stream/configure-ports-relink.lua'],
   env: common_env,
 )
 
@@ -369,8 +369,8 @@ test(
 )
 
 test(
-  'scripts/node/configure-ports-stream-added',
+  'scripts/stream/configure-ports-stream-added',
   script_tester,
-  args: ['script-tests', 'node/configure-ports-stream-added.lua'],
+  args: ['script-tests', 'stream/configure-ports-stream-added.lua'],
   env: common_env,
 )

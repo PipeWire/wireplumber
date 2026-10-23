@@ -2577,7 +2577,7 @@ wp_audio_stream_configure_ports (WpAudioStream * self, WpSpaPod *format,
 }
 
 /* The mono setting applies to hardware audio sinks only, which is the same set
- * of streams that node/configure-ports.lua reconfigures when it changes */
+ * of streams that stream/configure-ports.lua reconfigures when it changes */
 static gboolean
 wp_audio_stream_is_hw_audio_sink (WpAudioStream * self)
 {

@@ -1,4 +1,4 @@
--- Tests that node/configure-ports.lua configures the ports of a device stream
+-- Tests that stream/configure-ports.lua configures the ports of a device stream
 -- when it appears, that it reconfigures them when a node.features.audio.*
 -- setting changes, and that it leaves alone the streams whose ports were never
 -- configured, such as a client stream that is waiting to be linked.

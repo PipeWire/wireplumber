@@ -132,7 +132,7 @@ SimpleEventHook {
     assert (not hasPort (target, "control"))
     reconfigured = true
 
-    -- node/configure-ports.lua reconfigures the whole link for this setting,
+    -- stream/configure-ports.lua reconfigures the whole link for this setting,
     -- which removes the ports the links were made of
     tu.setSetting ("node.features.audio.control-port", "true", function ()
       tu.waitUntil (function ()

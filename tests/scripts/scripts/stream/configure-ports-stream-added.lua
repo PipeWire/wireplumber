@@ -1,4 +1,4 @@
--- Tests that node/configure-ports.lua configures the ports of the new audio
+-- Tests that stream/configure-ports.lua configures the ports of the new audio
 -- streams that no link configures right away: the sink and the source of a pro
 -- audio device, which share a node.group and only run together, and a client
 -- stream that is not autoconnected.
