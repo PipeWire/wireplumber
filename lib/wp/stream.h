@@ -88,8 +88,9 @@ struct _WpStreamClass
   void (*port_added) (WpStream *self, WpPort *port);
   void (*port_removed) (WpStream *self, WpPort *port);
   void (*ports_changed) (WpStream *self);
+  void (*params_changed) (WpStream *self, const gchar *id);
 
-  WP_PADDING(5)
+  WP_PADDING(4)
 };
 
 WP_API
@@ -165,6 +166,9 @@ WpIterator *wp_stream_new_monitor_ports_iterator (WpStream *self);
 
 WP_API
 WpIterator *wp_stream_new_control_ports_iterator (WpStream *self);
+
+WP_API
+WpIterator * wp_stream_enum_params_sync (WpStream *self, const gchar * id);
 
 WP_API
 gboolean wp_stream_set_props_param (WpStream * self,

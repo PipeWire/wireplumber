@@ -213,6 +213,13 @@ test(
 )
 
 test(
+  'scripts/stream/params-changed',
+  script_tester,
+  args: ['script-tests', 'stream/params-changed.lua'],
+  env: common_env,
+)
+
+test(
   'scripts/linking/dont-fallback-no-defined-target',
   script_tester,
   args: ['script-tests', 'linking/dont-fallback-no-defined-target.lua'],

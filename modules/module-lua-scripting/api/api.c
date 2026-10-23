@@ -1483,6 +1483,15 @@ stream_is_exclusive (lua_State *L)
 }
 
 static int
+stream_iterate_params (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  const gchar *id = luaL_checkstring (L, 2);
+  WpIterator *it = wp_stream_enum_params_sync (stream, id);
+  return push_wpiterator (L, it);
+}
+
+static int
 stream_set_props_param (lua_State *L)
 {
   WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
@@ -1540,6 +1549,7 @@ static const luaL_Reg stream_methods[] = {
   { "iterate_ports", stream_iterate_ports },
   { "iterate_monitor_ports", stream_iterate_monitor_ports },
   { "iterate_control_ports", stream_iterate_control_ports },
+  { "iterate_params", stream_iterate_params },
   { "set_props_param", stream_set_props_param },
   { NULL, NULL }
 };

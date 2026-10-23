@@ -50,6 +50,8 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-stream")
  *
  * A stream emits signals when ports are added, removed, or when the port
  * configuration changes, allowing applications to react to stream topology changes.
+ * It also emits the "params-changed" signal when the Props or PropInfo params
+ * of the stream change.
  */
 
 enum {
@@ -68,6 +70,7 @@ enum
   STREAM_SIGNAL_PORT_ADDED,
   STREAM_SIGNAL_PORT_REMOVED,
   STREAM_SIGNAL_PORTS_CHANGED,
+  STREAM_SIGNAL_PARAMS_CHANGED,
   STREAM_LAST_SIGNAL,
 };
 
@@ -84,6 +87,11 @@ struct _WpStreamPrivate
   gint64 creation_time;
 
   WpObjectManager *ports_om;
+
+  /* Props and PropInfo params info */
+  GPtrArray *props_params;
+  GPtrArray *prop_info_params;
+  gulong params_changed_sigid;
 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpStream, wp_stream, WP_TYPE_OBJECT)
@@ -203,6 +211,86 @@ on_ports_changed (WpObjectManager *ports_om, WpStream * self)
   g_signal_emit (self, stream_signals[STREAM_SIGNAL_PORTS_CHANGED], 0);
 }
 
+/* Collects the param objects of this stream with the given id from the cached
+ * params of the node, or all of them if the stream has no port group, as the
+ * node then has only one stream */
+static GPtrArray *
+stream_collect_params (WpStream * self, WpNode * node, const gchar *id)
+{
+  WpStreamPrivate *priv = wp_stream_get_instance_private (self);
+  g_autoptr (WpIterator) it = NULL;
+  g_autoptr (GPtrArray) params = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  const gchar *group_key;
+
+  /* The Props and PropInfo "group" keys are not in a released pipewire yet,
+     see spa/param/props.h, so we name them by their raw ids until they are */
+  group_key = g_str_equal (id, "Props") ? "id-00000002" : "id-00000008";
+
+  it = wp_pipewire_object_enum_params_sync (WP_PIPEWIRE_OBJECT (node), id,
+      NULL);
+  if (!it)
+    return NULL;
+
+  params = g_ptr_array_new_with_free_func ((GDestroyNotify) wp_spa_pod_unref);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpSpaPod *param = g_value_get_boxed (&val);
+    const gchar *group = NULL;
+
+    if (!wp_spa_pod_is_object (param))
+      continue;
+
+    if (priv->port_group) {
+      wp_spa_pod_get_object (param, NULL, group_key, "?s", &group, NULL);
+      if (g_strcmp0 (group, priv->port_group) != 0)
+        continue;
+    }
+
+    g_ptr_array_add (params, wp_spa_pod_ref (param));
+  }
+
+  return params->len > 0 ? g_steal_pointer (&params) : NULL;
+}
+
+static gboolean
+stream_params_equal (GPtrArray *a, GPtrArray *b)
+{
+  if (a->len != b->len)
+    return FALSE;
+  for (guint i = 0; i < a->len; i++) {
+    if (!wp_spa_pod_equal (g_ptr_array_index (a, i), g_ptr_array_index (b, i)))
+      return FALSE;
+  }
+  return TRUE;
+}
+
+static void
+on_node_params_changed (WpNode * node, const gchar *param_name,
+    WpStream * self)
+{
+  WpStreamPrivate *priv = wp_stream_get_instance_private (self);
+  g_autoptr (GPtrArray) params = NULL;
+  GPtrArray **slot;
+
+  if (g_str_equal (param_name, "Props"))
+    slot = &priv->props_params;
+  else if (g_str_equal (param_name, "PropInfo"))
+    slot = &priv->prop_info_params;
+  else
+    return;
+
+  /* the node reports the params of all its streams at once, so only emit the
+   * signal if the ones of this stream changed */
+  params = stream_collect_params (self, node, param_name);
+  if (!params || (*slot && stream_params_equal (*slot, params)))
+    return;
+
+  g_clear_pointer (slot, g_ptr_array_unref);
+  *slot = g_steal_pointer (&params);
+  g_signal_emit (self, stream_signals[STREAM_SIGNAL_PARAMS_CHANGED], 0,
+      param_name);
+}
+
 static void
 on_ports_om_installed (WpObjectManager *ports_om, WpTransition * transition)
 {
@@ -254,9 +342,21 @@ wp_stream_activate_execute_step (WpObject * object,
   WpStream * self = WP_STREAM (object);
   WpStreamPrivate *priv = wp_stream_get_instance_private (self);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_autoptr (WpNode) node = NULL;
 
   switch (step) {
   case STEP_ACTIVATE: {
+    /* Get the current Props and PropInfo params and listen for their changes */
+    node = wp_stream_get_node (self);
+    if (node) {
+      g_clear_pointer (&priv->props_params, g_ptr_array_unref);
+      g_clear_pointer (&priv->prop_info_params, g_ptr_array_unref);
+      priv->props_params = stream_collect_params (self, node, "Props");
+      priv->prop_info_params = stream_collect_params (self, node, "PropInfo");
+      priv->params_changed_sigid = g_signal_connect_object (node,
+          "params-changed", G_CALLBACK (on_node_params_changed), self, 0);
+    }
+
     /* Create the ports object manager */
     g_return_if_fail (priv->ports_om == NULL);
     priv->ports_om = wp_object_manager_new ();
@@ -290,6 +390,7 @@ wp_stream_deactivate (WpObject * object, WpObjectFeatures features)
 {
   WpStream *self = WP_STREAM (object);
   guint current = wp_object_get_active_features (object);
+  g_autoptr (WpNode) node = NULL;
 
   if (features & current & WP_STREAM_FEATURE_ACTIVE) {
     WpStreamPrivate *priv = wp_stream_get_instance_private (self);
@@ -300,6 +401,14 @@ wp_stream_deactivate (WpObject * object, WpObjectFeatures features)
 
     /* Clear object manager */
     g_clear_object (&priv->ports_om);
+
+    /* Clear Props and PropInfo params info */
+    node = wp_stream_get_node (self);
+    if (node && priv->params_changed_sigid)
+      g_signal_handler_disconnect (node, priv->params_changed_sigid);
+    priv->params_changed_sigid = 0;
+    g_clear_pointer (&priv->props_params, g_ptr_array_unref);
+    g_clear_pointer (&priv->prop_info_params, g_ptr_array_unref);
   }
 
   wp_object_update_features (WP_OBJECT (self), 0, WP_OBJECT_FEATURES_ALL);
@@ -312,6 +421,8 @@ wp_stream_finalize (GObject * object)
   WpStreamPrivate *priv = wp_stream_get_instance_private (self);
 
   /* Props */
+  g_clear_pointer (&priv->props_params, g_ptr_array_unref);
+  g_clear_pointer (&priv->prop_info_params, g_ptr_array_unref);
   g_clear_pointer (&priv->port_group, g_free);
   g_clear_pointer (&priv->properties, wp_properties_unref);
   g_weak_ref_clear (&priv->node);
@@ -383,6 +494,11 @@ wp_stream_class_init (WpStreamClass * klass)
       "ports-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       G_STRUCT_OFFSET (WpStreamClass, ports_changed), NULL, NULL, NULL,
       G_TYPE_NONE, 0);
+
+  stream_signals[STREAM_SIGNAL_PARAMS_CHANGED] = g_signal_new (
+      "params-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      G_STRUCT_OFFSET (WpStreamClass, params_changed), NULL, NULL, NULL,
+      G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 /*!
@@ -919,6 +1035,43 @@ wp_stream_new_control_ports_iterator (WpStream *self)
       NULL);
   return wp_object_manager_new_filtered_iterator_full (priv->ports_om,
       g_steal_pointer (&interest));
+}
+
+/*!
+ * \brief Enumerates the cached params of the stream with the given id
+ *
+ * Only the "Props" and "PropInfo" params are cached. They are the param
+ * objects of the node that belong to this stream, which are the ones of its
+ * port group, or all of them if the stream has no port group.
+ *
+ * \ingroup wpstream
+ * \param self the stream
+ * \param id the param id to enumerate, either "Props" or "PropInfo"
+ * \returns (transfer full) (nullable): an iterator over the cached params,
+ *    or NULL if no params with this \a id are cached; the items in the
+ *    iterator are WpSpaPod
+ */
+WpIterator *
+wp_stream_enum_params_sync (WpStream *self, const gchar * id)
+{
+  WpStreamPrivate *priv;
+  GPtrArray *params = NULL;
+
+  g_return_val_if_fail (WP_IS_STREAM (self), NULL);
+  g_return_val_if_fail (id, NULL);
+
+  priv = wp_stream_get_instance_private (self);
+  if (g_str_equal (id, "Props"))
+    params = priv->props_params;
+  else if (g_str_equal (id, "PropInfo"))
+    params = priv->prop_info_params;
+  if (!params)
+    return NULL;
+
+  /* copy, so that the iterator is not affected by later param changes */
+  return wp_iterator_new_ptr_array (
+      g_ptr_array_copy (params, (GCopyFunc) wp_spa_pod_ref, NULL),
+      WP_TYPE_SPA_POD);
 }
 
 

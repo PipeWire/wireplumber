@@ -72,6 +72,11 @@ with :func:`GObject.connect`:
    after the ``port-added`` and ``port-removed`` signals of that change, and is
    the right place to react to the stream's new shape.
 
+``params-changed`` (self, id)
+   The Props or PropInfo param of the stream changed. *id* is the name of the
+   param that changed, either ``"Props"`` or ``"PropInfo"``. The new param
+   objects can be retrieved with :func:`Stream.iterate_params`.
+
 An ``AudioStream`` emits two more, which report the outcome of a port
 configuration this stream asked for:
 
@@ -261,6 +266,17 @@ Stream methods
    :param self: the stream
    :returns: the ports of that kind
    :rtype: :ref:`Iterator <lua_iterator_api>` of Port
+
+.. function:: Stream.iterate_params(self, param_name)
+
+   Binds :c:func:`wp_stream_enum_params_sync`
+
+   :param self: the stream
+   :param string param_name: the param name to enumerate, either "Props" or
+                             "PropInfo"
+   :returns: the cached param objects of the stream, which are the ones of its
+             port group, or all of them if the stream has no port group
+   :rtype: :ref:`Iterator <lua_iterator_api>`; the iteration items are Spa Pod objects
 
 .. function:: Stream.set_props_param(self, props)
 
