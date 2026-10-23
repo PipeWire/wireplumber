@@ -295,14 +295,16 @@ previous section: :ref:`config_configuration_option_types`.
    When a client (i.e. application) stream is manually moved to a different
    target node (e.g. via pavucontrol), the target node is stored by WirePlumber.
    If this setting is enabled, WirePlumber will restore the previously stored
-   target node when the stream is activated.
+   target node when the stream is activated. The target is stored separately
+   for each stream of a node.
 
    .. note::
 
       This does not restore manual links made by patchbay applications. This
-      is only meant to restore the ``target.object`` property in the "default"
-      metadata, which is manipulated by applications such as pavucontrol when
-      a stream is moved to a different target.
+      is only meant to restore the ``target.object`` and
+      ``target.stream.<port-group>`` keys in the "default" metadata, which are
+      manipulated by applications such as pavucontrol when a stream is moved
+      to a different target.
 
    :Default value: ``true``
    :See also: ``linking.allow-moving-streams``

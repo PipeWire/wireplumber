@@ -237,12 +237,19 @@ can additionally be switched off at runtime with a setting:
   :feature: ``metadata.sm-settings``
   :settings: *none*
 
-``stream-properties``
-  The volume, mute state and target node of each stream, stored per
-  application.
+``stream-props``
+  The volume, mute state and channel map of each audio stream, stored per
+  application and port group.
 
-  :feature: ``hooks.stream.state``
-  :settings: ``node.stream.restore-props``, ``node.stream.restore-target``
+  :feature: ``hooks.stream.state-props``
+  :settings: ``node.stream.restore-props``
+
+``stream-target``
+  The target node and target stream of each stream, stored per application
+  and port group.
+
+  :feature: ``hooks.stream.state-target``
+  :settings: ``node.stream.restore-target``
 
 Disabling state storage
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -260,7 +267,7 @@ device that the user had preferred earlier, when the current default becomes
 unavailable. See :ref:`config_components_and_profiles` for how to disable a
 feature.
 
-For convenience, the ``mixin.stateless`` profile disables all four features
+For convenience, the ``mixin.stateless`` profile disables all five features
 that store the *policy* state in one go:
 
 .. code-block:: none
@@ -269,7 +276,8 @@ that store the *policy* state in one go:
      hooks.device.profile.state = disabled
      hooks.device.routes.state = disabled
      hooks.default-streams.state = disabled
-     hooks.stream.state = disabled
+     hooks.stream.state-props = disabled
+     hooks.stream.state-target = disabled
    }
 
 It is meant to be inherited by other profiles, as the built-in
@@ -308,7 +316,7 @@ Resetting the state
 Deleting the state directory brings WirePlumber back to a clean state: on the
 next start, the components that read these files find nothing and fall back to
 their defaults. Individual files may also be deleted, in order to forget only
-one kind of state; removing ``stream-properties``, for example, resets the
+one kind of state; removing ``stream-props``, for example, resets the
 volumes that were remembered per application, but leaves the default node and
 device profile selections intact.
 

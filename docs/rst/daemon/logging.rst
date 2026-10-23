@@ -29,6 +29,7 @@ message is coming from. Well-known topics include:
    - **s-linking**: messages from the *linking/\*.lua* scripts
    - **s-default-streams**: messages from the *default-streams/\*.lua* scripts
    - **s-device**: messages from the *device/\*.lua* scripts
+   - **s-stream**: messages from the *stream/\*.lua* scripts
    - **s-monitors**: messages from the *monitors/\*.lua* scripts
    - ... and so on ...
 
