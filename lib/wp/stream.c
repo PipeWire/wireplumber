@@ -922,6 +922,106 @@ wp_stream_new_control_ports_iterator (WpStream *self)
 }
 
 
+/*!
+ * \brief Sets the Props param of the stream's node from a list of properties.
+ *
+ * See wp_stream_set_props_param_array()
+ *
+ * \ingroup wpstream
+ * \param self the stream
+ * \param first_prop the name of the first property, such as "volume"
+ * \param ... the value of the first property as a (transfer none) WpSpaPod,
+ *   followed by other name/value pairs, terminated with NULL
+ * \returns TRUE if the param was set, FALSE otherwise
+ */
+gboolean
+wp_stream_set_props_param (WpStream * self, const gchar *first_prop, ...)
+{
+  va_list args;
+  gboolean res;
+
+  va_start (args, first_prop);
+  res = wp_stream_set_props_param_valist (self, first_prop, args);
+  va_end (args);
+  return res;
+}
+
+/*!
+ * \brief The va_list version of wp_stream_set_props_param()
+ *
+ * \ingroup wpstream
+ * \param self the stream
+ * \param first_prop the name of the first property, such as "volume"
+ * \param args the value of the first property as a (transfer none) WpSpaPod,
+ *   followed by other name/value pairs, terminated with NULL
+ * \returns TRUE if the param was set, FALSE otherwise
+ */
+gboolean
+wp_stream_set_props_param_valist (WpStream * self,
+    const gchar *first_prop, va_list args)
+{
+  g_autoptr (GPtrArray) names = g_ptr_array_new ();
+  g_autoptr (GPtrArray) values = g_ptr_array_new ();
+
+  for (const gchar *prop = first_prop; prop;
+      prop = va_arg (args, const gchar *)) {
+    g_ptr_array_add (names, (gpointer) prop);
+    g_ptr_array_add (values, va_arg (args, WpSpaPod *));
+  }
+
+  return wp_stream_set_props_param_array (self, names->len,
+      (const gchar * const *) names->pdata, (WpSpaPod * const *) values->pdata);
+}
+
+/*!
+ * \brief Sets the Props param of the stream's node.
+ *
+ * If the stream has a port group, the param is set with it, so that the node
+ * only applies the props to this stream.
+ *
+ * \ingroup wpstream
+ * \param self the stream
+ * \param n_props the number of properties
+ * \param names (array length=n_props): the names of the properties, such as
+ *   "volume"
+ * \param values (array length=n_props) (transfer none): the values of the
+ *   properties
+ * \returns TRUE if the param was set, FALSE otherwise
+ */
+gboolean
+wp_stream_set_props_param_array (WpStream * self, guint n_props,
+    const gchar * const *names, WpSpaPod * const *values)
+{
+  g_autoptr (WpNode) node = NULL;
+  g_autoptr (WpSpaPodBuilder) b = NULL;
+  const gchar *port_group;
+
+  g_return_val_if_fail (WP_IS_STREAM (self), FALSE);
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
+      WP_STREAM_FEATURE_ACTIVE, FALSE);
+  g_return_val_if_fail (n_props > 0 && names && values, FALSE);
+
+  node = wp_stream_get_node (self);
+  g_return_val_if_fail (node, FALSE);
+
+  b = wp_spa_pod_builder_new_object ("Spa:Pod:Object:Param:Props", "Props");
+  port_group = wp_stream_get_port_group (self);
+  if (port_group)
+    /* The Props "group" key is not in a released pipewire yet, see
+       spa/param/props.h, so we name it by its raw id until it is */
+    wp_spa_pod_builder_add (b, "id-00000002", "s", port_group, NULL);
+
+  for (guint i = 0; i < n_props; i++) {
+    g_return_val_if_fail (names[i] && values[i], FALSE);
+    wp_spa_pod_builder_add_property (b, names[i]);
+    wp_spa_pod_builder_add_pod (b, values[i]);
+  }
+
+  return wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (node), "Props", 0,
+      wp_spa_pod_builder_end (b));
+}
+
+
 /* Audio Stream */
 
 enum

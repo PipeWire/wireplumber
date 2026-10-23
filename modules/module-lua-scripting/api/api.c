@@ -1482,6 +1482,39 @@ stream_is_exclusive (lua_State *L)
   return 1;
 }
 
+static int
+stream_set_props_param (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  g_autoptr (GPtrArray) names = NULL;
+  g_autoptr (GPtrArray) values = NULL;
+
+  luaL_checktype (L, 2, LUA_TTABLE);
+
+  /* validate first, as raising a Lua error would leak the arrays */
+  lua_pushnil (L);
+  while (lua_next (L, 2)) {
+    if (lua_type (L, -2) != LUA_TSTRING)
+      luaL_error (L, "set_props_param: the table keys must be the prop names");
+    wplua_checkboxed (L, -1, WP_TYPE_SPA_POD);
+    lua_pop (L, 1);
+  }
+
+  /* the strings and pods stay referenced by the table while we use them */
+  names = g_ptr_array_new ();
+  values = g_ptr_array_new ();
+  lua_pushnil (L);
+  while (lua_next (L, 2)) {
+    g_ptr_array_add (names, (gpointer) lua_tostring (L, -2));
+    g_ptr_array_add (values, wplua_toboxed (L, -1));
+    lua_pop (L, 1);
+  }
+
+  lua_pushboolean (L, wp_stream_set_props_param_array (stream, names->len,
+      (const gchar * const *) names->pdata, (WpSpaPod * const *) values->pdata));
+  return 1;
+}
+
 static const luaL_Reg stream_methods[] = {
   { "get_node", stream_get_node },
   { "get_properties", stream_get_properties },
@@ -1507,6 +1540,7 @@ static const luaL_Reg stream_methods[] = {
   { "iterate_ports", stream_iterate_ports },
   { "iterate_monitor_ports", stream_iterate_monitor_ports },
   { "iterate_control_ports", stream_iterate_control_ports },
+  { "set_props_param", stream_set_props_param },
   { NULL, NULL }
 };
 

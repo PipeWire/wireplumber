@@ -166,6 +166,18 @@ WpIterator *wp_stream_new_monitor_ports_iterator (WpStream *self);
 WP_API
 WpIterator *wp_stream_new_control_ports_iterator (WpStream *self);
 
+WP_API
+gboolean wp_stream_set_props_param (WpStream * self,
+    const gchar *first_prop, ...) G_GNUC_NULL_TERMINATED;
+
+WP_API
+gboolean wp_stream_set_props_param_valist (WpStream * self,
+    const gchar *first_prop, va_list args);
+
+WP_API
+gboolean wp_stream_set_props_param_array (WpStream * self, guint n_props,
+    const gchar * const *names, WpSpaPod * const *values);
+
 
 /*!
  * \brief The WpAudioStream GType

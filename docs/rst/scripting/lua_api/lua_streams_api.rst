@@ -262,6 +262,26 @@ Stream methods
    :returns: the ports of that kind
    :rtype: :ref:`Iterator <lua_iterator_api>` of Port
 
+.. function:: Stream.set_props_param(self, props)
+
+   Binds :c:func:`wp_stream_set_props_param_array`
+
+   Sets the Props param of the stream's node, with the stream's port group, if
+   any, so that the node only applies the props to this stream.
+
+   .. code-block:: lua
+
+      stream:set_props_param {
+        volume = Pod.Float (1.0),
+        mute = Pod.Boolean (false),
+      }
+
+   :param self: the stream
+   :param table props: the :ref:`Spa Pod <lua_spa_pod>` values of the props,
+      indexed by their names
+   :returns: whether the param was set
+   :rtype: boolean
+
 AudioStream methods
 -------------------
 
