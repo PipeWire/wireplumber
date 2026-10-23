@@ -343,6 +343,16 @@ on_params_changed (WpPipewireObject *obj, const gchar *id,
 }
 
 static void
+on_stream_params_changed (WpStream *obj, const gchar *id,
+    WpStandardEventSource *self)
+{
+  g_autoptr (WpProperties) properties = wp_properties_new_empty ();
+  wp_properties_set (properties, "event.subject.param-id", id);
+
+  wp_standard_event_source_push_event (self, "params-changed", obj, properties);
+}
+
+static void
 on_node_state_changed (WpNode *obj, WpNodeState old_state,
     WpNodeState new_state, WpStandardEventSource *self)
 {
@@ -371,6 +381,10 @@ on_object_added (WpObjectManager *om, WpObject *obj, WpStandardEventSource *self
   if (WP_IS_NODE (obj)) {
     g_signal_connect_object (obj, "state-changed",
         G_CALLBACK (on_node_state_changed), self, 0);
+  }
+  else if (WP_IS_STREAM (obj)) {
+    g_signal_connect_object (obj, "params-changed",
+        G_CALLBACK (on_stream_params_changed), self, 0);
   }
   else if (WP_IS_METADATA (obj)) {
     g_signal_connect_object (obj, "changed",
