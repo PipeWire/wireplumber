@@ -1,4 +1,4 @@
--- Tests that node.features.audio.mono only applies to hardware audio sinks.
+-- Tests that stream.features.audio.mono only applies to hardware audio sinks.
 -- The device node here is a null-audio-sink, so enabling the setting must not
 -- configure its stream in mono.
 
@@ -26,7 +26,7 @@ SimpleEventHook {
     end
     started = true
 
-    tu.setSetting ("node.features.audio.mono", "true", function ()
+    tu.setSetting ("stream.features.audio.mono", "true", function ()
       stream:connect ("ports-configured", function ()
         local format = stream:get_ports_format ():parse ()
 

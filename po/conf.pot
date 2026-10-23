@@ -173,102 +173,102 @@ msgstr ""
 msgid "Discovery timeout"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.features.audio.control-port/description
+#. /wireplumber.settings.schema/stream.default-capture-volume/description
 #: wireplumber.conf
-msgid "Enable control ports on audio nodes"
+msgid "The default volume for capture streams"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.features.audio.control-port/name
-#: wireplumber.conf
-msgid "Control ports"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.features.audio.monitor-ports/description
-#: wireplumber.conf
-msgid "Enable monitor ports on audio nodes"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.features.audio.monitor-ports/name
-#: wireplumber.conf
-msgid "Monitor ports"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.features.audio.mono/description
-#: wireplumber.conf
-msgid "Configure all audio device sink nodes in MONO"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.features.audio.mono/name
-#: wireplumber.conf
-msgid "Mono"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.features.audio.no-dsp/description
-#: wireplumber.conf
-msgid "Do not convert audio to F32 format"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.features.audio.no-dsp/name
-#: wireplumber.conf
-msgid "No DSP"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.restore-default-targets/description
-#: wireplumber.conf
-msgid "Remember and restore default audio/video input/output devices"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.restore-default-targets/name
-#: wireplumber.conf
-msgid "Restore default target"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.stream.default-capture-volume/description
-#: wireplumber.conf
-msgid "The default volume for capture nodes"
-msgstr ""
-
-#. /wireplumber.settings.schema/node.stream.default-capture-volume/name
+#. /wireplumber.settings.schema/stream.default-capture-volume/name
 #: wireplumber.conf
 msgid "Default capture volume"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.stream.default-media-role/description
+#. /wireplumber.settings.schema/stream.default-media-role/description
 #: wireplumber.conf
 msgid "Default media.role to assign on streams that do not specify it"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.stream.default-media-role/name
+#. /wireplumber.settings.schema/stream.default-media-role/name
 #: wireplumber.conf
 msgid "Default media role"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.stream.default-playback-volume/description
+#. /wireplumber.settings.schema/stream.default-playback-volume/description
 #: wireplumber.conf
-msgid "The default volume for playback nodes"
+msgid "The default volume for playback streams"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.stream.default-playback-volume/name
+#. /wireplumber.settings.schema/stream.default-playback-volume/name
 #: wireplumber.conf
 msgid "Default playback volume"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.stream.restore-props/description
+#. /wireplumber.settings.schema/stream.features.audio.control-port/description
+#: wireplumber.conf
+msgid "Enable control ports on audio streams"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.features.audio.control-port/name
+#: wireplumber.conf
+msgid "Control ports"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.features.audio.monitor-ports/description
+#: wireplumber.conf
+msgid "Enable monitor ports on audio streams"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.features.audio.monitor-ports/name
+#: wireplumber.conf
+msgid "Monitor ports"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.features.audio.mono/description
+#: wireplumber.conf
+msgid "Configure all audio device sink streams in MONO"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.features.audio.mono/name
+#: wireplumber.conf
+msgid "Mono"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.features.audio.no-dsp/description
+#: wireplumber.conf
+msgid "Do not convert audio to F32 format"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.features.audio.no-dsp/name
+#: wireplumber.conf
+msgid "No DSP"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.restore-default-targets/description
+#: wireplumber.conf
+msgid "Remember and restore default audio/video input/output devices"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.restore-default-targets/name
+#: wireplumber.conf
+msgid "Restore default target"
+msgstr ""
+
+#. /wireplumber.settings.schema/stream.restore-props/description
 #: wireplumber.conf
 msgid "Remember and restore properties of streams"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.stream.restore-props/name
+#. /wireplumber.settings.schema/stream.restore-props/name
 #: wireplumber.conf
 msgid "Restore properties"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.stream.restore-target/description
+#. /wireplumber.settings.schema/stream.restore-target/description
 #: wireplumber.conf
 msgid "Remember and restore stream targets"
 msgstr ""
 
-#. /wireplumber.settings.schema/node.stream.restore-target/name
+#. /wireplumber.settings.schema/stream.restore-target/name
 #: wireplumber.conf
 msgid "Restore target"
 msgstr ""

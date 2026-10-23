@@ -56,7 +56,7 @@ function reconfigureAudioStreams ()
   end
 end
 
-Settings.subscribe ("node.features.audio.*", reconfigureAudioStreams)
+Settings.subscribe ("stream.features.audio.*", reconfigureAudioStreams)
 
 -- Configures the ports of new audio streams that are not linked right away
 -- (targets, non-autoconnect and dont-remix streams), since a node with no

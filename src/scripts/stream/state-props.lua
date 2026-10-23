@@ -325,9 +325,9 @@ function buildDefaultChannelVolumes (stream, stream_props)
   if str ~= nil then
     def_vol = tonumber (str)
   elseif direction == "input" then
-    def_vol = Settings.get_float ("node.stream.default-capture-volume")
+    def_vol = Settings.get_float ("stream.default-capture-volume")
   elseif direction == "output" then
-    def_vol = Settings.get_float ("node.stream.default-playback-volume")
+    def_vol = Settings.get_float ("stream.default-playback-volume")
   end
 
   -- the Format of the node is the one of its only stream if the stream has no
@@ -447,7 +447,7 @@ function toggleState (enable)
   end
 end
 
-Settings.subscribe ("node.stream.restore-props", function ()
-  toggleState (Settings.get_boolean ("node.stream.restore-props"))
+Settings.subscribe ("stream.restore-props", function ()
+  toggleState (Settings.get_boolean ("stream.restore-props"))
 end)
-toggleState (Settings.get_boolean ("node.stream.restore-props"))
+toggleState (Settings.get_boolean ("stream.restore-props"))

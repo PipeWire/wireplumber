@@ -98,7 +98,7 @@ StreamLink methods
 
    Configures the ports of both streams again and recreates the links. Use this
    when something the port configuration depends on has changed, such as a
-   ``node.features.audio.*`` setting. Configuring one of the two streams
+   ``stream.features.audio.*`` setting. Configuring one of the two streams
    directly is not equivalent: the two have to agree on one configuration, and
    it is the stream link that decides which one that is.
 

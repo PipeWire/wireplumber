@@ -1,5 +1,5 @@
 -- Tests that stream/configure-ports.lua configures the ports of a device stream
--- when it appears, that it reconfigures them when a node.features.audio.*
+-- when it appears, that it reconfigures them when a stream.features.audio.*
 -- setting changes, and that it leaves alone the streams whose ports were never
 -- configured, such as a client stream that is waiting to be linked.
 
@@ -17,7 +17,7 @@ local started = false
 local function reconfigureStreams (device, client)
   assert (client:get_ports_state () == AudioStreamPortsState.UNCONFIGURED)
 
-  tu.setSetting ("node.features.audio.monitor-ports", "false", function ()
+  tu.setSetting ("stream.features.audio.monitor-ports", "false", function ()
     tu.waitUntil (function ()
       return not device:has_monitor_ports_enabled ()
     end, function ()

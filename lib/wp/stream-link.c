@@ -1011,9 +1011,9 @@ wp_stream_link_is_reconfiguring (WpStreamLink *self)
  * \brief Configures the ports of both streams again and recreates the links.
  *
  * Use this when something that the port configuration depends on has changed,
- * such as a node.features.audio.* setting. Configuring the ports of one of the
- * two streams directly is not equivalent: the two streams have to agree on one
- * configuration, and it is this object that decides which one that is.
+ * such as a stream.features.audio.* setting. Configuring the ports of one of
+ * the two streams directly is not equivalent: the two streams have to agree on
+ * one configuration, and it is this object that decides which one that is.
  *
  * Nothing is done, and FALSE is returned, for a stream link that is not active
  * yet, one whose links were only adopted from the graph and one whose media

@@ -164,7 +164,7 @@ previous section: :ref:`config_configuration_option_types`.
        Please use the ``target.object`` key instead.
 
    :Default value: ``true``
-   :See also: ``node.stream.restore-target``
+   :See also: ``stream.restore-target``
 
 .. describe:: linking.follow-default-target
 
@@ -232,9 +232,9 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``false``
 
-.. describe:: node.features.audio.no-dsp
+.. describe:: stream.features.audio.no-dsp
 
-   When this option is set to ``true``, audio nodes will not be configured
+   When this option is set to ``true``, audio streams will not be configured
    in dsp mode, meaning that their channels will *not* be split into separate
    ports and that the audio data will *not* be converted to the float 32 format
    (F32P). Instead, devices will be configured in passthrough mode and streams
@@ -252,35 +252,36 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``false``
 
-.. describe:: node.features.audio.monitor-ports
+.. describe:: stream.features.audio.monitor-ports
 
-   This enables the creation of "monitor" ports for audio nodes. Monitor ports
-   are created on nodes that have input ports (i.e. sinks and capture streams)
-   and allow monitoring of the audio data that is being sent to the node.
+   This enables the creation of "monitor" ports for audio streams. Monitor
+   ports are created on streams that have input ports (i.e. sinks and capture
+   streams) and allow monitoring of the audio data that is being sent to the
+   stream.
 
    This is mostly used by monitoring applications, such as pavucontrol.
 
    :Default value: ``true``
 
-.. describe:: node.features.audio.control-port
+.. describe:: stream.features.audio.control-port
 
-   This enables the creation of a "control" port for audio nodes. Control ports
-   allow sending MIDI data to the node, allowing for control of certain node's
-   parameters (such as volume) via external controllers.
+   This enables the creation of a "control" port for audio streams. Control
+   ports allow sending MIDI data to the stream, allowing for control of certain
+   stream's parameters (such as volume) via external controllers.
 
    :Default value: ``false``
 
-.. describe:: node.features.audio.mono
+.. describe:: stream.features.audio.mono
 
-   When enabled, audio device *sink* nodes are configured with a single mono
+   When enabled, audio device *sink* streams are configured with a single mono
    channel instead of their native channel layout.
 
    This only applies to ALSA PCM sinks and Bluetooth A2DP sinks; it does not
-   affect sources or streams.
+   affect sources or client streams.
 
    :Default value: ``false``
 
-.. describe:: node.stream.restore-props
+.. describe:: stream.restore-props
 
    WirePlumber stores stream parameters such as volume and mute status for each
    client (i.e. application) stream. If this setting is enabled, WirePlumber
@@ -290,7 +291,7 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``true``
 
-.. describe:: node.stream.restore-target
+.. describe:: stream.restore-target
 
    When a client (i.e. application) stream is manually moved to a different
    target node (e.g. via pavucontrol), the target node is stored by WirePlumber.
@@ -309,25 +310,25 @@ previous section: :ref:`config_configuration_option_types`.
    :Default value: ``true``
    :See also: ``linking.allow-moving-streams``
 
-.. describe:: node.stream.default-playback-volume
+.. describe:: stream.default-playback-volume
 
    The default volume for playback streams to be applied when the stream is
-   activated. This is only applied when ``node.stream.restore-props`` is
+   activated. This is only applied when ``stream.restore-props`` is
    ``true`` and the stream does not have a previously stored volume.
 
    :Default value: ``1.0``
    :Range: ``0.0`` to ``1.0``
 
-.. describe:: node.stream.default-capture-volume
+.. describe:: stream.default-capture-volume
 
    The default volume for capture streams to be applied when the stream is
-   activated. This is only applied when ``node.stream.restore-props`` is
+   activated. This is only applied when ``stream.restore-props`` is
    ``true`` and the stream does not have a previously stored volume.
 
    :Default value: ``1.0``
    :Range: ``0.0`` to ``1.0``
 
-.. describe:: node.stream.default-media-role
+.. describe:: stream.default-media-role
 
    A ``media.role`` to assign to streams that do not declare one themselves.
    Streams that already have a ``media.role`` property are left alone.
@@ -339,7 +340,7 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``null`` (no role is assigned)
 
-.. describe:: node.restore-default-targets
+.. describe:: stream.restore-default-targets
 
    This setting enables WirePlumber to store and restore the "default" source
    and sink targets of the graph. In PulseAudio terminology, this is also known

@@ -7,8 +7,8 @@ Stream configuration
 WirePlumber remembers their volume, mute state, channel map and target device,
 and restores them the next time the same application appears.
 
-The settings that control this globally — ``node.stream.restore-props``,
-``node.stream.restore-target`` and the default volumes — are described in
+The settings that control this globally — ``stream.restore-props``,
+``stream.restore-target`` and the default volumes — are described in
 :ref:`config_settings`. This page describes how to override that behaviour for
 individual streams.
 
@@ -48,20 +48,20 @@ on its own nodes.
 .. describe:: state.restore-props
 
    Set to ``false`` to prevent WirePlumber from restoring this stream's volume,
-   mute state and channel map, even when ``node.stream.restore-props`` is
+   mute state and channel map, even when ``stream.restore-props`` is
    enabled globally.
 
 .. describe:: state.restore-target
 
    Set to ``false`` to prevent WirePlumber from restoring the target device
-   this stream was last linked to, even when ``node.stream.restore-target`` is
+   this stream was last linked to, even when ``stream.restore-target`` is
    enabled globally.
 
 .. describe:: state.default-volume
 
    The volume to give this stream when it has no previously stored volume.
-   Overrides ``node.stream.default-playback-volume`` and
-   ``node.stream.default-capture-volume`` for this stream.
+   Overrides ``stream.default-playback-volume`` and
+   ``stream.default-capture-volume`` for this stream.
 
 Examples
 --------

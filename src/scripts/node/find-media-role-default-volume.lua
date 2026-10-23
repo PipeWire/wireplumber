@@ -15,7 +15,7 @@ function findHighestPriorityRoleNode (node_om)
   local best_role = nil
   local best_prio = 0
 
-  local default_role = Settings.get ("node.stream.default-media-role")
+  local default_role = Settings.get ("stream.default-media-role")
   if default_role then
     default_role = default_role:parse()
   end

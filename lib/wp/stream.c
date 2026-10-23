@@ -2615,23 +2615,23 @@ wp_audio_stream_resolve_ports_config (WpAudioStream * self, WpCore * core,
   settings = wp_settings_find (core, NULL);
   if (settings) {
     g_autoptr (WpSpaJson) val = NULL;
-    val = wp_settings_get (settings, "node.features.audio.monitor-ports");
+    val = wp_settings_get (settings, "stream.features.audio.monitor-ports");
     if (val)
       wp_spa_json_parse_boolean (val, monitor_ports);
     g_clear_pointer (&val, wp_spa_json_unref);
 
-    val = wp_settings_get (settings, "node.features.audio.control-port");
+    val = wp_settings_get (settings, "stream.features.audio.control-port");
     if (val)
       wp_spa_json_parse_boolean (val, control_port);
     g_clear_pointer (&val, wp_spa_json_unref);
 
-    val = wp_settings_get (settings, "node.features.audio.no-dsp");
+    val = wp_settings_get (settings, "stream.features.audio.no-dsp");
     if (val)
       wp_spa_json_parse_boolean (val, &no_dsp);
     g_clear_pointer (&val, wp_spa_json_unref);
 
     if (wp_audio_stream_is_hw_audio_sink (self)) {
-      val = wp_settings_get (settings, "node.features.audio.mono");
+      val = wp_settings_get (settings, "stream.features.audio.mono");
       if (val)
         wp_spa_json_parse_boolean (val, mono_only);
       g_clear_pointer (&val, wp_spa_json_unref);

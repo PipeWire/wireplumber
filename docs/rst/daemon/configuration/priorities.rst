@@ -19,7 +19,7 @@ lowering it is how one device is preferred over another.
    are listed in the "Default Configured Devices" section of
    ``wpctl status``; ``wpctl clear-default`` forgets them and lets the
    priorities decide again. To stop selections from being remembered at all,
-   disable ``node.restore-default-targets`` (see :ref:`config_settings`).
+   disable ``stream.restore-default-targets`` (see :ref:`config_settings`).
 
 Setting the priority
 --------------------

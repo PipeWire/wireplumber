@@ -211,7 +211,7 @@ function toggleState (enable)
   end
 end
 
-Settings.subscribe ("node.restore-default-targets", function ()
-  toggleState (Settings.get_boolean ("node.restore-default-targets"))
+Settings.subscribe ("stream.restore-default-targets", function ()
+  toggleState (Settings.get_boolean ("stream.restore-default-targets"))
 end)
-toggleState (Settings.get_boolean ("node.restore-default-targets"))
+toggleState (Settings.get_boolean ("stream.restore-default-targets"))

@@ -134,7 +134,7 @@ SimpleEventHook {
 
     -- stream/configure-ports.lua reconfigures the whole link for this setting,
     -- which removes the ports the links were made of
-    tu.setSetting ("node.features.audio.control-port", "true", function ()
+    tu.setSetting ("stream.features.audio.control-port", "true", function ()
       tu.waitUntil (function ()
         return hasPort (target, "control") and
             stream_link:get_links_count () == 2

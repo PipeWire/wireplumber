@@ -214,7 +214,7 @@ can additionally be switched off at runtime with a setting:
   selection; ``wpctl clear-default`` erases them.
 
   :feature: ``hooks.default-streams.state``
-  :settings: ``node.restore-default-targets``
+  :settings: ``stream.restore-default-targets``
 
 ``default-profile``
   The profile that the user has last selected on each device.
@@ -242,14 +242,14 @@ can additionally be switched off at runtime with a setting:
   application and port group.
 
   :feature: ``hooks.stream.state-props``
-  :settings: ``node.stream.restore-props``
+  :settings: ``stream.restore-props``
 
 ``stream-target``
   The target node and target stream of each stream, stored per application
   and port group.
 
   :feature: ``hooks.stream.state-target``
-  :settings: ``node.stream.restore-target``
+  :settings: ``stream.restore-target``
 
 Disabling state storage
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -303,7 +303,7 @@ restarting it:
 
 .. code-block:: bash
 
-   $ wpctl settings --save node.stream.restore-props false
+   $ wpctl settings --save stream.restore-props false
 
 Unlike disabling the feature, this keeps the script loaded, so the parts of it
 that do not involve persistence keep working. Turning a setting off also does

@@ -108,7 +108,7 @@ ensure_media_role (WpStreamManager * self, WpProperties * props)
   if (!settings)
     return;
 
-  val = wp_settings_get (settings, "node.stream.default-media-role");
+  val = wp_settings_get (settings, "stream.default-media-role");
   if (!val || wp_spa_json_is_null (val))
     return;
 

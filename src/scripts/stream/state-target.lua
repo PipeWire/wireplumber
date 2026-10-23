@@ -284,7 +284,7 @@ function toggleState (enable)
   end
 end
 
-Settings.subscribe ("node.stream.restore-target", function ()
-  toggleState (Settings.get_boolean ("node.stream.restore-target"))
+Settings.subscribe ("stream.restore-target", function ()
+  toggleState (Settings.get_boolean ("stream.restore-target"))
 end)
-toggleState (Settings.get_boolean ("node.stream.restore-target"))
+toggleState (Settings.get_boolean ("stream.restore-target"))
