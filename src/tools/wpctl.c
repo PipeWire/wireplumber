@@ -1539,19 +1539,26 @@ get_profile_run (WpCtl *self)
     const gchar *name = NULL;
     const gchar *description = NULL;
     guint32 available = SPA_PARAM_AVAILABILITY_unknown;
+    gint32 priority = G_MININT32;
 
     if (!wp_spa_pod_get_object (pod, NULL,
             "index", "i", &index,
             "name", "?s", &name,
             "description", "?s", &description,
             "available", "?I", &available,
+            "priority", "?i", &priority,
             NULL))
       continue;
 
-    printf (" %c %d  %s [%s]\n",
+    printf (" %c %d  %s [%s]  prio=",
         index == active_index ? '*' : ' ', index,
         description ? description : (name ? name : "(unnamed)"),
         availability_to_string (available));
+    if (priority != G_MININT32)
+      printf ("%d", priority);
+    else
+      printf ("?");
+    printf ("\n");
     count++;
   }
 

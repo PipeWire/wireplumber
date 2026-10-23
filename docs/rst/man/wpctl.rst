@@ -159,7 +159,8 @@ get-profile
 Shows the active profile and the available profiles of the specified PipeWire
 device. The output identifies the device by ID and description. The number on
 each profile line is the profile index accepted by **set-profile**. The active
-profile is marked with ``*`` and its availability is shown separately.
+profile is marked with ``*``; its availability and priority are shown
+separately.
 
 Arguments:
   *DEVICE_ID*
