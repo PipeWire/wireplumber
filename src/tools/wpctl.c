@@ -78,16 +78,19 @@ static struct {
       gdouble limit;
       gboolean is_pid;
       gchar type;
+      gchar *stream;
     } set_volume;
 
     struct {
       guint64 id;
+      gchar *stream;
     } get_volume;
 
     struct {
       guint64 id;
       guint mute;
       gboolean is_pid;
+      gchar *stream;
     } set_mute;
 
     struct {
@@ -184,20 +187,49 @@ parse_id (gboolean allow_def_audio, gboolean allow_def_video, gchar *arg, guint6
   return TRUE;
 }
 
+static const gchar *
+get_default_id_media_class (guint64 id)
+{
+  if (id == DEFAULT_AUDIO_SINK_ID)
+    return "Audio/Sink";
+  else if (id == DEFAULT_AUDIO_SOURCE_ID)
+    return "Audio/Source";
+  else if (id == DEFAULT_VIDEO_SOURCE_ID)
+    return "Video/Source";
+  return NULL;
+}
+
+static WpStream *
+get_default_stream (WpPlugin *def_streams_api, const gchar *media_class,
+    GError **error)
+{
+  WpStream *stream = NULL;
+
+  if (!def_streams_api) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "Default streams API is not loaded\n");
+    return NULL;
+  }
+
+  g_signal_emit_by_name (def_streams_api, "get-default-stream", media_class,
+      &stream);
+  if (!stream) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "No default stream for '%s'", media_class);
+    return NULL;
+  }
+
+  return stream;
+}
+
 static gboolean
 translate_id (WpPlugin *def_streams_api, guint64 id, guint32 *res,
     GError **error)
 {
-  gchar *media_class = NULL;
+  const gchar *media_class = get_default_id_media_class (id);
   g_autoptr (WpStream) stream = NULL;
 
-  if (id == DEFAULT_AUDIO_SINK_ID) {
-    media_class = "Audio/Sink";
-  } else if (id == DEFAULT_AUDIO_SOURCE_ID) {
-    media_class = "Audio/Source";
-  } else if (id == DEFAULT_VIDEO_SOURCE_ID) {
-    media_class = "Video/Source";
-  } else {
+  if (!media_class) {
     /* SPA_ID_INVALID is a special case used by some parse_positional() to
        indicate that no specific ID was given. It needs to be checked because
        currently SPA_ID_INVALID == G_MAXUINT32. */
@@ -211,19 +243,9 @@ translate_id (WpPlugin *def_streams_api, guint64 id, guint32 *res,
     return TRUE;
   }
 
-  if (!def_streams_api) {
-    g_set_error (error, wpctl_error_domain_quark(), 0,
-        "Default streams API is not loaded\n");
+  stream = get_default_stream (def_streams_api, media_class, error);
+  if (!stream)
     return FALSE;
-  }
-
-  g_signal_emit_by_name (def_streams_api, "get-default-stream", media_class,
-      &stream);
-  if (!stream) {
-    g_set_error (error, wpctl_error_domain_quark(), 0,
-        "No default stream for '%s'", media_class);
-    return FALSE;
-  }
 
   *res = wp_stream_get_node_bound_id (stream);
   return TRUE;
@@ -251,6 +273,102 @@ run_nodes_by_pid (WpObjectManager *om, guint32 pid,
   }
 
   return res;
+}
+
+/* volume streams */
+
+static void
+add_node_audio_streams (WpObjectManager *om, guint32 node_id,
+    const gchar *port_group, GPtrArray *streams)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+
+  it = wp_object_manager_new_filtered_iterator (om, WP_TYPE_AUDIO_STREAM, NULL);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpStream *stream = g_value_get_object (&val);
+
+    if (wp_stream_get_node_bound_id (stream) != node_id)
+      continue;
+    if (port_group && g_strcmp0 (port_group, wp_stream_get_port_group (stream)))
+      continue;
+
+    g_ptr_array_add (streams, g_object_ref (stream));
+  }
+}
+
+struct volume_streams_context
+{
+  WpObjectManager *om;
+  const gchar *port_group;
+  GPtrArray *streams;
+};
+
+static gboolean
+add_node_audio_streams_cb (const GValue *node_val, GValue *ret, gpointer data)
+{
+  struct volume_streams_context *context = data;
+  WpProxy *node = g_value_get_object (node_val);
+
+  add_node_audio_streams (context->om, wp_proxy_get_bound_id (node),
+      context->port_group, context->streams);
+  return TRUE;
+}
+
+/* Gets the audio streams of the node, or of the nodes of the PID, with the
+ * given port group, or all of them if no port group is given. A default ID
+ * without port group only gets the default stream. */
+static GPtrArray *
+get_volume_streams (WpCtl *self, guint64 id, const gchar *port_group,
+    gboolean is_pid, GError **error)
+{
+  g_autoptr (WpPlugin) def_streams_api =
+      wp_plugin_find (self->core, "default-streams-api");
+  g_autoptr (GPtrArray) streams =
+      g_ptr_array_new_with_free_func (g_object_unref);
+  const gchar *media_class = get_default_id_media_class (id);
+  guint32 node_id = (guint32) id;
+
+  if (media_class) {
+    g_autoptr (WpStream) stream =
+        get_default_stream (def_streams_api, media_class, error);
+    if (!stream)
+      return NULL;
+
+    node_id = wp_stream_get_node_bound_id (stream);
+    if (!port_group)
+      g_ptr_array_add (streams, g_steal_pointer (&stream));
+    else
+      add_node_audio_streams (self->om, node_id, port_group, streams);
+  } else if (is_pid) {
+    struct volume_streams_context context = { self->om, port_group, streams };
+    run_nodes_by_pid (self->om, node_id, add_node_audio_streams_cb, &context);
+  } else {
+    add_node_audio_streams (self->om, node_id, port_group, streams);
+  }
+
+  if (streams->len == 0) {
+    if (port_group)
+      g_set_error (error, wpctl_error_domain_quark(), 0,
+          "%s %u has no audio stream '%s'", is_pid ? "PID" : "node", node_id,
+          port_group);
+    else
+      g_set_error (error, wpctl_error_domain_quark(), 0,
+          "%s %u has no audio streams", is_pid ? "PID" : "node", node_id);
+    return NULL;
+  }
+
+  return g_steal_pointer (&streams);
+}
+
+static void
+print_stream_unsupported (WpStream *stream, const gchar *what)
+{
+  const gchar *port_group = wp_stream_get_port_group (stream);
+
+  fprintf (stderr, "Stream '%s' of node %u does not support %s\n",
+      port_group ? port_group : "(none)", wp_stream_get_node_bound_id (stream),
+      what);
 }
 
 /* status */
@@ -354,12 +472,12 @@ struct print_context
 };
 
 static void
-print_controls (guint32 id, struct print_context *context)
+print_controls (WpPlugin *mixer_api, WpStream *stream)
 {
   g_autoptr (GVariant) dict = NULL;
 
-  if (context->mixer_api)
-    g_signal_emit_by_name (context->mixer_api, "get-volume", id, &dict);
+  if (mixer_api)
+    g_signal_emit_by_name (mixer_api, "get-volume", stream, &dict);
 
   if (dict) {
     gboolean mute = FALSE;
@@ -460,7 +578,8 @@ get_node_display_name (WpPipewireObject *obj, gboolean nicknames,
 
 static void
 print_node_streams (WpCtl *self, WpPipewireObject *node, GType type,
-    WpStreamShape shape, WpStream *default_stream, const gchar *indent)
+    WpStreamShape shape, WpStream *default_stream, WpPlugin *mixer_api,
+    const gchar *indent)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
@@ -472,6 +591,7 @@ print_node_streams (WpCtl *self, WpPipewireObject *node, GType type,
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpStream *stream = g_value_get_object (&val);
     const gchar *port_group;
+    g_autofree gchar *label = NULL;
     gboolean is_default;
 
     if (wp_stream_get_node_bound_id (stream) != node_id ||
@@ -479,9 +599,11 @@ print_node_streams (WpCtl *self, WpPipewireObject *node, GType type,
       continue;
 
     port_group = wp_stream_get_port_group (stream);
+    label = g_strdup_printf ("%s - %s", port_group ? port_group : "(none)",
+        name);
     is_default = (stream == default_stream);
-    printf ("%s%c %4u. %s - %s\n", indent, is_default ? '*' : ' ', node_id,
-        port_group ? port_group : "(none)", name);
+    printf ("%s%c %4u. %-35s", indent, is_default ? '*' : ' ', node_id, label);
+    print_controls (mixer_api, stream);
 
     /* the links are shown on the streams of client nodes only, so that each
      * link is not shown twice */
@@ -564,10 +686,9 @@ print_node (const GValue *item, gpointer data)
   for (guint i = 0; i < G_N_ELEMENTS (context->default_nodes); i++)
     is_default |= (context->default_nodes[i] == id);
 
-  printf (TREE_INDENT_EMPTY "%c %4u. %-35s", is_default ? '*' : ' ', id,
+  printf (TREE_INDENT_EMPTY "%c %4u. %s\n", is_default ? '*' : ' ', id,
       get_node_display_name (obj, cmdline.status.display_nicknames,
           cmdline.status.display_names));
-  print_controls (id, context);
 }
 
 static void
@@ -689,7 +810,8 @@ status_run (WpCtl * self)
       wp_iterator_reset (it);
       for (; wp_iterator_next (it, &node_val); g_value_unset (&node_val))
         print_node_streams (self, g_value_get_object (&node_val),
-            MEDIA[i].type, SHAPES[j].shape, default_stream, indent);
+            MEDIA[i].type, SHAPES[j].shape, default_stream,
+            context.mixer_api, indent);
       printf ("%s\n", is_last ? "" : TREE_INDENT_LINE);
     }
   }
@@ -940,57 +1062,56 @@ get_volume_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 get_volume_prepare (WpCtl * self, GError ** error)
 {
-  request_default_streams (self, cmdline.get_volume.id);
+  /* the volume is set on the audio streams of the node */
+  request_streams (self);
+  wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
 
+/* the port group is shown when there are several streams, so that the output
+ * of a single stream stays the same */
 static void
-do_print_volume (WpCtl * self, WpPipewireObject *proxy)
+do_print_volume (WpCtl * self, WpStream *stream, gboolean show_stream)
 {
   g_autoptr (WpPlugin) mixer_api = wp_plugin_find (self->core, "mixer-api");
   GVariant *variant = NULL;
   gboolean mute = FALSE;
   gdouble volume = 1.0;
-  guint32 id = wp_proxy_get_bound_id (WP_PROXY (proxy));
 
-  g_signal_emit_by_name (mixer_api, "get-volume", id, &variant);
+  g_signal_emit_by_name (mixer_api, "get-volume", stream, &variant);
   if (!variant) {
-    fprintf (stderr, "Node %d does not support volume\n", id);
+    print_stream_unsupported (stream, "volume");
     return;
   }
   g_variant_lookup (variant, "volume", "d", &volume);
   g_variant_lookup (variant, "mute", "b", &mute);
   g_clear_pointer (&variant, g_variant_unref);
 
+  if (show_stream) {
+    const gchar *port_group = wp_stream_get_port_group (stream);
+    printf ("%s: ", port_group ? port_group : "(none)");
+  }
   printf ("Volume: %.2f%s", volume, mute ? " [MUTED]\n" : "\n");
 }
 
 static void
 get_volume_run (WpCtl * self)
 {
-  g_autoptr (WpPlugin) def_streams_api = NULL;
   g_autoptr (GError) error = NULL;
-  g_autoptr (WpPipewireObject) proxy = NULL;
-  guint32 id;
+  g_autoptr (GPtrArray) streams = NULL;
 
-  def_streams_api = wp_plugin_find (self->core, "default-streams-api");
-
-  if (!translate_id (def_streams_api, cmdline.get_volume.id, &id, &error)) {
-    fprintf(stderr, "Translate ID error: %s\n\n", error->message);
+  streams = get_volume_streams (self, cmdline.get_volume.id,
+      cmdline.get_volume.stream, FALSE, &error);
+  if (!streams) {
+    fprintf (stderr, "%s\n", error->message);
     goto out;
   }
 
-  proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
-    WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
-  if (!proxy) {
-    fprintf (stderr, "Node '%d' not found\n", id);
-    goto out;
-  }
-
-  do_print_volume (self, proxy);
+  for (guint i = 0; i < streams->len; i++)
+    do_print_volume (self, g_ptr_array_index (streams, i), streams->len > 1);
 
 out:
   g_main_loop_quit (self->loop);
@@ -1519,7 +1640,9 @@ set_volume_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_volume_prepare (WpCtl * self, GError ** error)
 {
-  request_default_streams (self, cmdline.set_volume.id);
+  /* the volume is set on the audio streams of the node */
+  request_streams (self);
+  wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
@@ -1528,7 +1651,7 @@ set_volume_prepare (WpCtl * self, GError ** error)
 }
 
 static gboolean
-do_set_volume (WpCtl * self, WpPipewireObject *proxy)
+do_set_volume (WpCtl * self, WpStream *stream)
 {
   g_autoptr (WpPlugin) mixer_api = wp_plugin_find (self->core, "mixer-api");
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
@@ -1536,13 +1659,11 @@ do_set_volume (WpCtl * self, WpPipewireObject *proxy)
   gboolean res = FALSE;
   gdouble curr_volume = 1.0;
   gdouble new_volume = cmdline.set_volume.volume;
-  guint32 id = wp_proxy_get_bound_id (WP_PROXY (proxy));
 
   if (cmdline.set_volume.type == 's') {
-    g_signal_emit_by_name (mixer_api, "get-volume", id, &variant);
-      if (!variant) {
-      fprintf (stderr, "Node %d does not support volume\n", id);
-      g_clear_pointer (&variant, g_variant_unref);
+    g_signal_emit_by_name (mixer_api, "get-volume", stream, &variant);
+    if (!variant) {
+      print_stream_unsupported (stream, "volume");
       return FALSE;
     }
     g_variant_lookup (variant, "volume", "d", &curr_volume);
@@ -1563,51 +1684,33 @@ do_set_volume (WpCtl * self, WpPipewireObject *proxy)
       g_variant_new_double (new_volume));
   variant = g_variant_builder_end (&b);
 
-  g_signal_emit_by_name (mixer_api, "set-volume", id, variant, &res);
+  g_signal_emit_by_name (mixer_api, "set-volume", stream, variant, &res);
   if (!res) {
-    fprintf (stderr, "Node %d does not support volume\n", id);
+    print_stream_unsupported (stream, "volume");
     return FALSE;
   }
 
   return TRUE;
 }
 
-static gboolean
-do_set_volume_cb (const GValue *node_val, GValue *ret, gpointer data)
-{
-  WpCtl * self = data;
-  WpPipewireObject *node = g_value_get_object (node_val);
-  return do_set_volume (self, node);
-}
-
 static void
 set_volume_run (WpCtl * self)
 {
-  g_autoptr (WpPipewireObject) proxy = NULL;
-  g_autoptr (WpPlugin) def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   g_autoptr (GError) error = NULL;
-  guint32 id;
+  g_autoptr (GPtrArray) streams = NULL;
+  gboolean res = TRUE;
 
-  if (!translate_id (def_streams_api, cmdline.set_volume.id, &id, &error)) {
-    fprintf(stderr, "Translate ID error: %s\n\n", error->message);
+  streams = get_volume_streams (self, cmdline.set_volume.id,
+      cmdline.set_volume.stream, cmdline.set_volume.is_pid, &error);
+  if (!streams) {
+    fprintf (stderr, "%s\n", error->message);
     goto out;
   }
 
-  if (cmdline.set_volume.is_pid) {
-    if (!run_nodes_by_pid (self->om, id, do_set_volume_cb, self)) {
-      fprintf (stderr, "Could not set volume in all nodes with PID '%d'\n", id);
-      goto out;
-    }
-  } else {
-    proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
-        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "object.id", "=u", id, NULL);
-    if (!proxy) {
-      fprintf (stderr, "Object '%d' not found\n", id);
-      goto out;
-    }
-    if (!do_set_volume (self, proxy))
-      goto out;
-  }
+  for (guint i = 0; i < streams->len; i++)
+    res &= do_set_volume (self, g_ptr_array_index (streams, i));
+  if (!res)
+    goto out;
 
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
@@ -1647,7 +1750,9 @@ set_mute_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_mute_prepare (WpCtl * self, GError ** error)
 {
-  request_default_streams (self, cmdline.set_mute.id);
+  /* the mute is set on the audio streams of the node */
+  request_streams (self);
+  wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
@@ -1656,18 +1761,17 @@ set_mute_prepare (WpCtl * self, GError ** error)
 }
 
 static gboolean
-do_set_mute (WpCtl * self, WpPipewireObject *proxy)
+do_set_mute (WpCtl * self, WpStream *stream)
 {
   g_autoptr (WpPlugin) mixer_api = wp_plugin_find (self->core, "mixer-api");
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
   GVariant *variant = NULL;
   gboolean res = FALSE;
   gboolean mute = FALSE;
-  guint32 id = wp_proxy_get_bound_id (WP_PROXY (proxy));
 
-  g_signal_emit_by_name (mixer_api, "get-volume", id, &variant);
+  g_signal_emit_by_name (mixer_api, "get-volume", stream, &variant);
   if (!variant) {
-    fprintf (stderr, "Node %d does not support mute\n", id);
+    print_stream_unsupported (stream, "mute");
     return FALSE;
   }
 
@@ -1682,47 +1786,29 @@ do_set_mute (WpCtl * self, WpPipewireObject *proxy)
   g_variant_builder_add (&b, "{sv}", "mute", g_variant_new_boolean (mute));
   variant = g_variant_builder_end (&b);
 
-  g_signal_emit_by_name (mixer_api, "set-volume", id, variant, &res);
+  g_signal_emit_by_name (mixer_api, "set-volume", stream, variant, &res);
 
   return TRUE;
-}
-
-static gboolean
-do_set_mute_cb (const GValue *node_val, GValue *ret, gpointer data)
-{
-  WpCtl * self = data;
-  WpPipewireObject *node = g_value_get_object (node_val);
-  return do_set_mute (self, node);
 }
 
 static void
 set_mute_run (WpCtl * self)
 {
-  g_autoptr (WpPipewireObject) proxy = NULL;
-  g_autoptr (WpPlugin) def_streams_api = wp_plugin_find (self->core, "default-streams-api");
   g_autoptr (GError) error = NULL;
-  guint32 id;
+  g_autoptr (GPtrArray) streams = NULL;
+  gboolean res = TRUE;
 
-  if (!translate_id (def_streams_api, cmdline.set_mute.id, &id, &error)) {
-    fprintf(stderr, "Translate ID error: %s\n\n", error->message);
+  streams = get_volume_streams (self, cmdline.set_mute.id,
+      cmdline.set_mute.stream, cmdline.set_mute.is_pid, &error);
+  if (!streams) {
+    fprintf (stderr, "%s\n", error->message);
     goto out;
   }
 
-  if (cmdline.set_mute.is_pid) {
-    if (!run_nodes_by_pid (self->om, id, do_set_mute_cb, self)) {
-      fprintf (stderr, "Could not set mute in all nodes with PID '%d'\n", id);
-      goto out;
-    }
-  } else {
-    proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
-        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "object.id", "=u", id, NULL);
-    if (!proxy) {
-      fprintf (stderr, "Object '%d' not found\n", id);
-      goto out;
-    }
-    if (!do_set_mute (self, proxy))
-        goto out;
-  }
+  for (guint i = 0; i < streams->len; i++)
+    res &= do_set_mute (self, g_ptr_array_index (streams, i));
+  if (!res)
+    goto out;
 
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
@@ -3110,9 +3196,16 @@ static const struct subcommand {
   {
     .name = "get-volume",
     .positional_args = "ID",
-    .summary = "Displays volume information about the specified node in PipeWire",
+    .summary = "Displays volume information about the audio streams of the "
+               "specified node in PipeWire",
     .description = NULL,
-    .entries = { { NULL } },
+    .entries = {
+      { "stream", 's', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
+        &cmdline.get_volume.stream,
+        "Only uses the audio stream of ID with this port group",
+        "PORT_GROUP" },
+      { NULL }
+    },
     .parse_positional = get_volume_parse_positional,
     .prepare = get_volume_prepare,
     .run = get_volume_run,
@@ -3167,6 +3260,10 @@ static const struct subcommand {
       { "limit", 'l', G_OPTION_FLAG_NONE, G_OPTION_ARG_DOUBLE,
         &cmdline.set_volume.limit,
         "Limits the final volume percentage to below this value. (floating point, 1.0 is 100%)", NULL },
+      { "stream", 's', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
+        &cmdline.set_volume.stream,
+        "Only uses the audio stream of ID with this port group",
+        "PORT_GROUP" },
       { NULL }
     },
     .parse_positional = set_volume_parse_positional,
@@ -3182,6 +3279,10 @@ static const struct subcommand {
       { "pid", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
         &cmdline.set_mute.is_pid,
         "Selects all nodes associated to the given PID number", NULL },
+      { "stream", 's', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING,
+        &cmdline.set_mute.stream,
+        "Only uses the audio stream of ID with this port group",
+        "PORT_GROUP" },
       { NULL }
     },
     .parse_positional = set_mute_parse_positional,

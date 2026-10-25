@@ -57,14 +57,20 @@ Arguments:
 get-volume
 ^^^^^^^^^^
 
-**wpctl get-volume** *ID*
+**wpctl get-volume** *ID* [**-s** *PORT_GROUP*\|\ **--stream** *PORT_GROUP*]
 
-Displays volume information about the specified node, including current volume
-level and mute state.
+Displays volume information about the audio streams of the specified node,
+including current volume level and mute state. If the node has several audio
+streams, each line is prefixed with the port group of its stream. The special
+identifiers only use the default stream.
 
 Arguments:
   *ID*
     Node ID or special identifier (see `SPECIAL IDENTIFIERS`_)
+
+Options:
+  **-s** *PORT_GROUP*, **--stream** *PORT_GROUP*
+    Only display the volume of the audio stream with this port group
 
 inspect
 ^^^^^^^
@@ -113,9 +119,10 @@ Options:
 set-volume
 ^^^^^^^^^^
 
-**wpctl set-volume** *ID* *VOL*\ [**%**]\ [**-**\|\ **+**] [**-p**\|\ **--pid**] [**-l** *LIMIT*\|\ **--limit** *LIMIT*]
+**wpctl set-volume** *ID* *VOL*\ [**%**]\ [**-**\|\ **+**] [**-p**\|\ **--pid**] [**-l** *LIMIT*\|\ **--limit** *LIMIT*] [**-s** *PORT_GROUP*\|\ **--stream** *PORT_GROUP*]
 
-Sets the volume of the specified node.
+Sets the volume of each audio stream of the specified node. The special
+identifiers only set the volume of the default stream.
 
 Arguments:
   *ID*
@@ -135,6 +142,8 @@ Options:
     Treat ID as a process ID and affect all nodes associated with it
   **-l** *LIMIT*, **--limit** *LIMIT*
     Limit final volume to below this value (floating point, 1.0 = 100%)
+  **-s** *PORT_GROUP*, **--stream** *PORT_GROUP*
+    Only set the volume of the audio stream with this port group
 
 Examples:
   Set volume to 50%: ``wpctl set-volume @DEFAULT_SINK@ 0.5``
@@ -146,9 +155,10 @@ Examples:
 set-mute
 ^^^^^^^^
 
-**wpctl set-mute** *ID* **1**\|\ **0**\|\ **toggle** [**-p**\|\ **--pid**]
+**wpctl set-mute** *ID* **1**\|\ **0**\|\ **toggle** [**-p**\|\ **--pid**] [**-s** *PORT_GROUP*\|\ **--stream** *PORT_GROUP*]
 
-Changes the mute state of the specified node.
+Changes the mute state of each audio stream of the specified node. The special
+identifiers only change the mute state of the default stream.
 
 Arguments:
   *ID*
@@ -159,6 +169,8 @@ Arguments:
 Options:
   **-p**, **--pid**
     Treat ID as a process ID and affect all nodes associated with it
+  **-s** *PORT_GROUP*, **--stream** *PORT_GROUP*
+    Only change the mute state of the audio stream with this port group
 
 get-profile
 ^^^^^^^^^^^
