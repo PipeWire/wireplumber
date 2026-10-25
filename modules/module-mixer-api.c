@@ -24,9 +24,7 @@ struct channel_map {
   uint32_t map[SPA_AUDIO_MAX_CHANNELS];
 };
 
-struct node_info {
-  guint32 seq;
-
+struct stream_info {
   guint32 device_id;
   gint32 route_index;
   gint32 route_device;
@@ -45,8 +43,7 @@ struct _WpMixerApi
 {
   WpPlugin parent;
   WpObjectManager *om;
-  GHashTable *node_infos;
-  guint32 seq;
+  GHashTable *stream_infos;
 
   /* properties */
   gint scale;
@@ -129,7 +126,7 @@ wp_mixer_api_set_property (GObject * object, guint property_id,
 }
 
 static gboolean
-node_info_fill (struct node_info * info, WpSpaPod * props)
+stream_info_fill (struct stream_info * info, WpSpaPod * props)
 {
   g_autoptr (WpSpaPod) channelVolumes = NULL;
   g_autoptr (WpSpaPod) channelMap = NULL;
@@ -173,9 +170,11 @@ node_info_fill (struct node_info * info, WpSpaPod * props)
 }
 
 static void
-collect_node_info (WpMixerApi * self, struct node_info *info,
-    WpPipewireObject * node)
+collect_stream_info (WpMixerApi * self, struct stream_info *info,
+    WpStream * stream)
 {
+  g_autoptr (WpPipewireObject) node =
+      WP_PIPEWIRE_OBJECT (wp_stream_get_node (stream));
   g_autoptr (WpPipewireObject) dev = NULL;
   const gchar *str = NULL;
   gboolean have_volume = FALSE;
@@ -183,6 +182,9 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
   info->device_id = SPA_ID_INVALID;
   info->route_index = -1;
   info->route_device = -1;
+
+  if (!node)
+    return;
 
   if ((str = wp_pipewire_object_get_property (node, PW_KEY_DEVICE_ID))) {
     dev = wp_object_manager_lookup (self->om, WP_TYPE_DEVICE,
@@ -209,7 +211,7 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
       if (r_device != p_device)
         continue;
 
-      if (props && node_info_fill (info, props)) {
+      if (props && stream_info_fill (info, props)) {
         info->device_id = wp_proxy_get_bound_id (WP_PROXY (dev));
         info->route_index = r_index;
         info->route_device = r_device;
@@ -224,10 +226,10 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
     g_autoptr (WpIterator) it = NULL;
     g_auto (GValue) val = G_VALUE_INIT;
 
-    it = wp_pipewire_object_enum_params_sync (node, "Props", NULL);
+    it = wp_stream_enum_params_sync (stream, "Props");
     for (; it && wp_iterator_next (it, &val); g_value_unset (&val)) {
       WpSpaPod *param = g_value_get_boxed (&val);
-      if (node_info_fill (info, param)) {
+      if (stream_info_fill (info, param)) {
         g_value_unset (&val);
         break;
       }
@@ -249,10 +251,10 @@ on_sync_done (WpCore * core, GAsyncResult * res, WpMixerApi * self)
 }
 
 static void
-on_params_changed (WpPipewireObject * obj, const gchar * param_name,
+on_params_changed (GObject * obj, const gchar * param_name,
     WpMixerApi * self)
 {
-  if ((WP_IS_NODE (obj) && !g_strcmp0 (param_name, "Props")) ||
+  if ((WP_IS_STREAM (obj) && !g_strcmp0 (param_name, "Props")) ||
       (WP_IS_DEVICE (obj) && !g_strcmp0 (param_name, "Route"))) {
     g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
     wp_core_sync (core, NULL, (GAsyncReadyCallback) on_sync_done, self);
@@ -263,57 +265,48 @@ static void
 on_objects_changed (WpObjectManager * om, WpMixerApi * self)
 {
   g_autoptr (WpIterator) it =
-      wp_object_manager_new_filtered_iterator (om, WP_TYPE_NODE, NULL);
+      wp_object_manager_new_filtered_iterator (om, WP_TYPE_AUDIO_STREAM, NULL);
   g_auto (GValue) val = G_VALUE_INIT;
-  GHashTableIter infos_it;
-  struct node_info *info;
-  struct node_info old;
-
-  self->seq++;
+  struct stream_info *info;
+  struct stream_info old;
 
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-    WpPipewireObject *node = g_value_get_object (&val);
-    guint id = wp_proxy_get_bound_id (WP_PROXY (node));
+    WpStream *stream = g_value_get_object (&val);
 
-    info = g_hash_table_lookup (self->node_infos, GUINT_TO_POINTER (id));
+    info = g_hash_table_lookup (self->stream_infos, stream);
     if (!info) {
-      info = g_slice_new0 (struct node_info);
-      g_hash_table_insert (self->node_infos, GUINT_TO_POINTER (id), info);
+      info = g_slice_new0 (struct stream_info);
+      g_hash_table_insert (self->stream_infos, g_object_ref (stream), info);
     }
-    info->seq = self->seq;
 
     old = *info;
-    collect_node_info (self, info, node);
-    if (memcmp (&old, info, sizeof (struct node_info)) != 0) {
-      wp_debug_object (self, "node %u changed volume props", id);
-      g_signal_emit (self, signals[SIGNAL_CHANGED], 0, id);
+    collect_stream_info (self, info, stream);
+    if (memcmp (&old, info, sizeof (struct stream_info)) != 0) {
+      wp_debug_object (self, "stream %p of node %u changed volume props",
+          stream, wp_stream_get_node_bound_id (stream));
+      g_signal_emit (self, signals[SIGNAL_CHANGED], 0, stream);
     }
-  }
-
-  /* remove node_info of nodes that were removed from the object manager */
-  g_hash_table_iter_init (&infos_it, self->node_infos);
-  while (g_hash_table_iter_next (&infos_it, NULL, (gpointer *) &info)) {
-    if (info->seq != self->seq)
-      g_hash_table_iter_remove (&infos_it);
   }
 }
 
 static void
-on_object_added (WpObjectManager * om, WpProxy * obj, WpMixerApi * self)
+on_object_added (WpObjectManager * om, GObject * obj, WpMixerApi * self)
 {
   g_signal_connect (obj, "params-changed", G_CALLBACK (on_params_changed), self);
 }
 
 static void
-on_object_removed (WpObjectManager * om, WpProxy * obj, WpMixerApi * self)
+on_object_removed (WpObjectManager * om, GObject * obj, WpMixerApi * self)
 {
   g_signal_handlers_disconnect_by_func (obj, G_CALLBACK (on_params_changed), self);
+  if (WP_IS_STREAM (obj) && self->stream_infos)
+    g_hash_table_remove (self->stream_infos, obj);
 }
 
 static void
-node_info_free (gpointer info)
+stream_info_free (gpointer info)
 {
-  g_slice_free (struct node_info, info);
+  g_slice_free (struct stream_info, info);
 }
 
 static void
@@ -329,13 +322,11 @@ wp_mixer_api_enable (WpPlugin * plugin, WpTransition * transition)
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   g_return_if_fail (core);
 
-  self->node_infos = g_hash_table_new_full (g_direct_hash, g_direct_equal,
-      NULL, node_info_free);
+  self->stream_infos = g_hash_table_new_full (g_direct_hash, g_direct_equal,
+      g_object_unref, stream_info_free);
 
   self->om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->om, WP_TYPE_NODE,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "media.class", "#s", "*Audio*",
-      NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_AUDIO_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "media.class", "=s", "Audio/Device",
       NULL);
@@ -362,13 +353,13 @@ wp_mixer_api_disable (WpPlugin * plugin)
     g_auto (GValue) val = G_VALUE_INIT;
 
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-      WpProxy *obj = g_value_get_object (&val);
+      GObject *obj = g_value_get_object (&val);
       on_object_removed (self->om, obj, self);
     }
   }
 
   g_clear_object (&self->om);
-  g_clear_pointer (&self->node_infos, g_hash_table_unref);
+  g_clear_pointer (&self->stream_infos, g_hash_table_unref);
 }
 
 static inline gdouble
@@ -393,11 +384,49 @@ volume_to_linear (gdouble vol, gint scale)
     return vol;
 }
 
-static gboolean
-wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
+static WpSpaPod *
+volume_to_pod (const struct volume *volume)
 {
-  struct node_info *info = self->node_infos ?
-      g_hash_table_lookup (self->node_infos, GUINT_TO_POINTER (id)) : NULL;
+  g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_array ();
+  for (guint i = 0; i < volume->channels; i++)
+    wp_spa_pod_builder_add_float (b, volume->values[i]);
+  return wp_spa_pod_builder_end (b);
+}
+
+static gboolean
+set_route_props (WpMixerApi * self, struct stream_info *info, guint n_props,
+    const gchar * const *names, WpSpaPod * const *values)
+{
+  g_autoptr (WpSpaPodBuilder) b =
+      wp_spa_pod_builder_new_object ("Spa:Pod:Object:Param:Props", "Props");
+  g_autoptr (WpSpaPod) props = NULL;
+  g_autoptr (WpPipewireObject) device = wp_object_manager_lookup (self->om,
+      WP_TYPE_DEVICE, WP_CONSTRAINT_TYPE_G_PROPERTY,
+      "bound-id", "=u", info->device_id, NULL);
+  g_return_val_if_fail (device != NULL, FALSE);
+
+  for (guint i = 0; i < n_props; i++) {
+    wp_spa_pod_builder_add_property (b, names[i]);
+    wp_spa_pod_builder_add_pod (b, values[i]);
+  }
+  props = wp_spa_pod_builder_end (b);
+
+  return wp_pipewire_object_set_param (device, "Route", 0,
+      wp_spa_pod_new_object (
+          "Spa:Pod:Object:Param:Route", "Route",
+          "index", "i", info->route_index,
+          "device", "i", info->route_device,
+          "props", "P", props,
+          "save", "b", true,
+          NULL));
+}
+
+static gboolean
+wp_mixer_api_set_volume (WpMixerApi * self, WpStream * stream,
+    GVariant * vvolume)
+{
+  struct stream_info *info = self->stream_infos && stream ?
+      g_hash_table_lookup (self->stream_infos, stream) : NULL;
   struct volume new_volume = {0};
   struct volume new_monVolume = {0};
   gboolean has_mute = FALSE;
@@ -481,55 +510,46 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
   }
 
   /* set param */
-  g_autoptr (WpSpaPod) props = NULL;
-  g_autoptr (WpSpaPodBuilder) b =
-      wp_spa_pod_builder_new_object ("Spa:Pod:Object:Param:Props", "Props");
+  const gchar *names[4];
+  WpSpaPod *values[4];
+  guint n_props = 0;
+  gboolean res;
 
-  if (new_volume.channels > 0)
-    wp_spa_pod_builder_add (b, "channelVolumes", "a",
-        sizeof(float), SPA_TYPE_Float,
-        new_volume.channels, new_volume.values, NULL);
-  if (new_monVolume.channels > 0)
-    wp_spa_pod_builder_add (b, "monitorVolumes", "a",
-        sizeof(float), SPA_TYPE_Float,
-        new_monVolume.channels, new_monVolume.values, NULL);
-  if (has_mute)
-    wp_spa_pod_builder_add (b, "mute", "b", mute, NULL);
-  if (has_monitorMute)
-    wp_spa_pod_builder_add (b, "monitorMute", "b", monitorMute, NULL);
-
-  props = wp_spa_pod_builder_end (b);
-
-  if (info->device_id != SPA_ID_INVALID) {
-    g_autoptr (WpPipewireObject) device = wp_object_manager_lookup (self->om,
-        WP_TYPE_DEVICE, WP_CONSTRAINT_TYPE_G_PROPERTY,
-        "bound-id", "=u", info->device_id, NULL);
-    g_return_val_if_fail (device != NULL, FALSE);
-
-    wp_pipewire_object_set_param (device, "Route", 0, wp_spa_pod_new_object (
-        "Spa:Pod:Object:Param:Route", "Route",
-        "index", "i", info->route_index,
-        "device", "i", info->route_device,
-        "props", "P", props,
-        "save", "b", true,
-        NULL));
-  } else {
-    g_autoptr (WpPipewireObject) node = wp_object_manager_lookup (self->om,
-        WP_TYPE_NODE, WP_CONSTRAINT_TYPE_G_PROPERTY,
-        "bound-id", "=u", id, NULL);
-    g_return_val_if_fail (node != NULL, FALSE);
-
-    wp_pipewire_object_set_param (node, "Props", 0, g_steal_pointer (&props));
+  if (new_volume.channels > 0) {
+    names[n_props] = "channelVolumes";
+    values[n_props++] = volume_to_pod (&new_volume);
+  }
+  if (new_monVolume.channels > 0) {
+    names[n_props] = "monitorVolumes";
+    values[n_props++] = volume_to_pod (&new_monVolume);
+  }
+  if (has_mute) {
+    names[n_props] = "mute";
+    values[n_props++] = wp_spa_pod_new_boolean (mute);
+  }
+  if (has_monitorMute) {
+    names[n_props] = "monitorMute";
+    values[n_props++] = wp_spa_pod_new_boolean (monitorMute);
   }
 
-  return TRUE;
+  if (n_props == 0)
+    return FALSE;
+
+  if (info->device_id != SPA_ID_INVALID)
+    res = set_route_props (self, info, n_props, names, values);
+  else
+    res = wp_stream_set_props_param_array (stream, n_props, names, values);
+
+  for (guint i = 0; i < n_props; i++)
+    wp_spa_pod_unref (values[i]);
+  return res;
 }
 
 static GVariant *
-wp_mixer_api_get_volume (WpMixerApi * self, guint32 id)
+wp_mixer_api_get_volume (WpMixerApi * self, WpStream * stream)
 {
-  struct node_info *info = self->node_infos ?
-      g_hash_table_lookup (self->node_infos, GUINT_TO_POINTER (id)) : NULL;
+  struct stream_info *info = self->stream_infos && stream ?
+      g_hash_table_lookup (self->stream_infos, stream) : NULL;
   g_auto (GVariantBuilder) b =
       G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
   g_auto (GVariantBuilder) b_vol =
@@ -540,7 +560,8 @@ wp_mixer_api_get_volume (WpMixerApi * self, guint32 id)
   if (!info)
     return NULL;
 
-  g_variant_builder_add (&b, "{sv}", "id", g_variant_new_uint32 (id));
+  g_variant_builder_add (&b, "{sv}", "id",
+      g_variant_new_uint32 (wp_stream_get_node_bound_id (stream)));
   g_variant_builder_add (&b, "{sv}", "mute", g_variant_new_boolean (info->mute));
   g_variant_builder_add (&b, "{sv}", "base", g_variant_new_double (info->base));
   g_variant_builder_add (&b, "{sv}", "step", g_variant_new_double (info->step));
@@ -610,18 +631,18 @@ wp_mixer_api_class_init (WpMixerApiClass * klass)
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_mixer_api_set_volume,
       NULL, NULL, NULL,
-      G_TYPE_BOOLEAN, 2, G_TYPE_UINT, G_TYPE_VARIANT);
+      G_TYPE_BOOLEAN, 2, WP_TYPE_STREAM, G_TYPE_VARIANT);
 
   signals[ACTION_GET_VOLUME] = g_signal_new_class_handler (
       "get-volume", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_mixer_api_get_volume,
       NULL, NULL, NULL,
-      G_TYPE_VARIANT, 1, G_TYPE_UINT);
+      G_TYPE_VARIANT, 1, WP_TYPE_STREAM);
 
   signals[SIGNAL_CHANGED] = g_signal_new (
       "changed", G_TYPE_FROM_CLASS (klass),
-      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, WP_TYPE_STREAM);
 }
 
 WP_PLUGIN_EXPORT GObject *

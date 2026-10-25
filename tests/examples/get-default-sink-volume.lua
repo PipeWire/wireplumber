@@ -17,8 +17,7 @@ Core.require_api("default-streams", "mixer", function(...)
   mixer.scale = "cubic"
 
   local stream = default_streams:call("get-default-stream", "Audio/Sink")
-  local id = stream:get_node_bound_id()
-  local volume = mixer:call("get-volume", id)
+  local volume = mixer:call("get-volume", stream)
 
   -- dump everything
   Debug.dump_table(volume)

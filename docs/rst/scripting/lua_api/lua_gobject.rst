@@ -88,8 +88,7 @@ You may call an action signal using the *call* method:
         -- "get-default-stream" and "get-volume" are action signals of the
         -- "default-streams-api" and "mixer-api" plugins respectively
         local stream = default_streams:call("get-default-stream", "Audio/Sink")
-        local id = stream:get_node_bound_id()
-        local volume = mixer:call("get-volume", id)
+        local volume = mixer:call("get-volume", stream)
 
         -- the return value of "get-volume" is a GVariant(a{sv}),
         -- which gets translated to a Lua table

@@ -139,8 +139,8 @@ For some functionality, though, the following static functions are exposed.
    .. code-block:: lua
 
       Core.require_api("mixer", function(mixer)
-        -- get the volume of node 35
-        local volume = mixer:call("get-volume", 35)
+        -- get the volume of an audio stream
+        local volume = mixer:call("get-volume", stream)
 
         -- the return value of "get-volume" is a GVariant(a{sv}),
         -- which gets translated to a Lua table
