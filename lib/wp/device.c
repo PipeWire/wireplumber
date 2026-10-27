@@ -14,6 +14,7 @@
 #include "private/client-context.h"
 #include "private/pipewire-object-mixin.h"
 
+#include <errno.h>
 #include <pipewire/impl.h>
 #include <spa/debug/types.h>
 #include <spa/monitor/device.h>
@@ -767,16 +768,25 @@ wp_spa_device_activate_execute_step (WpObject * object,
        in, the same way as WpImplNode */
     struct pw_core *pw_core = ctx ?
         wp_client_context_get_pw_core (ctx) : wp_core_get_pw_core (core);
+    struct pw_proxy *proxy;
+    gint err;
     g_return_if_fail (pw_core);
 
     /* export and start listening in one locked section, so that the loop
        thread cannot deliver the "bound" event before we are listening */
     wp_spa_device_lock (self);
-    wp_proxy_set_pw_proxy (WP_PROXY (self),
-        pw_core_export (pw_core, SPA_TYPE_INTERFACE_Device,
-            wp_properties_peek_dict (self->properties),
-            self->device, 0));
+    proxy = pw_core_export (pw_core, SPA_TYPE_INTERFACE_Device,
+        wp_properties_peek_dict (self->properties), self->device, 0);
+    err = errno;
+    if (proxy)
+      wp_proxy_set_pw_proxy (WP_PROXY (self), proxy);
     wp_spa_device_unlock (self);
+
+    /* without a proxy, "bound" never comes and the transition would hang */
+    if (!proxy)
+      wp_transition_return_error (WP_TRANSITION (transition),
+          g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+              "failed to export device: %s", g_strerror (err)));
     break;
   }
   case STEP_ADD_DEVICE_LISTENER: {

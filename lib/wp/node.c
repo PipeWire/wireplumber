@@ -10,10 +10,12 @@
 #include "core.h"
 #include "object-manager.h"
 #include "log.h"
+#include "error.h"
 #include "wpenums.h"
 #include "private/client-context.h"
 #include "private/pipewire-object-mixin.h"
 
+#include <errno.h>
 #include <pipewire/impl.h>
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-node")
@@ -804,15 +806,25 @@ wp_impl_node_activate_execute_step (WpObject * object,
        pw_core_export() binds the exported node's context and data loop to it */
     struct pw_core *pw_core = ctx ?
         wp_client_context_get_pw_core (ctx) : wp_core_get_pw_core (core);
+    struct pw_proxy *proxy;
+    gint err;
     g_return_if_fail (pw_core);
 
     /* export and start listening in one locked section, so that the loop
        thread cannot deliver the "bound" event before we are listening */
     wp_impl_node_lock (self);
-    wp_proxy_set_pw_proxy (WP_PROXY (self),
-        pw_core_export (pw_core, PW_TYPE_INTERFACE_Node, NULL,
-            self->pw_impl_node, 0));
+    proxy = pw_core_export (pw_core, PW_TYPE_INTERFACE_Node, NULL,
+        self->pw_impl_node, 0);
+    err = errno;
+    if (proxy)
+      wp_proxy_set_pw_proxy (WP_PROXY (self), proxy);
     wp_impl_node_unlock (self);
+
+    /* without a proxy, "bound" never comes and the transition would hang */
+    if (!proxy)
+      wp_transition_return_error (WP_TRANSITION (transition),
+          g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+              "failed to export node: %s", g_strerror (err)));
     break;
   }
   default:

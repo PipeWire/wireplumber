@@ -12,6 +12,7 @@
 #include "error.h"
 #include "wpenums.h"
 
+#include <errno.h>
 #include <pipewire/impl.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
@@ -758,6 +759,8 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
     g_autoptr (WpCore) core = wp_object_get_core (object);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
     const struct pw_properties *props = NULL;
+    struct pw_proxy *proxy;
+    gint err;
 
     /* no pw_core -> we are not connected */
     if (!pw_core) {
@@ -769,9 +772,19 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
     }
 
     props = pw_impl_metadata_get_properties (self->impl);
-    wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
-            PW_TYPE_INTERFACE_Metadata, &props->dict, priv->iface, 0)
-    );
+    proxy = pw_core_export (pw_core, PW_TYPE_INTERFACE_Metadata, &props->dict,
+        priv->iface, 0);
+    err = errno;
+
+    /* without a proxy, "bound" never comes and the transition would hang */
+    if (!proxy) {
+      wp_transition_return_error (WP_TRANSITION (transition),
+          g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+              "failed to export metadata: %s", g_strerror (err)));
+      return;
+    }
+
+    wp_proxy_set_pw_proxy (WP_PROXY (self), proxy);
     break;
   }
   case STEP_CACHE:
