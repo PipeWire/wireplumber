@@ -39,6 +39,28 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``true``
 
+.. describe:: bluetooth.autoswitch-switch-timeout
+
+   How long to wait, in milliseconds, after a capture stream is linked to a
+   Bluetooth headset before switching the device to headset mode.
+
+   :Default value: ``500``
+   :Range: ``0`` to ``60000``
+   :See also: ``bluetooth.autoswitch-to-headset-profile``
+
+.. describe:: bluetooth.autoswitch-restore-timeout
+
+   How long to wait, in milliseconds, after the last capture stream is unlinked
+   from a Bluetooth headset before restoring the previous profile. If a new
+   capture stream is linked within this time, the device stays in headset mode.
+
+   Increase this value if an application closes and reopens the microphone
+   with a pause in between, to avoid switching profiles back and forth.
+
+   :Default value: ``4000``
+   :Range: ``0`` to ``60000``
+   :See also: ``bluetooth.autoswitch-to-headset-profile``
+
 .. describe:: bluetooth.profile-preference
 
    Controls which A2DP codec configuration is preferred when a profile is

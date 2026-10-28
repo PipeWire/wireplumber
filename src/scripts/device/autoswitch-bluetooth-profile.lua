@@ -31,9 +31,6 @@ log = Log.open_topic ("s-device")
 persistent_storage_hooks_registered = false
 autoswitch_hooks_registered = false
 
-local PROFILE_RESTORE_TIMEOUT_MSEC = 2000
-local PROFILE_SWITCH_TIMEOUT_MSEC = 500
-
 local state = nil
 local headset_profiles = {}
 local non_headset_profiles = {}
@@ -259,8 +256,9 @@ function triggerSwitchDeviceToHeadsetProfile (source, dev_id)
   end
 
   -- create new switch callback
+  local timeout = Settings.get_int ("bluetooth.autoswitch-switch-timeout")
   log:info ("Triggering profile switch on device " .. tostring (dev_id))
-  switch_timeout_source[dev_id] = Core.timeout_add (PROFILE_SWITCH_TIMEOUT_MSEC, function ()
+  switch_timeout_source[dev_id] = Core.timeout_add (timeout, function ()
     switch_timeout_source[dev_id] = nil
 
     local e = source:call ("create-event", "autoswitch-bluez-headset-profile", nil, nil)
@@ -283,8 +281,9 @@ function triggerRestoreProfile (source, dev_id)
   end
 
   -- create new restore callback
+  local timeout = Settings.get_int ("bluetooth.autoswitch-restore-timeout")
   log:info ("Triggering profile restore on device " .. tostring (dev_id))
-  restore_timeout_source[dev_id] = Core.timeout_add (PROFILE_RESTORE_TIMEOUT_MSEC, function ()
+  restore_timeout_source[dev_id] = Core.timeout_add (timeout, function ()
     restore_timeout_source[dev_id] = nil
 
     local e = source:call ("create-event", "autoswitch-bluez-a2dp-profile", nil, nil)

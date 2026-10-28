@@ -3,6 +3,26 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#. /wireplumber.settings.schema/bluetooth.autoswitch-restore-timeout/description
+#: wireplumber.conf
+msgid "How long to wait, in milliseconds, before restoring the previous profile when recording stops"
+msgstr ""
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-restore-timeout/name
+#: wireplumber.conf
+msgid "Auto-switch restore timeout"
+msgstr ""
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-switch-timeout/description
+#: wireplumber.conf
+msgid "How long to wait, in milliseconds, before switching to headset mode when recording starts"
+msgstr ""
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-switch-timeout/name
+#: wireplumber.conf
+msgid "Auto-switch timeout"
+msgstr ""
+
 #. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/description
 #: wireplumber.conf
 msgid "Always show microphone for Bluetooth headsets, and switch to headset mode when recording"
