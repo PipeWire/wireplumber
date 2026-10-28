@@ -12,10 +12,10 @@
 -- SPDX-License-Identifier: MIT
 --
 -- This script is charged to automatically change BT profiles on a device. If a
--- client is linked to the device's loopback source node, the associated BT
--- device profile is automatically switched to HSP/HFP. If there is no clients
--- linked to the device's loopback source node, the BT device profile is
--- switched back to A2DP profile.
+-- capture stream is linked to the device's loopback source stream, the
+-- associated BT device profile is automatically switched to HSP/HFP. If there
+-- is no capture stream linked to the device's loopback source stream, the BT
+-- device profile is switched back to A2DP profile.
 --
 -- We switch to the highest priority profile that has an Input route available.
 -- The reason for this is that we may have microphone enabled with non-HFP
@@ -141,7 +141,7 @@ function highestPrioNonHeadsetProfile (device)
   return found_profile
 end
 
-function switchDeviceToHeadsetProfile (dev_id, device_om, node_om)
+function switchDeviceToHeadsetProfile (dev_id, device_om, stream_om)
   -- Find the actual device
   local device = device_om:lookup {
       Constraint { "bound-id", "=", dev_id, type = "gobject" }
@@ -163,10 +163,11 @@ function switchDeviceToHeadsetProfile (dev_id, device_om, node_om)
   end
 
   -- Do not switch if the current profile already has an A2DP duplex source
-  local duplex_source = node_om:lookup {
-      Constraint { "device.id", "=", tostring (dev_id), type = "pw" },
-      Constraint { "media.class", "#", "Audio/Source*", type = "pw-global" },
-      Constraint { "api.bluez5.a2dp-duplex", "=", "true", type = "pw" }
+  local duplex_source = stream_om:lookup {
+      type = "AudioStream",
+      Constraint { "device.id", "=", tostring (dev_id), type = "wp" },
+      Constraint { "shape", "=", StreamShape.SOURCE, type = "gobject" },
+      Constraint { "api.bluez5.a2dp-duplex", "=", "true", type = "wp" }
   }
   if duplex_source ~= nil then
     log:info (device,
@@ -303,73 +304,100 @@ function triggerRestoreProfile (source, dev_id)
   end)
 end
 
-function getLinkedBluetoothLoopbackSourceNodeForStream (stream, node_om, link_om, visited_link_groups)
-  local stream_id = stream["bound-id"]
+local bt_loopback_source_interest = Interest {
+  type = "AudioStream",
+  Constraint { "shape", "=", StreamShape.SOURCE, type = "gobject" },
+  Constraint { "device.id", "+", type = "wp" },
+  Constraint { "bluez5.loopback", "=", "true", type = "wp" }
+}
 
-  -- Make sure the node is linked
-  local link = link_om:lookup {
-    Constraint { "link.input.node", "=", stream_id, type = "pw-global"}
-  }
-  if link == nil then
+local capture_stream_interest = Interest {
+  type = "AudioStream",
+  Constraint { "shape", "=", StreamShape.INPUT, type = "gobject" },
+  Constraint { "node.link-group", "-", type = "wp" },
+  Constraint { "stream.monitor", "!", "true", type = "wp" },
+  Constraint { "bluez5.loopback", "!", "true", type = "wp" }
+}
+
+-- Checks if the stream is a capture stream, which is an audio input stream
+-- whose node has no link group and no output stream
+function isCaptureStream (stream, stream_om)
+  if not capture_stream_interest:matches (stream) then
+    return false
+  end
+  local node_id = stream:get_node_bound_id ()
+  for output_stream in stream_om:iterate {
+      type = "AudioStream",
+      Constraint { "direction", "=", Direction.OUTPUT, type = "gobject" }
+    } do
+    if output_stream:get_node_bound_id () == node_id then
+      return false
+    end
+  end
+  return true
+end
+
+function getLinkedBluetoothLoopbackSourceStream (stream, stream_om, visited_streams)
+  if visited_streams == nil then
+    visited_streams = {}
+  end
+  if visited_streams [stream.id] then
     return nil
   end
-  local peer_id = link.properties["link.output.node"]
+  visited_streams [stream.id] = true
 
-  -- If the peer node is the BT loopback source node, return its Id.
-  -- Otherwise recursively advance in the graph if it is linked to a filter.
-  local bt_node = node_om:lookup {
-      Constraint { "media.class", "matches", "Audio/Source", type = "pw-global" },
-      Constraint { "bound-id", "=", peer_id, type = "gobject" },
-      Constraint { "bluez5.loopback", "=", "true", type = "pw" }
-  }
-  if bt_node ~= nil then
-    return bt_node
-  else
-    local filter_main_node = node_om:lookup {
-      Constraint { "bound-id", "=", peer_id, type = "gobject" },
-      Constraint { "node.link-group", "+", type = "pw" }
-    }
-    if filter_main_node ~= nil then
-      local filter_link_group = filter_main_node.properties ["node.link-group"]
-      if visited_link_groups == nil then
-        visited_link_groups = {}
-      end
-      if visited_link_groups [filter_link_group] then
-        return nil
+  for stream_link in StreamLinkManager.iterate_links (stream) do
+    -- Only follow the established links that feed this stream
+    if stream_link:get_input_stream () ~= stream or
+        stream_link:get_links_count () == 0 then
+      goto continue
+    end
+
+    -- If the peer stream is the BT loopback source stream, return it.
+    -- Otherwise recursively advance in the graph if it is linked to a filter.
+    local peer = stream_link:get_output_stream ()
+    if bt_loopback_source_interest:matches (peer) then
+      return peer
+    end
+
+    -- A filter is either several nodes in the same link group, or one node
+    -- with several streams, so continue from the input streams of the peer's
+    -- link group if it has one, otherwise from the input streams of its node
+    local peer_node_id = peer:get_node_bound_id ()
+    local filter_link_group = peer:get_property ("node.link-group")
+    for filter_stream in stream_om:iterate {
+        type = "AudioStream",
+        Constraint { "direction", "=", Direction.INPUT, type = "gobject" },
+        Constraint { "stream.monitor", "!", "true", type = "wp" },
+        Constraint { "bluez5.loopback", "!", "true", type = "wp" }
+      } do
+      local is_filter_stream
+      if filter_link_group ~= nil then
+        is_filter_stream =
+            filter_stream:get_property ("node.link-group") == filter_link_group
       else
-        visited_link_groups [filter_link_group] = true
+        is_filter_stream = filter_stream:get_node_bound_id () == peer_node_id
       end
-      for filter_stream_node in node_om:iterate {
-          Constraint { "bound-id", "!", peer_id, type = "gobject" },
-          Constraint { "stream.monitor", "!", "true", type = "pw" },
-          Constraint { "bluez5.loopback", "!", "true", type = "pw" },
-          Constraint { "node.link-group", "=", filter_link_group, type = "pw" }
-        } do
-        local bt_node = getLinkedBluetoothLoopbackSourceNodeForStream (filter_stream_node, node_om, link_om, visited_link_groups)
-        if bt_node ~= nil then
-          return bt_node
+      if is_filter_stream then
+        local bt_stream =
+            getLinkedBluetoothLoopbackSourceStream (filter_stream, stream_om, visited_streams)
+        if bt_stream ~= nil then
+          return bt_stream
         end
       end
     end
+
+    ::continue::
   end
 
   return nil
 end
 
-function isBluetoothLoopbackSourceNodeLinkedToStream (bt_node, node_om, link_om)
-  local bt_node_id = bt_node["bound-id"]
-  for stream in node_om:iterate {
-    Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
-    Constraint { "node.link-group", "-", type = "pw" },
-    Constraint { "stream.monitor", "!", "true", type = "pw" },
-    Constraint { "bluez5.loopback", "!", "true", type = "pw" }
-  } do
-    local linked_bt_node = getLinkedBluetoothLoopbackSourceNodeForStream (stream, node_om, link_om)
-    if linked_bt_node ~= nil then
-      local linked_bt_node_id = linked_bt_node ["bound-id"]
-      if tonumber (linked_bt_node_id) == tonumber (bt_node_id) then
-        return true
-      end
+function isBluetoothLoopbackSourceStreamLinked (bt_stream, stream_om)
+  for stream in stream_om:iterate (capture_stream_interest) do
+    if isCaptureStream (stream, stream_om) and
+        getLinkedBluetoothLoopbackSourceStream (stream, stream_om) == bt_stream then
+      return true
     end
   end
   return false
@@ -388,11 +416,11 @@ local switch_profile_hook = AsyncEventHook {
       execute = function (event, transition)
         local source = event:get_source ()
         local device_om = source:call ("get-object-manager", "device")
-        local node_om = source:call ("get-object-manager", "node")
+        local stream_om = source:call ("get-object-manager", "stream")
         local device_id = event:get_data ("device-id")
 
         -- Switch profile
-        switchDeviceToHeadsetProfile (device_id, device_om, node_om)
+        switchDeviceToHeadsetProfile (device_id, device_om, stream_om)
 
         -- Wait until the profile is applied
         Core.sync (function ()
@@ -439,27 +467,32 @@ local evaluate_bluetooth_profiles_hook = SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
-    local node_om = source:call ("get-object-manager", "node")
-    local link_om = source:call ("get-object-manager", "link")
+    local stream_om = source:call ("get-object-manager", "stream")
+    local needs_headset_profile = {}
 
-    -- Evaluate all bluetooth loopback source nodes, and switch to headset
-    -- profile only if the node is running and linked to a stream that is not a
-    -- monitor, otherwise just restore the profile.
+    -- Evaluate all bluetooth loopback source streams, and switch to headset
+    -- profile only if the node is running and the stream is linked to a
+    -- capture stream that is not a monitor, otherwise just restore the profile.
     --
-    -- If the bluetooth node is linked to a stream that is a monitor, its state
-    -- will be 'running', so we cannot just rely on the state to know if we
-    -- have to switch or not, we also need to check if the node is linked to
-    -- a stream that is not a monitor.
-    for bt_node in node_om:iterate {
-        Constraint { "media.class", "matches", "Audio/Source" },
-        Constraint { "device.id", "+" },
-        Constraint { "bluez5.loopback", "=", "true", type = "pw" }
-    } do
-      local bt_node_state = bt_node["state"]
-      local bt_dev_id = bt_node.properties ["device.id"]
+    -- If the bluetooth stream is linked to a stream that is a monitor, its
+    -- node state will be 'running', so we cannot just rely on the state to know
+    -- if we have to switch or not, we also need to check if the stream is
+    -- linked to a stream that is not a monitor.
 
-      if bt_node_state == "running" and
-          isBluetoothLoopbackSourceNodeLinkedToStream (bt_node, node_om, link_om) then
+    -- Check which devices need to switch to headset profile
+    for bt_stream in stream_om:iterate (bt_loopback_source_interest) do
+      local bt_node = bt_stream:get_node ()
+      local bt_dev_id = bt_stream:get_property ("device.id")
+      if not needs_headset_profile [bt_dev_id] then
+        local is_running = bt_node ~= nil and bt_node["state"] == "running"
+        local is_linked = isBluetoothLoopbackSourceStreamLinked (bt_stream, stream_om)
+        needs_headset_profile [bt_dev_id] = is_running and is_linked
+      end
+    end
+
+    -- Switch or retores the profile
+    for bt_dev_id, needs_headset in pairs (needs_headset_profile) do
+      if needs_headset then
         triggerSwitchDeviceToHeadsetProfile (source, bt_dev_id)
       else
         triggerRestoreProfile (source, bt_dev_id)
@@ -468,56 +501,45 @@ local evaluate_bluetooth_profiles_hook = SimpleEventHook {
   end
 }
 
-local link_added_hook = SimpleEventHook {
+local stream_link_added_hook = SimpleEventHook {
   name = "link-added@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "link-added" },
+      Constraint { "event.type", "=", "stream-link-added" },
     },
   },
   execute = function (event)
     local source = event:get_source ()
-    local node_om = source:call ("get-object-manager", "node")
-    local link = event:get_subject ()
-    local in_stream_id = link.properties["link.input.node"]
-    local out_node_id = link.properties["link.output.node"]
+    local stream_om = source:call ("get-object-manager", "stream")
+    local stream_link = event:get_subject ()
+    local in_stream = stream_link:get_input_stream ()
+    local out_stream = stream_link:get_output_stream ()
 
     -- Only evaluate bluetooth profiles if a capture stream was linked, or if
-    -- the BT loopback source node was linked to anything (e.g. a filter chain
-    -- that gets linked after the capture stream was linked to the filter)
-    local stream = node_om:lookup {
-      Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
-      Constraint { "node.link-group", "-", type = "pw" },
-      Constraint { "stream.monitor", "!", "true", type = "pw" },
-      Constraint { "bluez5.loopback", "!", "true", type = "pw" },
-      Constraint { "bound-id", "=", in_stream_id, type = "gobject" },
-    }
-    local bt_node = node_om:lookup {
-      Constraint { "media.class", "matches", "Audio/Source", type = "pw-global" },
-      Constraint { "bluez5.loopback", "=", "true", type = "pw" },
-      Constraint { "bound-id", "=", out_node_id, type = "gobject" },
-    }
-    if stream ~= nil or bt_node ~= nil then
-      capture_stream_links [link.id] = true
+    -- the BT loopback source stream was linked to anything (e.g. a filter
+    -- chain that gets linked after the capture stream was linked to the filter)
+    if isCaptureStream (in_stream, stream_om) or
+        bt_loopback_source_interest:matches (out_stream) then
+      capture_stream_links [stream_link.id] = true
       source:call ("push-event", "evaluate-bluetooth-profiles", nil, nil)
     end
   end
 }
 
-local link_removed_hook = SimpleEventHook {
+local stream_link_removed_hook = SimpleEventHook {
   name = "link-removed@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "link-removed" },
+      Constraint { "event.type", "=", "stream-link-removed" },
     },
   },
   execute = function (event)
     local source = event:get_source ()
-    local link = event:get_subject ()
+    local stream_link = event:get_subject ()
 
     -- Only evaluate bluetooth profiles if a capture stream was unlinked
-    if capture_stream_links [link.id] then
-      capture_stream_links [link.id] = nil
+    if capture_stream_links [stream_link.id] then
+      capture_stream_links [stream_link.id] = nil
       source:call ("push-event", "evaluate-bluetooth-profiles", nil, nil)
     end
   end
@@ -550,14 +572,15 @@ local state_changed_hook = SimpleEventHook {
   end
 }
 
-local node_added_hook = SimpleEventHook {
+local stream_added_hook = SimpleEventHook {
   name = "bluez-loopback-added@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "node-added" },
-      Constraint { "media.class", "matches", "Audio/Source" },
+      Constraint { "event.type", "=", "stream-added" },
+      Constraint { "event.stream.type", "=", "audio" },
+      Constraint { "shape", "=", StreamShape.SOURCE, type = "gobject" },
       Constraint { "device.id", "+" },
-      Constraint { "bluez5.loopback", "=", "true", type = "pw" }
+      Constraint { "bluez5.loopback", "=", "true" }
     },
   },
   execute = function (event)
@@ -607,22 +630,18 @@ local device_enumprofile_changed_hook = SimpleEventHook {
   execute = function (event)
     local source = event:get_source ()
     local device = event:get_subject ()
-    local node_om = source:call ("get-object-manager", "node")
-    local link_om = source:call ("get-object-manager", "link")
+    local stream_om = source:call ("get-object-manager", "stream")
     local dev_id = tostring (device["bound-id"])
 
     if switch_timeout_source[dev_id] ~= nil then
       return
     end
 
-    local bt_node = node_om:lookup {
-      Constraint { "media.class", "matches", "Audio/Source" },
-      Constraint { "device.id", "=", dev_id },
-      Constraint { "bluez5.loopback", "=", "true", type = "pw" }
-    }
-    if bt_node ~= nil and
-        isBluetoothLoopbackSourceNodeLinkedToStream (bt_node, node_om, link_om) then
-      return
+    for bt_stream in stream_om:iterate (bt_loopback_source_interest) do
+      if bt_stream:get_property ("device.id") == dev_id and
+          isBluetoothLoopbackSourceStreamLinked (bt_stream, stream_om) then
+        return
+      end
     end
 
     triggerRestoreProfile (source, dev_id)
@@ -651,10 +670,10 @@ function evaluateAutoswitch ()
     switch_profile_hook:register ()
     restore_profile_hook:register ()
     evaluate_bluetooth_profiles_hook:register ()
-    link_added_hook:register ()
-    link_removed_hook:register ()
+    stream_link_added_hook:register ()
+    stream_link_removed_hook:register ()
     state_changed_hook:register ()
-    node_added_hook:register ()
+    stream_added_hook:register ()
     device_profile_changed_hook:register ()
     device_enumprofile_changed_hook:register ()
     autoswitch_hooks_registered = true
@@ -665,10 +684,10 @@ function evaluateAutoswitch ()
     switch_profile_hook:remove ()
     restore_profile_hook:remove ()
     evaluate_bluetooth_profiles_hook:remove ()
-    link_added_hook:remove ()
-    link_removed_hook:remove ()
+    stream_link_added_hook:remove ()
+    stream_link_removed_hook:remove ()
     state_changed_hook:remove ()
-    node_added_hook:remove ()
+    stream_added_hook:remove ()
     device_profile_changed_hook:remove ()
     device_enumprofile_changed_hook:remove ()
     autoswitch_hooks_registered = false
