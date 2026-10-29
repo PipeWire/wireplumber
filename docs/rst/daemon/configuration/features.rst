@@ -42,14 +42,6 @@ Audio
 
    Enables the ALSA MIDI device monitor.
 
-.. describe:: node.software-dsp
-
-   Enables software DSP based on pre-configured hardware rules, by hiding the
-   hardware node and exposing a separate virtual node in its place. New
-   configurations should use ``hooks.stream.filter.graph`` instead.
-
-   See :ref:`policies_software_dsp` for more information.
-
 Bluetooth
 ~~~~~~~~~
 
@@ -213,6 +205,14 @@ Streams
 
    The ``filter-graph.conf`` example fragment demonstrates this; see
    :ref:`config_example_fragments`.
+
+.. describe:: stream.software-dsp
+
+   Enables software DSP based on pre-configured hardware rules, by hiding the
+   hardware node and exposing a separate virtual node in its place. New
+   configurations should use ``hooks.stream.filter.graph`` instead.
+
+   See :ref:`policies_software_dsp` for more information.
 
 .. describe:: stream.audio-group
 

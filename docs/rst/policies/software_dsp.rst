@@ -99,16 +99,18 @@ virtual node is linked to it. This virtual node is then presented to clients as
 Activating
 ^^^^^^^^^^
 
-In addition to the ``node.software-dsp.rules`` section, the ``node.software-dsp``
-:ref:`feature <config_features>` must be enabled in the desired profile(s).
+In addition to the ``stream.software-dsp.rules`` section, the
+``stream.software-dsp`` :ref:`feature <config_features>` must be enabled in the
+desired profile(s).
 
 
-Matching a node
-^^^^^^^^^^^^^^^
+Matching a stream
+^^^^^^^^^^^^^^^^^
 
-Matching rules are specified in ``node.software-dsp.rules``. The ``create-filter``
-action specifies behaviour at node insertion. All node properties can be matched
-on, including any type-specific properties such as ``alsa.id``.
+Matching rules are specified in ``stream.software-dsp.rules``. The
+``create-filter`` action specifies behaviour at stream insertion. All stream
+properties can be matched on, including the properties of its node and any
+type-specific properties such as ``alsa.id``.
 
 
 Configurable properties
@@ -130,7 +132,7 @@ Configurable properties
 
    Absolute path to a file on disk storing a SPA-JSON object as plain text. This will be
    parsed by WirePlumber into a WpConf object with a single section called
-   ``node.software-dsp.graph``, then passed as-is into ``libpipewire-module-filter-chain``.
+   ``stream.software-dsp.graph``, then passed as-is into ``libpipewire-module-filter-chain``.
 
    .. note::
 
@@ -139,9 +141,9 @@ Configurable properties
 
 .. describe:: hide-parent
 
-   Boolean indicating whether or not the matched node should be hidden from
-   clients. ``node/software-dsp.lua`` will set the permissions for all clients other
-   than WirePlumber itself to ``'-'``. This prevents use of the node by any
+   Boolean indicating whether or not the node of the matched stream should be
+   hidden from clients. ``stream/software-dsp.lua`` will set the permissions for
+   all clients other than WirePlumber itself to ``'-'``. This prevents use of the node by any
    userspace software except for WirePlumber itself.
 
 
@@ -151,7 +153,7 @@ Examples
 .. code-block::
    :caption: wireplumber.conf.d/99-my-dsp.conf
 
-   node.software-dsp.rules = [
+   stream.software-dsp.rules = [
      {
        matches = [
          { "node.name" = "alsa_output.platform-sound.HiFi__Speaker__sink" }
@@ -170,7 +172,7 @@ Examples
 
    wireplumber.profiles = {
      main = {
-       node.software-dsp = required
+       stream.software-dsp = required
      }
    }
 
