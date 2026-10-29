@@ -63,6 +63,25 @@ function CreateDeviceLoopbackSource (dev_props, dev_id)
   return LocalModule("libpipewire-module-loopback", args:get_data(), {})
 end
 
+-- A2DP duplex profiles have an Input route, unlike the other A2DP profiles.
+-- Their name can't be used, as the best A2DP profile is just "a2dp-sink".
+function IsA2dpDuplexProfile (spa_device, profile)
+  if not profile.name:find ("^a2dp%-") then
+    return false
+  end
+  for p in spa_device:iterate_params ("EnumRoute") do
+    local route = cutils.parseParam (p, "EnumRoute")
+    if route and route.direction == "Input" and route.profiles then
+      for _, v in pairs (route.profiles) do
+        if v == profile.index then
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
 SimpleEventHook {
   name = "monitor/bluez/create-loopback-node",
   interests = {
@@ -107,7 +126,8 @@ SimpleEventHook {
         local is_current_profile_headset = false
         for p in spa_device:iterate_params("Profile") do
           local profile = cutils.parseParam (p, "Profile")
-          if profile.name:find ("headset") then
+          if profile.name:find ("headset") or
+              IsA2dpDuplexProfile (spa_device, profile) then
             is_current_profile_headset = true
           end
           break
