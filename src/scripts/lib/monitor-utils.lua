@@ -165,6 +165,21 @@ function mutils.register_cam_node (self, parent, id, factory, properties)
   end)
 end
 
+-- drops the pending devices of the given api, so that the arbitration does not
+-- create nodes for devices of a monitor that has been destroyed
+function mutils.clear_cam_data (self, api)
+  for i = #self.cam_data, 1, -1 do
+    if self.cam_data[i].properties["device.api"] == api then
+      table.remove (self.cam_data, i)
+    end
+  end
+
+  if #self.cam_data == 0 and self.cam_source then
+    self.cam_source:destroy ()
+    self.cam_source = nil
+  end
+end
+
 function mutils.get_bluez_node_name (prefix, bt_address, dev_name, node_id)
   local name = prefix .. "." .. (bt_address or dev_name) .. "." .. tostring(node_id)
   -- sanitize name

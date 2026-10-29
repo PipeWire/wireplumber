@@ -94,9 +94,22 @@ Video
 
    Enables the V4L2 device monitor.
 
+   :wants: ``monitor.camera.seat-monitoring``
+
 .. describe:: monitor.libcamera
 
    Enables the libcamera device monitor.
+
+   :wants: ``monitor.camera.seat-monitoring``
+
+.. describe:: monitor.camera.seat-monitoring
+
+   Enables seat monitoring on the V4L2 and libcamera monitors.
+
+   When enabled, this will make sure that the cameras are only enabled on the
+   active seat.
+
+   :requires: ``support.logind``
 
 Support components
 ------------------

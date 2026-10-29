@@ -52,6 +52,28 @@ To use libcamera exclusively, disable the V4L2 monitor in your profile:
 
 Conversely, set ``monitor.libcamera = disabled`` to use V4L2 only.
 
+Logind integration
+------------------
+
+The V4L2 and libcamera monitors are integrated with logind and only enumerate
+cameras while the user is on the "active" logind session. Access to the camera
+device files is granted by logind only to the active session, so enumerating
+earlier, for example when WirePlumber starts at login before the session is
+active, would skip cameras that cannot be opened yet. When the session becomes
+inactive, the cameras are released and enumerated again once it becomes active.
+
+To disable this behavior, for example for a user that is never on an active
+session, set the ``monitor.camera.seat-monitoring``
+:ref:`feature <config_features>` to ``disabled``:
+
+.. code-block::
+
+   wireplumber.profiles = {
+     main = {
+       monitor.camera.seat-monitoring = disabled
+     }
+   }
+
 V4L2 configuration
 ------------------
 
