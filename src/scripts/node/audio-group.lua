@@ -15,20 +15,14 @@ PW_AUDIO_NAMESPACE = "pw-audio-namespace"
 
 stream_directions = {}
 group_loopback_modules = {}
-group_loopback_modules["input"] = {}
-group_loopback_modules["output"] = {}
+group_loopback_modules[Direction.INPUT] = {}
+group_loopback_modules[Direction.OUTPUT] = {}
 
-function GetStreamDirection (props)
-  if string.find (props["media.class"], "Stream/Input/Audio") then
-    return "input"
-  elseif string.find (props["media.class"], "Stream/Output/Audio") then
-    return "output"
-  end
-
-  return nil
+function getDirectionString (direction)
+  return direction == Direction.INPUT and "input" or "output"
 end
 
-function GetNodeAudioGroup (pid)
+function GetStreamAudioGroup (pid)
   local group = nil
   local target_object = nil
 
@@ -68,7 +62,7 @@ function GetNodeAudioGroup (pid)
 end
 
 function CreateStreamLoopback (props, group, target_object, direction)
-  local is_input = direction == "input" and true or false
+  local is_input = direction == Direction.INPUT
 
   -- Set stream properties
   local stream_props = {}
@@ -104,7 +98,7 @@ SimpleEventHook {
     EventInterest {
       Constraint { "event.type", "=", "stream-added" },
       Constraint { "event.stream.type", "=", "audio" },
-      Constraint { "media.class", "#", "Stream/*Audio*" },
+      Constraint { "kind", "=", StreamKind.SUBJECT, type = "gobject" },
     },
   },
   execute = function (event)
@@ -141,16 +135,11 @@ SimpleEventHook {
     end
 
     -- Get direction and add it to the table
-    local direction = GetStreamDirection (stream_props)
-    if direction == nil then
-      Log.info (stream,
-          "Cannot get direction, not grouping audio stream ".. stream_name)
-      return
-    end
+    local direction = stream:get_direction ()
     stream_directions [id] = direction
 
     -- Get group and add it to the table
-    local group, target_object = GetNodeAudioGroup (pid)
+    local group, target_object = GetStreamAudioGroup (pid)
     if group == nil then
       Log.info (stream,
           "Cannot get audio group, not grouping audio stream " .. stream_name)
@@ -161,7 +150,8 @@ SimpleEventHook {
     -- Create group loopback module if it does not exist
     local m = group_loopback_modules [direction][group]
     if m == nil then
-      Log.info ("Creating " .. direction .. " loopback for audio group " .. group ..
+      Log.info ("Creating " .. getDirectionString (direction) ..
+          " loopback for audio group " .. group ..
           (target_object and (" with target object " .. tostring (target_object)) or ""))
       m = CreateStreamLoopback (stream_props, group, target_object, direction)
       group_loopback_modules [direction][group] = m
@@ -176,7 +166,7 @@ SimpleEventHook {
     EventInterest {
       Constraint { "event.type", "=", "stream-removed" },
       Constraint { "event.stream.type", "=", "audio" },
-      Constraint { "media.class", "#", "Stream/*Audio*" },
+      Constraint { "kind", "=", StreamKind.SUBJECT, type = "gobject" },
     },
   },
   execute = function (event)
@@ -199,7 +189,8 @@ SimpleEventHook {
 
     -- Destroy group loopback module if there are no more streams with the same group
     if not agutils.contains_audio_group (group) then
-      Log.info ("Destroying " .. direction .. " loopback for audio group " .. group)
+      Log.info ("Destroying " .. getDirectionString (direction) ..
+          " loopback for audio group " .. group)
       group_loopback_modules [direction][group] = nil
     end
   end
