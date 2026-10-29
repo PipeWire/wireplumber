@@ -204,12 +204,6 @@ Support components
 Nodes
 -----
 
-.. describe:: node.audio-group
-
-   Groups together the streams of processes that share a common ancestor,
-   placing them behind a single loopback filter so that they can be controlled
-   as one.
-
 .. describe:: hooks.filter.graph
 
    Enables attaching an internal filter graph to a node, based on the
@@ -219,6 +213,15 @@ Nodes
 
    The ``filter-graph.conf`` example fragment demonstrates this; see
    :ref:`config_example_fragments`.
+
+Streams
+-------
+
+.. describe:: stream.audio-group
+
+   Groups together the streams of processes that share a common ancestor,
+   placing them behind a single loopback filter so that they can be controlled
+   as one.
 
 Policies
 --------
