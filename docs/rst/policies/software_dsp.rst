@@ -73,7 +73,7 @@ each using the same syntax as PipeWire's ``filter-chain`` configuration:
    ]
 
 The ``hooks.stream.filter.graph`` :ref:`feature <config_features>` must be
-enabled; it is part of the ``policy.node`` feature and enabled by default.
+enabled; it is part of the ``policy.stream`` feature and enabled by default.
 
 A complete, commented example ships as ``filter-graph.conf``; see
 :ref:`config_example_fragments`.
