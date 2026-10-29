@@ -39,30 +39,25 @@ function findLowestPriorityAvailableOutputRoute (device)
   return lowest_prio_r
 end
 
-function evaluateNode (node, source)
-  if nodes_info [node.id] == nil then
+function evaluateStream (stream, source)
+  local info = streams_info [stream.id]
+  if info == nil then
     return
   end
 
-  -- Get node info
-  local node_state = nodes_info [node.id].state
-  local node_api = nodes_info [node.id].api
-  local node_dev_id = nodes_info [node.id].dev_id
-  local node_cpd = nodes_info [node.id].cpd
-
-  -- Don't do anything if node was not running
-  if node_state ~= "running" then
+  -- Don't do anything if the stream node was not running
+  if info.state ~= "running" then
     return
   end
 
   -- Emite event if setting is enabled for this API
   local mute_alsa = Settings.get_boolean ("device.routes.mute-on-alsa-playback-removed")
   local mute_bluez = Settings.get_boolean ("device.routes.mute-on-bluetooth-playback-removed")
-  if (mute_alsa and node_api == "alsa") or
-      (mute_bluez and node_api == "bluez5") then
+  if (mute_alsa and info.api == "alsa") or
+      (mute_bluez and info.api == "bluez5") then
     local e = source:call ("create-event", "mute-alsa-devices", nil, nil)
-    e:set_data ("device-id", node_dev_id)
-    e:set_data ("card-profile-device", node_cpd)
+    e:set_data ("device-id", info.dev_id)
+    e:set_data ("card-profile-device", info.cpd)
     EventDispatcher.push_event (e)
   end
 end
@@ -82,9 +77,9 @@ mute_alsa_devices_hook = SimpleEventHook {
     local send_notification = false
 
     -- We mute all available output ALSA routes but the one associated with
-    -- the running node.
+    -- the running stream.
     --
-    -- We also don't mute any routes if the running node is associated with
+    -- We also don't mute any routes if the running stream is associated with
     -- the lowest priority route as this is most likely to be the Speakers.
     --
     -- For instance, we want to mute all routes except the Headphones one
@@ -119,8 +114,38 @@ mute_alsa_devices_hook = SimpleEventHook {
   end
 }
 
-update_nodes_info_hook = SimpleEventHook {
-  name = "device/update-nodes-info",
+-- The stream info is kept while the stream node exists, as the node is no
+-- longer available when the stream is removed
+add_streams_info_hook = SimpleEventHook {
+  name = "device/add-streams-info",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "stream-added" },
+      Constraint { "event.stream.type", "=", "audio" },
+      Constraint { "shape", "=", StreamShape.SINK, type = "gobject" },
+      Constraint { "device.api", "+" },
+      Constraint { "device.id", "+" },
+      Constraint { "card.profile.device", "+", type = "pw" },
+    },
+  },
+  execute = function (event)
+    local stream = event:get_subject ()
+    local stream_props = stream:get_properties ()
+    local node = stream:get_node ()
+
+    streams_info [stream.id] = {
+      node_id = stream:get_node_bound_id (),
+      api = stream_props ["device.api"],
+      dev_id = stream_props ["device.id"],
+      cpd = stream_props ["card.profile.device"],
+      state = node and node.state or nil,
+    }
+  end
+}
+
+-- Streams do not have a state, so the state of their node is used
+update_streams_state_hook = SimpleEventHook {
+  name = "device/update-streams-state",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-state-changed" },
@@ -133,19 +158,13 @@ update_nodes_info_hook = SimpleEventHook {
   execute = function (event)
     local node = event:get_subject ()
     local node_id = node["bound-id"]
-    local device_api = node.properties ["device.api"]
-    local device_id = node.properties ["device.id"]
-    local cpd = node.properties ["card.profile.device"]
     local new_state = event:get_properties ()["event.subject.new-state"]
 
-    -- Update node info
-    if nodes_info [node.id] == nil then
-      nodes_info [node.id] = {}
+    for _, info in pairs (streams_info) do
+      if info.node_id == node_id then
+        info.state = new_state
+      end
     end
-    nodes_info [node.id].api = device_api
-    nodes_info [node.id].state = new_state
-    nodes_info [node.id].dev_id = device_id
-    nodes_info [node.id].cpd = cpd
   end
 }
 
@@ -160,35 +179,37 @@ evaluate_mute_on_device_route_changed_hook = SimpleEventHook {
   execute = function (event)
     local source = event:get_source ()
     local device = event:get_subject ()
-    local node_om = source:call ("get-object-manager", "node")
+    local stream_om = source:call ("get-object-manager", "stream")
 
-    -- Evaluate all nodes for this device when the EnumRoute param changed
-    for node in node_om:iterate {
-        Constraint { "media.class", "matches", "Audio/Sink", type = "pw-global" },
-        Constraint { "device.id", "=", device["bound-id"], type = "pw-global" },
+    -- Evaluate all streams for this device when the EnumRoute param changed
+    for stream in stream_om:iterate {
+        type = "AudioStream",
+        Constraint { "shape", "=", StreamShape.SINK, type = "gobject" },
+        Constraint { "device.id", "=", device["bound-id"], type = "pw" },
       } do
-      evaluateNode (node, source)
+      evaluateStream (stream, source)
     end
   end
 }
 
-evaluate_mute_on_node_removed_hook = SimpleEventHook {
-  name = "device/evaluate-mute-on-node-removed",
+evaluate_mute_on_stream_removed_hook = SimpleEventHook {
+  name = "device/evaluate-mute-on-stream-removed",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "node-removed" },
-      Constraint { "media.class", "matches", "Audio/Sink" },
+      Constraint { "event.type", "=", "stream-removed" },
+      Constraint { "event.stream.type", "=", "audio" },
+      Constraint { "shape", "=", StreamShape.SINK, type = "gobject" },
     },
   },
   execute = function (event)
     local source = event:get_source ()
-    local node = event:get_subject ()
+    local stream = event:get_subject ()
 
-    -- Evaluate removed node
-    evaluateNode (node, source)
+    -- Evaluate removed stream
+    evaluateStream (stream, source)
 
-    -- Clear removed node info
-    nodes_info [node.id] = nil
+    -- Clear removed stream info
+    streams_info [stream.id] = nil
   end
 }
 
@@ -196,17 +217,19 @@ function toggleState ()
   local mute_alsa = Settings.get_boolean ("device.routes.mute-on-alsa-playback-removed")
   local mute_bluez = Settings.get_boolean ("device.routes.mute-on-bluetooth-playback-removed")
   if (mute_alsa or mute_bluez) and not hooks_registered then
-    nodes_info = {}
+    streams_info = {}
     mute_alsa_devices_hook:register ()
-    update_nodes_info_hook:register ()
+    add_streams_info_hook:register ()
+    update_streams_state_hook:register ()
     evaluate_mute_on_device_route_changed_hook:register ()
-    evaluate_mute_on_node_removed_hook:register ()
+    evaluate_mute_on_stream_removed_hook:register ()
     hooks_registered = true
   elseif not mute_alsa and not mute_bluez and hooks_registered then
     mute_alsa_devices_hook:remove ()
-    update_nodes_info_hook:remove ()
+    add_streams_info_hook:remove ()
+    update_streams_state_hook:remove ()
     evaluate_mute_on_device_route_changed_hook:remove ()
-    evaluate_mute_on_node_removed_hook:remove ()
+    evaluate_mute_on_stream_removed_hook:remove ()
     hooks_registered = false
   end
 end
