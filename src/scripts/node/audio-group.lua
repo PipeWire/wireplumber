@@ -25,6 +25,7 @@ end
 function GetStreamAudioGroup (pid)
   local group = nil
   local target_object = nil
+  local target_stream = nil
 
   -- We group a processes by PW_AUDIO_NAMESPACE.<pid> ancestor
   local curr_pid = pid
@@ -34,7 +35,8 @@ function GetStreamAudioGroup (pid)
 
     -- Check if ancestor process name is PW_AUDIO_NAMESPACE
     if arg0 ~= nil and string.find (arg0, PW_AUDIO_NAMESPACE, 1, true) then
-      -- Check if the PW_AUDIO_NAMESPACE has a defined target
+      -- Check if the PW_AUDIO_NAMESPACE has a defined target object and
+      -- target stream
       for i = 0, pid_info:get_n_args () - 1, 1 do
         local argn = pid_info:get_arg (i)
 
@@ -46,7 +48,11 @@ function GetStreamAudioGroup (pid)
         -- Get target node id value if any
         if (argn == "--target-object") or (argn == "-t") then
           target_object = pid_info:get_arg (i + 1)
-          break
+        end
+
+        -- Get target stream port group value if any
+        if argn == "--target-stream" then
+          target_stream = pid_info:get_arg (i + 1)
         end
       end
 
@@ -58,13 +64,13 @@ function GetStreamAudioGroup (pid)
     curr_pid = pid_info:get_parent_pid ()
   end
 
-  return group, target_object
+  return group, target_object, target_stream
 end
 
-function CreateStreamLoopback (props, group, target_object, direction)
+function CreateLoopback (props, group, target_object, target_stream, direction)
   local is_input = direction == Direction.INPUT
 
-  -- Set stream properties
+  -- Set stream node properties
   local stream_props = {}
   stream_props["node.name"] = "stream.audio_group:" .. group
   stream_props["node.description"] = "Stream Audio Group for " .. group
@@ -73,9 +79,15 @@ function CreateStreamLoopback (props, group, target_object, direction)
   stream_props["session.audio-group"] = group
   if target_object ~= nil then
     stream_props["target.object"] = tostring (target_object)
+    if target_stream ~= nil then
+      stream_props["target.stream"] = Json.Object {
+        ["target.object"] = tostring (target_object),
+        ["target.stream"] = tostring (target_stream)
+      }
+    end
   end
 
-  -- Set device properties
+  -- Set device node properties
   local device_props = {}
   device_props["node.name"] = "device.audio_group:" .. group
   device_props["node.description"] = "Device Audio Group for " .. group
@@ -139,7 +151,7 @@ SimpleEventHook {
     stream_directions [id] = direction
 
     -- Get group and add it to the table
-    local group, target_object = GetStreamAudioGroup (pid)
+    local group, target_object, target_stream = GetStreamAudioGroup (pid)
     if group == nil then
       Log.info (stream,
           "Cannot get audio group, not grouping audio stream " .. stream_name)
@@ -152,8 +164,10 @@ SimpleEventHook {
     if m == nil then
       Log.info ("Creating " .. getDirectionString (direction) ..
           " loopback for audio group " .. group ..
-          (target_object and (" with target object " .. tostring (target_object)) or ""))
-      m = CreateStreamLoopback (stream_props, group, target_object, direction)
+          (target_object and (" with target object " .. tostring (target_object)) or "") ..
+          ((target_object and target_stream) and (" and target stream " .. tostring (target_stream)) or ""))
+      m = CreateLoopback (stream_props, group, target_object,
+          target_stream, direction)
       group_loopback_modules [direction][group] = m
     end
   end
