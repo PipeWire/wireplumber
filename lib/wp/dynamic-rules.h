@@ -49,7 +49,7 @@ G_DECLARE_FINAL_TYPE (WpDynamicRules, wp_dynamic_rules, WP, DYNAMIC_RULES,
  * including when the internal condition object manager emits "objects-changed".
  */
 typedef gboolean (*WpDynamicRulesConditionCallback) (WpDynamicRules *self,
-    WpGlobalProxy *subject, WpObjectManager *condition_om, gpointer user_data);
+    WpObject *subject, WpObjectManager *condition_om, gpointer user_data);
 
 WP_API
 WpDynamicRules * wp_dynamic_rules_new (WpCore *core);
@@ -71,11 +71,10 @@ WP_API
 void wp_dynamic_rules_remove_rule (WpDynamicRules *self, guint32 rule_id);
 
 WP_API
-void wp_dynamic_rules_add_object (WpDynamicRules *self, WpGlobalProxy *object);
+void wp_dynamic_rules_add_object (WpDynamicRules *self, WpObject *object);
 
 WP_API
-void wp_dynamic_rules_remove_object (WpDynamicRules *self,
-    WpGlobalProxy *object);
+void wp_dynamic_rules_remove_object (WpDynamicRules *self, WpObject *object);
 
 G_END_DECLS
 

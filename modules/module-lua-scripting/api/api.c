@@ -3349,7 +3349,7 @@ static int
 dynamic_rules_add_object (lua_State *L)
 {
   WpDynamicRules *dr = wplua_checkobject (L, 1, WP_TYPE_DYNAMIC_RULES);
-  WpGlobalProxy *object = wplua_checkobject (L, 2, WP_TYPE_GLOBAL_PROXY);
+  WpObject *object = wplua_checkobject (L, 2, WP_TYPE_OBJECT);
 
   wp_dynamic_rules_add_object (dr, object);
   return 0;
@@ -3359,7 +3359,7 @@ static int
 dynamic_rules_remove_object (lua_State *L)
 {
   WpDynamicRules *dr = wplua_checkobject (L, 1, WP_TYPE_DYNAMIC_RULES);
-  WpGlobalProxy *object = wplua_checkobject (L, 2, WP_TYPE_GLOBAL_PROXY);
+  WpObject *object = wplua_checkobject (L, 2, WP_TYPE_OBJECT);
 
   wp_dynamic_rules_remove_object (dr, object);
   return 0;

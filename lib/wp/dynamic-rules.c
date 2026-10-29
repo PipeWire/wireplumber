@@ -10,6 +10,7 @@
 
 #include "dynamic-rules.h"
 #include "global-proxy.h"
+#include "stream.h"
 #include "json-utils.h"
 #include "object-manager.h"
 #include "proxy-interfaces.h"
@@ -53,6 +54,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-dynamic-rules")
  *
  * Use wp_object_activate() with #WP_DYNAMIC_RULES_LOADED to activate.
  * Call wp_dynamic_rules_add_object() to register subject objects to evaluate.
+ * Subject objects can be either WpGlobalProxy or WpStream objects.
  */
 
 static guint
@@ -297,7 +299,7 @@ parse_single_rule (WpDynamicRules *self, WpSpaJson *rule_json)
 }
 
 static GArray *
-get_or_create_rule_state (WpDynamicRules *self, WpGlobalProxy *obj)
+get_or_create_rule_state (WpDynamicRules *self, WpObject *obj)
 {
   GArray *rule_state = g_hash_table_lookup (self->state, obj);
   if (!rule_state) {
@@ -369,7 +371,7 @@ condition_is_satisfied (WpDynamicRules *self, DynamicCondition *cond)
 
 static gboolean
 condition_closure_is_satisfied (WpDynamicRules *self, DynamicCondition *cond,
-    WpGlobalProxy *subject)
+    WpObject *subject)
 {
   GValue ret = G_VALUE_INIT;
   GValue values[3] = { G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT };
@@ -379,7 +381,7 @@ condition_closure_is_satisfied (WpDynamicRules *self, DynamicCondition *cond,
 
   g_value_init (&values[0], WP_TYPE_DYNAMIC_RULES);
   g_value_set_object (&values[0], self);
-  g_value_init (&values[1], WP_TYPE_GLOBAL_PROXY);
+  g_value_init (&values[1], WP_TYPE_OBJECT);
   g_value_set_object (&values[1], subject);
   g_value_init (&values[2], WP_TYPE_OBJECT_MANAGER);
   g_value_set_object (&values[2], self->condition_om);
@@ -396,7 +398,7 @@ condition_closure_is_satisfied (WpDynamicRules *self, DynamicCondition *cond,
 }
 
 static gboolean
-rule_matches_subject (DynamicRule *rule, WpGlobalProxy *subject,
+rule_matches_subject (DynamicRule *rule, WpObject *subject,
     WpProperties *props)
 {
   if (rule->match_interest)
@@ -406,7 +408,7 @@ rule_matches_subject (DynamicRule *rule, WpGlobalProxy *subject,
 
 static gboolean
 rule_conditions_satisfied (WpDynamicRules *self, DynamicRule *rule,
-  WpGlobalProxy *subject)
+  WpObject *subject)
 {
   /* Check all conditions on the rule; all must be satisfied */
   for (guint i = 0; i < rule->conditions->len; i++) {
@@ -421,7 +423,7 @@ rule_conditions_satisfied (WpDynamicRules *self, DynamicRule *rule,
 }
 
 static void
-emit_actions (WpDynamicRules *self, guint rule_id, WpGlobalProxy *subject,
+emit_actions (WpDynamicRules *self, guint rule_id, WpObject *subject,
     WpSpaJson *actions, gboolean apply)
 {
   g_autoptr (WpIterator) it = NULL;
@@ -451,8 +453,18 @@ emit_actions (WpDynamicRules *self, guint rule_id, WpGlobalProxy *subject,
   }
 }
 
+static WpProperties *
+get_subject_properties (WpObject *obj)
+{
+  if (WP_IS_STREAM (obj))
+    return wp_stream_get_properties (WP_STREAM (obj));
+  if (WP_IS_PIPEWIRE_OBJECT (obj))
+    return wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (obj));
+  return wp_global_proxy_get_global_properties (WP_GLOBAL_PROXY (obj));
+}
+
 static void
-evaluate_object (WpDynamicRules *self, WpGlobalProxy *obj)
+evaluate_object (WpDynamicRules *self, WpObject *obj)
 {
   GArray *rule_state;
   g_autoptr (WpProperties) props = NULL;
@@ -463,10 +475,7 @@ evaluate_object (WpDynamicRules *self, WpGlobalProxy *obj)
     g_array_set_size (rule_state, self->rules->len);
 
   /* Get the properties */
-  if (WP_IS_PIPEWIRE_OBJECT (obj))
-    props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (obj));
-  else
-    props = wp_global_proxy_get_global_properties (obj);
+  props = get_subject_properties (obj);
 
   /* Check if the object matches the rules and conditions */
   for (guint i = 0; i < self->rules->len; i++) {
@@ -591,11 +600,11 @@ wp_dynamic_rules_class_init (WpDynamicRulesClass *klass)
   signals[SIGNAL_APPLY_ACTIONS] = g_signal_new ("apply-actions",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 4, G_TYPE_UINT, G_TYPE_STRING, WP_TYPE_SPA_JSON,
-      WP_TYPE_GLOBAL_PROXY);
+      WP_TYPE_OBJECT);
   signals[SIGNAL_REVERT_ACTIONS] = g_signal_new ("revert-actions",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 4, G_TYPE_UINT, G_TYPE_STRING, WP_TYPE_SPA_JSON,
-      WP_TYPE_GLOBAL_PROXY);
+      WP_TYPE_OBJECT);
 }
 
 /*!
@@ -659,7 +668,7 @@ static void
 remove_rule_state_index (WpDynamicRules *self, guint idx)
 {
   for (guint i = 0; i < self->objects->len; i++) {
-    WpGlobalProxy *obj = g_ptr_array_index (self->objects, i);
+    WpObject *obj = g_ptr_array_index (self->objects, i);
     GArray *rule_state = g_hash_table_lookup (self->state, obj);
 
     if (!rule_state || idx >= rule_state->len)
@@ -673,7 +682,7 @@ static void
 emit_revert_for_rule (WpDynamicRules *self, DynamicRule *rule, guint idx)
 {
   for (guint i = 0; i < self->objects->len; i++) {
-    WpGlobalProxy *obj = g_ptr_array_index (self->objects, i);
+    WpObject *obj = g_ptr_array_index (self->objects, i);
     GArray *rule_state = g_hash_table_lookup (self->state, obj);
 
     if (!rule_state || idx >= rule_state->len)
@@ -812,10 +821,10 @@ wp_dynamic_rules_remove_rule (WpDynamicRules *self, guint32 rule_id)
  * \since 0.5.16
  */
 void
-wp_dynamic_rules_add_object (WpDynamicRules *self, WpGlobalProxy *object)
+wp_dynamic_rules_add_object (WpDynamicRules *self, WpObject *object)
 {
   g_return_if_fail (WP_IS_DYNAMIC_RULES (self));
-  g_return_if_fail (WP_IS_GLOBAL_PROXY (object));
+  g_return_if_fail (WP_IS_GLOBAL_PROXY (object) || WP_IS_STREAM (object));
 
   g_ptr_array_add (self->objects, g_object_ref (object));
 
@@ -833,10 +842,10 @@ wp_dynamic_rules_add_object (WpDynamicRules *self, WpGlobalProxy *object)
  * \since 0.5.16
  */
 void
-wp_dynamic_rules_remove_object (WpDynamicRules *self, WpGlobalProxy *object)
+wp_dynamic_rules_remove_object (WpDynamicRules *self, WpObject *object)
 {
   g_return_if_fail (WP_IS_DYNAMIC_RULES (self));
-  g_return_if_fail (WP_IS_GLOBAL_PROXY (object));
+  g_return_if_fail (WP_IS_GLOBAL_PROXY (object) || WP_IS_STREAM (object));
 
   g_ptr_array_remove (self->objects, object);
 }

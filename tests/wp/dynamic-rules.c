@@ -55,7 +55,7 @@ create_client_node (TestFixture *f, const gchar *name)
 
 static void
 on_apply_actions (WpDynamicRules *rules, guint rule_id, const gchar *action,
-    WpSpaJson *value, WpGlobalProxy *subject, TestFixture *f)
+    WpSpaJson *value, WpObject *subject, TestFixture *f)
 {
   gboolean v = FALSE;
 
@@ -63,7 +63,7 @@ on_apply_actions (WpDynamicRules *rules, guint rule_id, const gchar *action,
   g_assert_cmpuint (rule_id, ==, f->rule_id);
   g_assert_cmpstr (action, ==, "test_action");
   g_assert_true (WP_IS_GLOBAL_PROXY (subject));
-  g_assert_true (subject == f->subject_node);
+  g_assert_true (subject == WP_OBJECT (f->subject_node));
   g_assert_true (wp_spa_json_parse_boolean (value, &v));
   g_assert_true (v);
 
@@ -74,7 +74,7 @@ on_apply_actions (WpDynamicRules *rules, guint rule_id, const gchar *action,
 
 static void
 on_revert_actions (WpDynamicRules *rules, guint rule_id, const gchar *action,
-    WpSpaJson *value, WpGlobalProxy *subject, TestFixture *f)
+    WpSpaJson *value, WpObject *subject, TestFixture *f)
 {
   gboolean v = FALSE;
 
@@ -82,7 +82,7 @@ on_revert_actions (WpDynamicRules *rules, guint rule_id, const gchar *action,
   g_assert_cmpuint (rule_id, ==, f->rule_id);
   g_assert_cmpstr (action, ==, "test_action");
   g_assert_true (WP_IS_GLOBAL_PROXY (subject));
-  g_assert_true (subject == f->subject_node);
+  g_assert_true (subject == WP_OBJECT (f->subject_node));
   g_assert_true (wp_spa_json_parse_boolean (value, &v));
   g_assert_true (v);
 
@@ -114,7 +114,7 @@ test_dynamic_rules_teardown (TestFixture *self, gconstpointer user_data)
 }
 
 static gboolean
-test_dynamic_rules_rule_condition (WpDynamicRules *rules, WpGlobalProxy *subject,
+test_dynamic_rules_rule_condition (WpDynamicRules *rules, WpObject *subject,
     WpObjectManager *condition_om, gpointer user_data)
 {
   g_autoptr (WpIterator) it = NULL;
@@ -184,7 +184,7 @@ test_dynamic_rules_condition_rule (TestFixture *f, gconstpointer user_data)
   g_assert_cmpuint (f->revert_count, ==, 0);
 
   /* Add subject and check revert is triggered as condition is not satisfied */
-  wp_dynamic_rules_add_object (dr, f->subject_node);
+  wp_dynamic_rules_add_object (dr, WP_OBJECT (f->subject_node));
   g_assert_cmpuint (f->apply_count, ==, 0);
   g_assert_cmpuint (f->revert_count, ==, 1);
 
@@ -288,7 +288,7 @@ test_dynamic_rules_json_rule (TestFixture *f, gconstpointer user_data)
   g_assert_cmpuint (f->revert_count, ==, 0);
 
   /* Add subject and check revert is triggered as condition is not satisfied */
-  wp_dynamic_rules_add_object (dr, f->subject_node);
+  wp_dynamic_rules_add_object (dr, WP_OBJECT (f->subject_node));
   g_assert_cmpuint (f->apply_count, ==, 0);
   g_assert_cmpuint (f->revert_count, ==, 1);
 
