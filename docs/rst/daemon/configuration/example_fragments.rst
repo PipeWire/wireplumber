@@ -54,8 +54,8 @@ File                        Contains
                             settings. See :ref:`config_bluetooth`.
 ``device.conf``             Device-related settings: profile and route
                             restoring, default volumes, auto-mute.
-``filter-graph.conf``       ``node.filter-graph.rules``, for attaching an
-                            internal filter graph to a node.
+``filter-graph.conf``       ``stream.filter-graph.rules``, for attaching an
+                            internal filter graph to a stream.
 ``libcamera.conf``          libcamera monitor properties and rules.
                             See :ref:`config_video`.
 ``linking.conf``            Linking policy settings.

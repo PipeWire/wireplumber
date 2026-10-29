@@ -46,7 +46,7 @@ Audio
 
    Enables software DSP based on pre-configured hardware rules, by hiding the
    hardware node and exposing a separate virtual node in its place. New
-   configurations should use ``hooks.filter.graph`` instead.
+   configurations should use ``hooks.stream.filter.graph`` instead.
 
    See :ref:`policies_software_dsp` for more information.
 
@@ -201,21 +201,18 @@ Support components
    WirePlumber to load and unload objects — PipeWire modules and metadata
    objects — at runtime.
 
-Nodes
------
+Streams
+-------
 
-.. describe:: hooks.filter.graph
+.. describe:: hooks.stream.filter.graph
 
-   Enables attaching an internal filter graph to a node, based on the
-   ``node.filter-graph.rules`` configuration section, without exposing extra
+   Enables attaching an internal filter graph to a stream, based on the
+   ``stream.filter-graph.rules`` configuration section, without exposing extra
    nodes in the graph. This is the preferred way to apply software DSP to a
-   node; see :ref:`config_filter_graph`.
+   stream; see :ref:`config_filter_graph`.
 
    The ``filter-graph.conf`` example fragment demonstrates this; see
    :ref:`config_example_fragments`.
-
-Streams
--------
 
 .. describe:: stream.audio-group
 

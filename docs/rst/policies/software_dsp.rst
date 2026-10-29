@@ -37,18 +37,18 @@ There are two mechanisms available:
 Internal filter graphs
 ----------------------
 
-An internal filter graph is attached to an existing node and processes its
-samples in place. Clients keep seeing the device node itself, with the
-processing already applied to it, and nothing else needs to be hidden or
-relinked.
+An internal filter graph is attached to an existing stream of a node and
+processes its samples in place. Clients keep seeing the device node itself,
+with the processing already applied to it, and nothing else needs to be hidden
+or relinked.
 
-Rules are specified in ``node.filter-graph.rules`` and are matched against node
-properties. The ``create-filter-graph`` action takes a list of graphs, each
-using the same syntax as PipeWire's ``filter-chain`` configuration:
+Rules are specified in ``stream.filter-graph.rules`` and are matched against
+stream properties. The ``create-filter-graph`` action takes a list of graphs,
+each using the same syntax as PipeWire's ``filter-chain`` configuration:
 
 .. code-block::
 
-   node.filter-graph.rules = [
+   stream.filter-graph.rules = [
      {
        matches = [
          {
@@ -72,8 +72,8 @@ using the same syntax as PipeWire's ``filter-chain`` configuration:
      }
    ]
 
-The ``hooks.filter.graph`` :ref:`feature <config_features>` must be enabled;
-it is part of the ``policy.node`` feature and enabled by default.
+The ``hooks.stream.filter.graph`` :ref:`feature <config_features>` must be
+enabled; it is part of the ``policy.node`` feature and enabled by default.
 
 A complete, commented example ships as ``filter-graph.conf``; see
 :ref:`config_example_fragments`.
