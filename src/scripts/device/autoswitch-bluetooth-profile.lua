@@ -142,7 +142,7 @@ function highestPrioNonHeadsetProfile (device)
   return found_profile
 end
 
-function switchDeviceToHeadsetProfile (dev_id, device_om)
+function switchDeviceToHeadsetProfile (dev_id, device_om, node_om)
   -- Find the actual device
   local device = device_om:lookup {
       Constraint { "bound-id", "=", dev_id, type = "gobject" }
@@ -160,6 +160,18 @@ function switchDeviceToHeadsetProfile (dev_id, device_om)
     return
   elseif cur_profile == nil then
     log:info (device, "Could not get current profile, not switching")
+    return
+  end
+
+  -- Do not switch if the current profile already has an A2DP duplex source
+  local duplex_source = node_om:lookup {
+      Constraint { "device.id", "=", tostring (dev_id), type = "pw" },
+      Constraint { "media.class", "#", "Audio/Source*", type = "pw-global" },
+      Constraint { "api.bluez5.a2dp-duplex", "=", "true", type = "pw" }
+  }
+  if duplex_source ~= nil then
+    log:info (device,
+        "Current profile already has an A2DP duplex source, no need to switch")
     return
   end
 
@@ -377,10 +389,11 @@ local switch_profile_hook = AsyncEventHook {
       execute = function (event, transition)
         local source = event:get_source ()
         local device_om = source:call ("get-object-manager", "device")
+        local node_om = source:call ("get-object-manager", "node")
         local device_id = event:get_data ("device-id")
 
         -- Switch profile
-        switchDeviceToHeadsetProfile (device_id, device_om)
+        switchDeviceToHeadsetProfile (device_id, device_om, node_om)
 
         -- Wait until the profile is applied
         Core.sync (function ()
