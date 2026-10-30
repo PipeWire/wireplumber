@@ -1,5 +1,74 @@
-WirePlumber 0.5.18
+WirePlumber 0.5.19
 ~~~~~~~~~~~~~~~~~~
+
+Additions & Enhancements:
+
+  - Added ``wpctl get-profile`` and ``wpctl get-route`` to show the available
+    and active profiles and routes of a device, including their priorities and
+    the direction of each route (#989; !933)
+
+  - Added the ``node.slow-resume`` node property, together with the
+    ``session.fast-capture-start`` and ``session.fast-playback-start`` client
+    properties, which let clients keep slow-resume nodes idle instead of
+    suspended while they are connected (!921)
+
+  - Added the ``monitor.camera.seat-monitoring`` feature, which makes the V4L2
+    and libcamera monitors enumerate cameras only while the logind session is
+    active, so that cameras are no longer skipped when WirePlumber starts
+    before the session gets access to them. This is enabled by default
+    (#1049; !939)
+
+  - Added the ``bluetooth.autoswitch-switch-timeout`` and
+    ``bluetooth.autoswitch-restore-timeout`` settings, and raised the default
+    restore timeout to 4 seconds, so that applications reopening the microphone
+    shortly after closing it keep the headset profile (#1050; !938)
+
+  - Improved Bluetooth A2DP duplex profiles support: the source loopback is now
+    also created for these profiles, making their microphone usable, and
+    ``autoswitch-bluetooth-profile`` no longer switches away from them
+    (#1051; !940)
+
+  - Added the ``device.recover-on-error`` ALSA device property: closing and
+    re-opening a device after a node error only helps some devices, so this
+    recovery now only happens if the property is set (#1046; !929)
+
+Fixes:
+
+  - Fixed the priority of UCM ``HiFi*`` nodes to match that of ``analog-*``
+    nodes, so that they no longer lose the default sink election to HDMI (!924)
+
+  - Fixed restricted and flatpak clients being wrongly given write and link
+    permissions (#1044; !928)
+
+  - Fixed ``autoswitch-bluetooth-profile`` leaving headsets stuck in the headset
+    profile after connecting devices that advertise the A2DP profile later
+    (#1048; !931)
+
+  - Fixed all new streams getting corked after a card profile switch, until
+    WirePlumber was restarted (#1030; !919)
+
+  - Fixed new streams that enable a smart filter being linked before the filters
+    were relinked, which made them capture unfiltered audio for a short time
+    (!922)
+
+  - Fixed an abort on shutdown with PipeWire 1.4 when V4L2 devices are present,
+    by tearing down ``WpSpaDevice`` on the thread of its owning client context,
+    and did the same for destroying ``WpImplNode`` (!934, !935)
+
+  - Fixed ``monitor.bluez.rules`` not being applied to the Bluetooth source
+    loopback nodes (#1043; !927)
+
+  - Fixed ``wpctl list`` not listing some objects, such as video devices, by
+    requesting the minimal object features (!930)
+
+  - Fixed object activation hanging forever if exporting an object to PipeWire
+    fails, by returning an error instead (#1019; !937)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.18
+..................
 
 Additions & Enhancements:
 
@@ -64,9 +133,6 @@ Fixes:
   - Fixed a use-after-free in ``module-settings`` on malformed configuration,
     and also the active call count in ``module-modem-manager`` on reconnect
     (!896)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.17
 ..................
