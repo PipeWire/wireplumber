@@ -9,9 +9,7 @@
 
 log = Log.open_topic("s-stream")
 
-local cutils = require ("common-utils")
-
-function findHighestPriorityRoleStream (stream_om)
+function findHighestPriorityRoleStream (stream_om, metadata_om)
   local best_role = nil
   local best_stream = nil
   local best_prio = 0
@@ -60,7 +58,9 @@ function findHighestPriorityRoleStream (stream_om)
       best_role, best_stream, best_prio))
 
   -- The volume control is given as the node name and port group of the stream
-  local metadata = cutils.get_default_metadata_object ()
+  local metadata = metadata_om:lookup {
+    Constraint { "metadata.name", "=", "default" },
+  }
   metadata:set (0, "current.role-based.volume.control", "Spa:String:JSON",
                 Json.Object {
                   ["name"] = best_role,
@@ -78,7 +78,8 @@ SimpleEventHook {
   execute = function (event)
     local source = event:get_source ()
     local stream_om = source:call ("get-object-manager", "stream")
-    findHighestPriorityRoleStream (stream_om)
+    local metadata_om = source:call ("get-object-manager", "metadata")
+    findHighestPriorityRoleStream (stream_om, metadata_om)
   end
 }:register ()
 

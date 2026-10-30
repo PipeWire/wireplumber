@@ -58,12 +58,6 @@ function cutils.get_object_manager (name)
   return cutils.object_managers [name]
 end
 
-function cutils.get_default_metadata_object ()
-  return cutils.get_object_manager ("metadata"):lookup {
-    Constraint { "metadata.name", "=", "default" },
-  }
-end
-
 function cutils.arrayContains (a, value)
   for _, v in ipairs (a) do
     if v == value then

@@ -191,7 +191,7 @@ function module.can_link (stream, target, stream_om)
   return can_link_filter_check (target, 0)
 end
 
-function module.check_follow_default (stream, target, stream_om)
+function module.check_follow_default (stream, target, stream_om, metadata_om)
   local stream_props = stream:get_properties ()
   local reconnect =
       not module.get_boolean_property (stream_props, "dont-reconnect")
@@ -205,7 +205,9 @@ function module.check_follow_default (stream, target, stream_om)
             "get-default-stream", target_media_class)
         if default_stream ~= nil and target:get_node_bound_id () ==
             default_stream:get_node_bound_id () then
-          local metadata = cutils.get_default_metadata_object ()
+          local metadata = metadata_om:lookup {
+            Constraint { "metadata.name", "=", "default" },
+          }
           local node_id = stream:get_node_bound_id ()
           local port_group = stream:get_port_group ()
           -- The node key would also apply to the other streams of the node
