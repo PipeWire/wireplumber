@@ -6,7 +6,7 @@
 
 log = Log.open_topic ("s-default-streams")
 
-nutils = require ("node-utils")
+stream_utils = require ("stream-utils")
 futils = require ("filter-utils")
 
 SimpleEventHook {
@@ -47,6 +47,7 @@ SimpleEventHook {
 
     local source = event:get_source ()
     local streams_om = source:call ("get-object-manager", "stream")
+    local devices_om = source:call ("get-object-manager", "device")
     for _, id in ipairs (available_stream_ids) do
       local stream = streams_om:lookup {
         type = "Stream",
@@ -76,14 +77,14 @@ SimpleEventHook {
         goto skip_stream
       end
 
-      -- Highest ranking stream wins; see nutils.compare_nodes ()
-      local ranking = nutils.get_node_ranking (stream_props)
+      -- Highest ranking stream wins; see stream_utils.compare_stream_rankings ()
+      local ranking = stream_utils.get_stream_ranking (stream, devices_om)
 
       log:debug ("considering " .. name ..
           ": prio " .. tostring (ranking.priority) ..
           ", route_prio " .. tostring (ranking.route_priority))
 
-      if selected_stream == nil or nutils.compare_nodes (ranking, selected) then
+      if selected_stream == nil or stream_utils.compare_stream_rankings (ranking, selected) then
         selected = ranking
         selected_stream = stream
       end

@@ -1,13 +1,13 @@
--- Tests for the ranking that elects the default node.
+-- Tests for the ranking that elects the default stream.
 
-nutils = require ("node-utils")
+stream_utils = require ("stream-utils")
 
 -- Mirrors the selection loop of default-streams/find-best-default-stream.
 function elect (rankings)
   local selected = nil
 
   for _, ranking in ipairs (rankings) do
-    if selected == nil or nutils.compare_nodes (ranking, selected) then
+    if selected == nil or stream_utils.compare_stream_rankings (ranking, selected) then
       selected = ranking
     end
   end
@@ -16,7 +16,7 @@ function elect (rankings)
 end
 
 -- Runs elect() over every permutation of the given rankings and asserts that
--- they all agree. The nodes reach the hook through a WpObjectManager, which
+-- they all agree. The streams reach the hook through a WpObjectManager, which
 -- swaps its last element into the freed slot on every removal, so the order
 -- is not the caller's to rely on.
 function electInAnyOrder (rankings)
@@ -63,8 +63,8 @@ local HDMI = {
 -- consulted; the older card wins and the outcome does not depend on the order
 do
   assert (electInAnyOrder ({ JACK, HDMI }) == JACK)
-  assert (nutils.compare_nodes (JACK, HDMI))
-  assert (not nutils.compare_nodes (HDMI, JACK))
+  assert (stream_utils.compare_stream_rankings (JACK, HDMI))
+  assert (not stream_utils.compare_stream_rankings (HDMI, JACK))
 end
 
 -- ... and the same two cards enumerated the other way round elect the other
@@ -106,7 +106,7 @@ end
 
 -- a node is never better than itself
 do
-  assert (not nutils.compare_nodes (JACK, JACK))
+  assert (not stream_utils.compare_stream_rankings (JACK, JACK))
 end
 
 -- the ranking is a total order, so three cards elect the same winner however
@@ -127,8 +127,8 @@ do
   local tied = {
     priority = 31000, group_serial = 1, route_priority = 15000, serial = 1,
   }
-  assert (not nutils.compare_nodes (tied, configured))
-  assert (nutils.compare_nodes (configured, tied))
+  assert (not stream_utils.compare_stream_rankings (tied, configured))
+  assert (stream_utils.compare_stream_rankings (configured, tied))
 end
 
 -- nodes that report no object.serial sort last and cannot be told apart, so
@@ -142,8 +142,8 @@ do
     priority = 1000, group_serial = math.maxinteger,
     route_priority = 0, serial = math.maxinteger,
   }
-  assert (not nutils.compare_nodes (a, b))
-  assert (not nutils.compare_nodes (b, a))
+  assert (not stream_utils.compare_stream_rankings (a, b))
+  assert (not stream_utils.compare_stream_rankings (b, a))
   assert (elect ({ a, b }) == a)
   assert (elect ({ b, a }) == b)
 end

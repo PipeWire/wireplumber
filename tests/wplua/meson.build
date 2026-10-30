@@ -71,9 +71,9 @@ test(
   env: common_env,
 )
 test(
-  'wplua/lua-node-utils',
+  'wplua/lua-stream-utils',
   script_tester,
-  args: ['lua-api-tests', 'node-utils.lua'],
+  args: ['lua-api-tests', 'stream-utils.lua'],
   env: common_env,
 )
 test(

@@ -13,7 +13,7 @@
 
 log = Log.open_topic ("s-default-streams")
 
-nutils = require ("node-utils")
+stream_utils = require ("stream-utils")
 
 SimpleEventHook {
   name = "default-streams/find-configured-default-stream",
@@ -65,8 +65,7 @@ SimpleEventHook {
       if stream:get_property ("node.name") == configured_val.name and
           (configured_val.stream == nil or
               stream:get_port_group () == configured_val.stream) then
-        local stream_props = stream:get_properties ()
-        local priority = 30000 + nutils.get_session_priority (stream_props)
+        local priority = 30000 + stream_utils.get_session_priority (stream)
 
         if priority > selected_prio then
           event:set_data ("selected-stream-priority", priority)

@@ -8,7 +8,6 @@
 -- Script is a Lua Module of stream Lua utility functions
 
 local cutils = require ("common-utils")
-local nutils = require ("node-utils")
 
 local module = {}
 
@@ -224,10 +223,149 @@ function module.check_follow_default (stream, target, stream_om)
   end
 end
 
-function module.has_available_routes (stream, devices_om)
-  local stream_node = stream:get_node ()
-  return nutils.has_available_routes (stream_node, devices_om)
+function module.get_session_priority (stream)
+  local stream_props = stream:get_properties ()
+  local priority = stream_props ["priority.session"]
+  -- fallback to driver priority if session priority is not set
+  if not priority then
+    priority = stream_props ["priority.driver"]
+  end
+  return math.tointeger (priority) or 0
 end
+
+-- object.serial is assigned by PipeWire from a single monotonic counter, so
+-- serials of any two objects are comparable and the lower one is the older
+-- object. Objects that do not report one sort last and cannot be told apart.
+local function get_object_serial (props)
+  local serial = props and props ["object.serial"]
+  return (serial and math.tointeger (tonumber (serial))) or math.maxinteger
+end
+
+-- Builds the key that module.compare_stream_rankings() ranks a stream by:
+--
+--  priority       the session priority, or the driver priority if unset
+--  group_serial   the object.serial of the device the stream belongs to, or
+--                 its own if it has none; streams of the same device share it
+--  route_priority the priority of the device route that carries this stream
+--  serial         the stream's own object.serial
+function module.get_stream_ranking (stream, devices_om)
+  local stream_props = stream:get_properties ()
+  local serial = get_object_serial (stream_props)
+  local ranking = {
+    priority = module.get_session_priority (stream),
+    group_serial = serial,
+    route_priority = 0,
+    serial = serial,
+  }
+
+  local card_profile_device = stream_props ["card.profile.device"]
+  local device_id = stream_props ["device.id"]
+
+  -- if the stream does not have an associated device, it is its own group
+  if not card_profile_device or not device_id then
+    return ranking
+  end
+
+  -- Get the device
+  local device = devices_om:lookup {
+    Constraint { "bound-id", "=", device_id, type = "gobject" },
+  }
+
+  if not device then
+    return ranking
+  end
+
+  ranking.group_serial = get_object_serial (device.properties)
+
+  -- Get the priority of the associated route
+  for p in device:iterate_params ("Route") do
+    local route = cutils.parseParam (p, "Route")
+    if route and (route.device == tonumber (card_profile_device)) then
+      ranking.route_priority = route.priority
+      break
+    end
+  end
+
+  return ranking
+end
+
+-- Returns true if stream ranking 'a' should be preferred over ranking 'b'.
+--
+-- The device serial outranks the route priority because route priorities rank
+-- the outputs of one card against each other and nothing more -- ACP prices
+-- analog-output at 9900 and hdmi-output-0 at 5900 on every card that has them
+-- -- so only streams of the same device may be compared on it.
+--
+-- The stream serial makes the outcome independent of the iteration order, which
+-- a WpObjectManager reshuffles on every removal. Both serials rank the older
+-- object first; between two cards that is the order the PipeWire monitor
+-- discovered them in, which is arbitrary, but a tie on priority.session means
+-- no preference was expressed.
+function module.compare_stream_rankings (a, b)
+  if a.priority ~= b.priority then
+    return a.priority > b.priority
+  elseif a.group_serial ~= b.group_serial then
+    return a.group_serial < b.group_serial
+  elseif a.route_priority ~= b.route_priority then
+    return a.route_priority > b.route_priority
+  else
+    return a.serial < b.serial
+  end
+end
+
+function module.has_available_routes (stream, devices_om)
+  local stream_props = stream:get_properties ()
+  local device_id = stream_props:get_int ("device.id")
+  local card_profile_device = stream_props ["card.profile.device"]
+
+  -- Consider routes as available if the stream is not associated with any device
+  if device_id == nil or card_profile_device == nil then
+    return true
+  end
+  local device = devices_om:lookup {
+    Constraint { "bound-id", "=", device_id, type = "gobject" },
+  }
+  if device == nil then
+    return true
+  end
+
+  -- Check if at least one of the current device routes supports the stream's
+  -- card profile device and is available
+  for p in device:iterate_params ("Route") do
+    local route = cutils.parseParam (p, "Route")
+    if route and (route.device == tonumber (card_profile_device)) then
+      if (route.available == "no") then
+        return false
+      else
+        return true
+      end
+    end
+  end
+
+  -- Check if available routes support the stream's card profile device
+  local found = 0
+  for r in device:iterate_params ("EnumRoute") do
+    local route = cutils.parseParam (r, "EnumRoute")
+    if route and type (route.devices) == "table" then
+      for _, i in ipairs (route.devices) do
+        if i == tonumber (card_profile_device) then
+          found = found + 1
+          if route.available ~= "no" then
+            return true
+          end
+        end
+      end
+    end
+  end
+
+  -- The stream is part of a profile without routes so we assume it is available
+  if found == 0 then
+    return true
+  end
+
+  return false
+end
+
 
 -- A target is a role-based policy target only while handle-media-role-links is
 -- loaded: that script is what activates the links to such targets.
