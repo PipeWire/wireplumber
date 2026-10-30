@@ -70,9 +70,7 @@ SimpleEventHook {
       end
 
       -- Never consider smart filters as default streams
-      local link_group = stream_props ["node.link-group"]
-      if link_group ~= nil and
-          futils.is_filter_smart (stream:get_direction (), link_group) then
+      if futils.is_filter_smart (stream:get_direction (), stream) then
         log:debug ("ignoring smart filter " .. name .. " as best " ..
             def_stream_type)
         goto skip_stream

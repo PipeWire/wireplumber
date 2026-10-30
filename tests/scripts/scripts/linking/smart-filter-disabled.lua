@@ -3,6 +3,7 @@
 -- is moved to the real sink.
 
 local tu = require ("test-utils")
+local stream_utils = require ("stream-utils")
 
 Script.async_activation = true
 
@@ -64,6 +65,7 @@ SimpleEventHook {
   execute = function (event)
     local stream = event:get_subject ()
     local target = event:get_data ("target")
+    local stream_om = event:get_source ():call ("get-object-manager", "stream")
 
     if stream:get_properties () ["node.name"] ~= "client-stream" or disabled then
       return
@@ -72,6 +74,16 @@ SimpleEventHook {
     local filter_stream = tu.streams ["filter-stream"]
     local filter_sink = tu.streams ["filter-sink"]
     local device_node = tu.streams ["default-device-node"]
+
+    -- the two sides of the filter are peers, the client stream has no peer
+    assert (stream_utils.get_filter_peer (filter_sink, stream_om) == filter_stream)
+    assert (stream_utils.get_filter_peer (filter_stream, stream_om) == filter_sink)
+    assert (stream_utils.get_filter_peer (stream, stream_om) == nil)
+    assert (stream_utils.is_filter_stream (filter_sink, stream_om))
+    assert (stream_utils.is_filter_stream (filter_stream, stream_om))
+    assert (not stream_utils.is_filter_stream (stream, stream_om))
+    assert (stream_utils.is_same_filter (filter_stream, filter_sink))
+    assert (not stream_utils.is_same_filter (stream, filter_sink))
 
     -- the client stream goes through the filter
     assert (target == filter_sink)

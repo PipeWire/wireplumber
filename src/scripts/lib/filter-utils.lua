@@ -17,11 +17,25 @@ local module = {
   rescan_pending = false,
 }
 
+-- Gets a filter metadata value of the stream. The "<key>.<port-group>" key only
+-- applies to that stream, and the "<key>" key to all the streams of the node
+function module.get_metadata_value (metadata, stream, key)
+  local id = stream:get_node_bound_id ()
+  local port_group = stream:get_port_group ()
+  local value = nil
+  if port_group ~= nil then
+    value = metadata:find (id, key .. "." .. port_group)
+  end
+  if value == nil then
+    value = metadata:find (id, key)
+  end
+  return value
+end
+
 local function getFilterSmart (metadata, stream)
   -- Check metadata
   if metadata ~= nil then
-    local id = stream:get_node_bound_id ()
-    local value_str = metadata:find (id, "filter.smart")
+    local value_str = module.get_metadata_value (metadata, stream, "filter.smart")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
       if json:is_boolean() then
@@ -43,8 +57,7 @@ end
 local function getFilterSmartName (metadata, stream)
   -- Check metadata
   if metadata ~= nil then
-    local id = stream:get_node_bound_id ()
-    local value_str = metadata:find (id, "filter.smart.name")
+    local value_str = module.get_metadata_value (metadata, stream, "filter.smart.name")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
       if json:is_string() then
@@ -60,15 +73,14 @@ local function getFilterSmartName (metadata, stream)
     return prop_str
   end
 
-  -- Otherwise use link group as name
-  return props ["node.link-group"]
+  -- Otherwise use link group as name, or the node name if there is none
+  return props ["node.link-group"] or props ["node.name"]
 end
 
 local function getFilterSmartDisabled (metadata, stream)
   -- Check metadata
   if metadata ~= nil then
-    local id = stream:get_node_bound_id ()
-    local value_str = metadata:find (id, "filter.smart.disabled")
+    local value_str = module.get_metadata_value (metadata, stream, "filter.smart.disabled")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
       if json:is_boolean() then
@@ -90,8 +102,7 @@ end
 local function getFilterSmartTargetable (metadata, stream)
   -- Check metadata
   if metadata ~= nil then
-    local id = stream:get_node_bound_id ()
-    local value_str = metadata:find (id, "filter.smart.targetable")
+    local value_str = module.get_metadata_value (metadata, stream, "filter.smart.targetable")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
       if json:is_boolean() then
@@ -112,10 +123,9 @@ end
 
 local function getFilterSmartTarget (metadata, stream, om)
   -- Check metadata and fallback to properties
-  local id = stream:get_node_bound_id ()
   local value_str = nil
   if metadata ~= nil then
-    value_str = metadata:find (id, "filter.smart.target")
+    value_str = module.get_metadata_value (metadata, stream, "filter.smart.target")
   end
   if value_str == nil then
     value_str = stream:get_property ("filter.smart.target")
@@ -137,7 +147,7 @@ local function getFilterSmartTarget (metadata, stream, om)
     local target_props = target_stream:get_properties ()
 
     -- Target streams cannot be smart filters
-    if target_props ["node.link-group"] ~= nil and
+    if stream_utils.get_filter_peer (target_stream, om) ~= nil and
         getFilterSmart (metadata, target_stream) then
       goto skip_target
     end
@@ -160,10 +170,9 @@ local function getFilterSmartTarget (metadata, stream, om)
 end
 
 local function getFilterSmartTargetless (metadata, stream)
-  local id = stream:get_node_bound_id ()
   local value_str = nil
   if metadata ~= nil then
-    value_str = metadata:find (id, "filter.smart.target")
+    value_str = module.get_metadata_value (metadata, stream, "filter.smart.target")
   end
   if value_str == nil then
     value_str = stream:get_property ("filter.smart.target")
@@ -174,10 +183,9 @@ end
 
 local function getFilterSmartBefore (metadata, stream)
   -- Check metadata and fallback to properties
-  local id = stream:get_node_bound_id ()
   local value_str = nil
   if metadata ~= nil then
-    value_str = metadata:find (id, "filter.smart.before")
+    value_str = module.get_metadata_value (metadata, stream, "filter.smart.before")
   end
   if value_str == nil then
     value_str = stream:get_property ("filter.smart.before")
@@ -196,10 +204,9 @@ end
 
 local function getFilterSmartAfter (metadata, stream)
   -- Check metadata and fallback to properties
-  local id = stream:get_node_bound_id ()
   local value_str = nil
   if metadata ~= nil then
-    value_str = metadata:find (id, "filter.smart.after")
+    value_str = module.get_metadata_value (metadata, stream, "filter.smart.after")
   end
   if value_str == nil then
     value_str = stream:get_property ("filter.smart.after")
@@ -220,16 +227,17 @@ local function insertFilterSorted (curr_filters, filter)
   local before_filters = {}
   local after_filters = {}
   local new_filters = {}
+  local found_after = false
 
   -- Check if the current filters need to be inserted before or after
   for i, v in ipairs(curr_filters) do
-    local insert_before = true
+    local insert_before = false
     local insert_after = false
 
     if v.before ~= nil then
       for j, b in ipairs(v.before) do
         if filter.name == b then
-          insert_after = false
+          insert_before = true
           break
         end
       end
@@ -238,7 +246,7 @@ local function insertFilterSorted (curr_filters, filter)
     if v.after ~= nil then
       for j, b in ipairs(v.after) do
         if filter.name == b then
-          insert_before = false
+          insert_after = true
           break
         end
       end
@@ -260,10 +268,14 @@ local function insertFilterSorted (curr_filters, filter)
       end
     end
 
-    if insert_before then
-      if insert_after then
-        Log.warning ("cyclic before/after found in filters " .. v.name .. " and " .. filter.name)
-      end
+    if insert_before and insert_after then
+      Log.warning ("cyclic before/after found in filters " .. v.name .. " and " .. filter.name)
+    end
+
+    -- Filters following one that goes after keep their order, unless they
+    -- have to go before
+    found_after = found_after or insert_after
+    if insert_before or not found_after then
       table.insert (before_filters, v)
     else
       table.insert (after_filters, v)
@@ -294,11 +306,10 @@ local function rescanFilters (om, metadata_om)
 
   for stream in om:iterate { type = "Stream" } do
     local filter = {}
-    local props = stream:get_properties ()
 
-    -- Only handle streams with link group (filters)
-    filter.link_group = props ["node.link-group"]
-    if filter.link_group == nil then
+    -- Only handle filter streams, which are the ones with a peer
+    filter.stream = stream_utils.get_filter_peer (stream, om)
+    if filter.stream == nil then
       goto skip_stream
     end
 
@@ -310,7 +321,6 @@ local function rescanFilters (om, metadata_om)
     end
 
     -- Filter direction and media type
-    filter.media_class = props ["media.class"]
     filter.direction = stream:get_direction ()
     filter.media_type = stream_utils.get_media_type (stream)
 
@@ -324,13 +334,8 @@ local function rescanFilters (om, metadata_om)
     filter.before = getFilterSmartBefore (metadata, stream)
     filter.after = getFilterSmartAfter (metadata, stream)
 
-    -- Add the main and stream side streams
+    -- Add the main stream
     filter.main_stream = stream
-    filter.stream = om:lookup {
-      type = "Stream",
-      Constraint { "node.link-group", "=", filter.link_group, type = "wp" },
-      Constraint { "media.class", "#", "Stream/*", type = "wp" }
-    }
 
     -- Add the filter to the list sorted by before and after
     module.filters = insertFilterSorted (module.filters, filter)
@@ -382,14 +387,15 @@ function module.is_rescan_pending ()
   return module.rescan_pending
 end
 
-function module.is_filter_smart (direction, link_group)
-  -- Make sure direction and link_group is valid
-  if direction == nil or link_group == nil then
+function module.is_filter_smart (direction, stream)
+  -- Make sure direction is valid
+  if direction == nil then
     return false
   end
 
   for i, v in ipairs(module.filters) do
-    if v.direction == direction and v.link_group == link_group then
+    if v.direction == direction and
+        stream_utils.is_same_filter (v.main_stream, stream) then
       return v.smart
     end
   end
@@ -397,14 +403,15 @@ function module.is_filter_smart (direction, link_group)
   return false
 end
 
-function module.is_filter_disabled (direction, link_group)
-  -- Make sure direction and link_group is valid
-  if direction == nil or link_group == nil then
+function module.is_filter_disabled (direction, stream)
+  -- Make sure direction is valid
+  if direction == nil then
     return false
   end
 
   for i, v in ipairs(module.filters) do
-    if v.direction == direction and v.link_group == link_group then
+    if v.direction == direction and
+        stream_utils.is_same_filter (v.main_stream, stream) then
       return v.disabled
     end
   end
@@ -412,14 +419,15 @@ function module.is_filter_disabled (direction, link_group)
   return false
 end
 
-function module.is_filter_targetable (direction, link_group)
-  -- Make sure direction and link_group is valid
-  if direction == nil or link_group == nil then
+function module.is_filter_targetable (direction, stream)
+  -- Make sure direction is valid
+  if direction == nil then
     return false
   end
 
   for i, v in ipairs(module.filters) do
-    if v.direction == direction and v.link_group == link_group then
+    if v.direction == direction and
+        stream_utils.is_same_filter (v.main_stream, stream) then
       return v.targetable
     end
   end
@@ -427,9 +435,9 @@ function module.is_filter_targetable (direction, link_group)
   return false
 end
 
-function module.get_filter_target (direction, link_group)
-  -- Make sure direction and link_group are valid
-  if direction == nil or link_group == nil then
+function module.get_filter_target (direction, stream)
+  -- Make sure direction is valid
+  if direction == nil then
     return nil
   end
 
@@ -438,7 +446,7 @@ function module.get_filter_target (direction, link_group)
   local index = nil
   for i, v in ipairs(module.filters) do
     if v.direction == direction and
-        v.link_group == link_group and
+        stream_utils.is_same_filter (v.main_stream, stream) and
         not v.disabled and
         v.smart then
       filter = v
@@ -455,7 +463,7 @@ function module.get_filter_target (direction, link_group)
     if v.direction == direction and
         v.media_type == filter.media_type and
         v.name ~= filter.name and
-        v.link_group ~= link_group and
+        not stream_utils.is_same_filter (v.main_stream, stream) and
         not v.disabled and
         v.smart and
         ((v.target == nil and filter.target == nil) or
@@ -469,7 +477,7 @@ function module.get_filter_target (direction, link_group)
   return filter.target
 end
 
-function module.get_filter_from_target (direction, media_type, target_stream)
+function module.get_filter_from_target (direction, media_type, target_stream, stream_om)
   local target = target_stream
 
   -- Make sure direction and media_type are valid
@@ -479,13 +487,12 @@ function module.get_filter_from_target (direction, media_type, target_stream)
 
   -- If target_stream is a filter, find it and use its target
   if target_stream then
-    local target_link_group = target_stream:get_property ("node.link-group")
-    if target_link_group ~= nil then
+    if stream_utils.get_filter_peer (target_stream, stream_om) ~= nil then
       local filter = nil
       for i, v in ipairs(module.filters) do
         if v.direction == direction and
             v.media_type == media_type and
-            v.link_group == target_link_group and
+            stream_utils.is_same_filter (v.main_stream, target_stream) and
             not v.disabled and
             v.smart then
           filter = v

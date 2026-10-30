@@ -13,9 +13,9 @@ log = Log.open_topic ("s-linking")
 
 default_streams = Plugin.find ("default-streams-api")
 
-function can_use_target (stream, target)
+function can_use_target (stream, target, stream_om)
   -- Make sure the target stream can be linked
-  if not stream_utils.can_link (stream, target) then
+  if not stream_utils.can_link (stream, target, stream_om) then
     log:debug (stream, "... cannot link, ignoring default target")
     return false
   end
@@ -31,6 +31,7 @@ function can_use_target (stream, target)
 end
 
 function find_default_target (source, stream, target_mc)
+  local streams_om = source:call ("get-object-manager", "stream")
   local default_stream =
       default_streams:call ("get-default-stream", target_mc)
   if default_stream == nil then
@@ -43,16 +44,15 @@ function find_default_target (source, stream, target_mc)
       "default stream: media_class:%s stream:%d (node:%d)",
       target_mc, default_stream.id, default_node_id))
 
-  if can_use_target (stream, default_stream) then
+  if can_use_target (stream, default_stream, streams_om) then
     return default_stream
   end
 
   -- Otherwise use the first usable stream of the default stream node
-  local streams_om = source:call ("get-object-manager", "stream")
   for target_stream in streams_om:iterate { type = "Stream" } do
     if target_stream ~= default_stream and
         target_stream:get_node_bound_id () == default_node_id and
-        can_use_target (stream, target_stream) then
+        can_use_target (stream, target_stream, streams_om) then
       return target_stream
     end
   end

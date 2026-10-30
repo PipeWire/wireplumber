@@ -12,22 +12,14 @@ futils = require ("filter-utils")
 log = Log.open_topic ("s-linking")
 
 function find_filter_target (stream)
-  local stream_props = stream:get_properties ()
-  local link_group = stream_props ["node.link-group"]
-
-  -- Return nil if stream is not a filter stream
-  if link_group == nil then
-    return nil, false
-  end
-
-  -- Return nil if filter is not smart
+  -- Return nil if stream is not a smart filter stream
   local direction = stream_utils.get_target_direction (stream)
-  if not futils.is_filter_smart (direction, link_group) then
+  if not futils.is_filter_smart (direction, stream) then
     return nil, false
   end
 
   -- Get the filter target
-  return futils.get_filter_target (direction, link_group), true
+  return futils.get_filter_target (direction, stream), true
 end
 
 SimpleEventHook {
@@ -44,6 +36,7 @@ SimpleEventHook {
     local stream_props = stream:get_properties ()
     local stream_id = stream.id
     local node_id = stream:get_node_bound_id ()
+    local stream_om = source:call ("get-object-manager", "stream")
 
     -- Bypass the hook if the target is already picked up
     local target = event:get_data ("target")
@@ -60,7 +53,7 @@ SimpleEventHook {
 
     if target ~= nil then
       -- Make sure the target can be linked
-      if not stream_utils.can_link (stream, target) then
+      if not stream_utils.can_link (stream, target, stream_om) then
         log:debug (stream, "... cannot link, ignoring filter target")
         target = nil
       end

@@ -24,6 +24,8 @@ SimpleEventHook {
     },
   },
   execute = function (event)
+    local source = event:get_source ()
+    local stream_om = source:call ("get-object-manager", "stream")
     local stream = event:get_subject ()
     local stream_props = stream:get_properties ()
     local stream_id = stream.id
@@ -40,11 +42,9 @@ SimpleEventHook {
         stream_id, node_id, tostring (stream_props["node.name"])))
 
     local target_direction = stream_utils.get_target_direction (stream)
-    local link_group = stream_props ["node.link-group"]
 
     -- Bypass the hook if the stream is a smart filter
-    if link_group ~= nil and
-        futils.is_filter_smart (target_direction, link_group) then
+    if futils.is_filter_smart (target_direction, stream) then
       return
     end
 
@@ -56,11 +56,10 @@ SimpleEventHook {
     end
 
     -- Bypass targetable smart filters selected explicitly
-    local target_link_group = target_props ["node.link-group"]
-    if target_link_group ~= nil and is_defined_target and
-        futils.is_filter_smart (target_direction, target_link_group) and
-        not futils.is_filter_disabled (target_direction, target_link_group) and
-        futils.is_filter_targetable (target_direction, target_link_group) then
+    if is_defined_target and
+        futils.is_filter_smart (target_direction, target) and
+        not futils.is_filter_disabled (target_direction, target) and
+        futils.is_filter_targetable (target_direction, target) then
       return
     end
 
@@ -68,13 +67,13 @@ SimpleEventHook {
     -- default filter, but only if the target was not defined
     local media_type = stream_utils.get_media_type (stream)
     local filter_target = futils.get_filter_from_target (
-        target_direction, media_type, target)
+        target_direction, media_type, target, stream_om)
     if filter_target ~= nil then
       target = filter_target
       log:info (stream, "got filter for given target")
     elseif not is_defined_target then
       filter_target = futils.get_filter_from_target (
-          target_direction, media_type, nil)
+          target_direction, media_type, nil, stream_om)
       if filter_target ~= nil then
         target = filter_target
         log:info (stream, "got default filter for given target")
@@ -86,7 +85,7 @@ SimpleEventHook {
     end
 
     -- Make sure the target can be linked and is compatible
-    if not stream_utils.can_link (stream, target) then
+    if not stream_utils.can_link (stream, target, stream_om) then
       log:debug (stream, "cannot link, ignoring filter target")
       return
     end

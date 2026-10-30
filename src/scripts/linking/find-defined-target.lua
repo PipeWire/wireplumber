@@ -73,7 +73,7 @@ SimpleEventHook {
     -- can_link() only checks the direction, the monitor ports and the link
     -- groups, so the formats need is_compatible() as well
     local function target_is_usable (candidate)
-      if not stream_utils.can_link (stream, candidate) then
+      if not stream_utils.can_link (stream, candidate, stream_om) then
         log:debug (stream, "found defined target cannot be linked")
         return false
       end

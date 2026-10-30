@@ -27,16 +27,13 @@ function handle_stream (source, stream)
   local node_id = stream:get_node_bound_id ()
 
   -- Skip smart filters that are disabled
-  local link_group = stream_props ["node.link-group"]
-  if link_group ~= nil then
-    local direction = stream_utils.get_target_direction (stream)
-    if futils.is_filter_smart (direction, link_group) and
-        futils.is_filter_disabled (direction, link_group) then
-      log:debug (stream, string.format (
-          "ignoring stream:%d (node:%d) as smart filter is disabled",
-          stream_id, node_id))
-      return
-    end
+  local direction = stream_utils.get_target_direction (stream)
+  if futils.is_filter_smart (direction, stream) and
+      futils.is_filter_disabled (direction, stream) then
+    log:debug (stream, string.format (
+        "ignoring stream:%d (node:%d) as smart filter is disabled",
+        stream_id, node_id))
+    return
   end
 
   -- Check if we need to link this stream at all
@@ -64,14 +61,10 @@ end
 -- while it was enabled have to be removed here
 function unlink_disabled_filters (source)
   local om = source:call ("get-object-manager", "stream")
-  for stream in om:iterate {
-      type = "Stream",
-      Constraint { "node.link-group", "+", type = "wp" },
-  } do
-    local link_group = stream:get_property ("node.link-group")
+  for stream in om:iterate { type = "Stream" } do
     local direction = stream_utils.get_target_direction (stream)
-    if futils.is_filter_smart (direction, link_group) and
-        futils.is_filter_disabled (direction, link_group) and
+    if futils.is_filter_smart (direction, stream) and
+        futils.is_filter_disabled (direction, stream) and
         StreamLinkManager.unlink (stream) then
       log:info (stream, string.format (
           "unlinked stream:%d (node:%d) as smart filter is disabled",
@@ -167,11 +160,11 @@ SimpleEventHook {
   execute = function (event)
     local source = event:get_source ()
     local stream = event:get_subject ()
-    local link_group = stream:get_property ("node.link-group")
+    local stream_om = source:call ("get-object-manager", "stream")
 
-    -- Don't handle immediately if this stream has node.link-group, because it
+    -- Don't handle immediately if this stream belongs to a filter, because it
     -- could affect others.
-    if link_group ~= nil then
+    if stream_utils.is_filter_stream (stream, stream_om) then
       return
     end
 

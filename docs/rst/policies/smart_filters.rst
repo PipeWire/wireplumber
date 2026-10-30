@@ -25,12 +25,13 @@ to be a single-node filter. On the other hand, the *filter-chain* is a pair of
 nodes with opposite directions, where one node captures the audio from the graph
 and the other node sends the modified audio back to the graph.
 
-For the purpose of the **smart filters** policy, WirePlumber will only consider
-pairs of nodes as filters, not single-node ones. More specifically, a pair of
-nodes will be considered to be a filter by WirePlumber if they have the
-``node.link-group`` property set to a common value. This property is always set
-on pairs of nodes that are internally linked together and is a good indicator
-that the nodes are implementing a filter.
+For the purpose of the **smart filters** policy, WirePlumber considers a pair of
+nodes to be a filter if they have the ``node.link-group`` property set to a
+common value. This property is always set on pairs of nodes that are internally
+linked together and is a good indicator that the nodes are implementing a
+filter. A single node is also considered to be a filter if it has a *main* stream
+and a *stream* stream of opposite directions, which then behave like the *main*
+and *stream* nodes described below.
 
 That pair of nodes **must** always consist of a *stream* node and a *main* node.
 The main node acts as a virtual device, where the data is sent or captured
@@ -115,7 +116,8 @@ following optional node properties on the **main** node:
 - **filter.smart.name**
 
   The unique name of the filter. WirePlumber will use the value of the
-  ``node.link-group`` property as the filter name if this property is not set.
+  ``node.link-group`` property as the filter name if this property is not set,
+  or the value of the ``node.name`` property for single-node filters.
 
 - **filter.smart.disabled**
 
@@ -375,6 +377,14 @@ We can also change the target of a filter at runtime:
 .. code-block:: bash
 
    $ pw-metadata -n filters 40 "filter.smart.target" "{ node.name = new-target-node-name }" Spa:String:JSON
+
+If the main stream of a filter has a port group, the key can also be followed by
+the port group, so that it only applies to that filter and not to all the
+streams of the node. This key has priority over the one without port group:
+
+.. code-block:: bash
+
+   $ pw-metadata -n filters 40 "filter.smart.disabled.my-port-group" true Spa:String:JSON
 
 Every time a key in the filters metadata changes, all filters are unlinked and
 re-linked properly, following the new policy.

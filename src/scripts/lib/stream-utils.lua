@@ -67,10 +67,56 @@ function module.get_target_media_class (stream)
   return media_type .. "/Source"
 end
 
-function module.can_link (stream, target)
+-- Checks if both streams have the same media type and belong to the same node
+-- or the same link group
+function module.is_same_filter (stream, other)
+  if module.get_media_type (stream) ~= module.get_media_type (other) then
+    return false
+  end
+  if stream:get_node_bound_id () == other:get_node_bound_id () then
+    return true
+  end
+  local link_group = stream:get_property ("node.link-group")
+  return link_group ~= nil and
+      other:get_property ("node.link-group") == link_group
+end
+
+-- Gets the stream on the other side of a filter: the first stream of the same
+-- media type and matching shape from the same node or the same link group
+function module.get_filter_peer (stream, stream_om)
+  local peer_shapes = {
+    [StreamShape.INPUT] = StreamShape.SOURCE,
+    [StreamShape.OUTPUT] = StreamShape.SINK,
+    [StreamShape.SINK] = StreamShape.OUTPUT,
+    [StreamShape.SOURCE] = StreamShape.INPUT,
+  }
+  local peer_shape = peer_shapes [stream:get_shape ()]
+  local media_type = module.get_media_type (stream)
+  if peer_shape == nil or media_type == "Unknown" then
+    return nil
+  end
+
+  for peer in stream_om:iterate {
+      type = media_type .. "Stream",
+      Constraint { "shape", "=", peer_shape, type = "gobject" },
+    } do
+    if module.is_same_filter (stream, peer) then
+      return peer
+    end
+  end
+  return nil
+end
+
+-- Checks if the stream belongs to a filter. A stream with a link group always
+-- does, even if its filter peer was not added yet
+function module.is_filter_stream (stream, stream_om)
+  return stream:get_property ("node.link-group") ~= nil or
+      module.get_filter_peer (stream, stream_om) ~= nil
+end
+
+function module.can_link (stream, target, stream_om)
   local stream_dir = stream:get_direction ()
   local target_dir = target:get_direction ()
-  local stream_props = stream:get_properties ()
   local target_props = target:get_properties ()
 
   -- Streams must have opposite direction, otherwise they must be both input
@@ -87,8 +133,15 @@ function module.can_link (stream, target)
     end
   end
 
-  -- Function to check the link group
-  local function can_link_group_check (stream_link_group, target, hops)
+  -- Function to check the filter
+  local visited = {}
+  local function can_link_filter_check (target, hops)
+    -- Peers link back to each other, so only check each stream once
+    if visited [target.id] then
+      return true
+    end
+    visited [target.id] = true
+
     local target_id = target.id
     local target_dir = target:get_direction ()
 
@@ -97,20 +150,21 @@ function module.can_link (stream, target)
       return false
     end
 
-    -- Allow linking if target has no link-group property
-    local target_link_group = target:get_property ("node.link-group")
-    if target_link_group == nil then
+    -- Allow linking if target is not a filter stream
+    if not module.is_filter_stream (target, stream_om) then
       return true
     end
 
-    -- Do not allow linking if target has the same link group
-    if stream_link_group == target_link_group then
+    -- Do not allow linking if target belongs to the same filter
+    if module.is_same_filter (stream, target) then
       return false
     end
 
-    -- Make sure target is not linked with another stream with same link group
+    -- Make sure target is not linked with another stream of the same filter
     for target_peer in StreamLinkManager.iterate_peers (target) do
-      if not can_link_group_check (stream_link_group, target_peer, hops + 1) then
+      -- The stream itself is a peer if it is already linked to the target
+      if target_peer ~= stream and
+          not can_link_filter_check (target_peer, hops + 1) then
         return false
       end
     end
@@ -118,25 +172,24 @@ function module.can_link (stream, target)
     return true
   end
 
-  local stream_link_group = stream_props ["node.link-group"]
+  if not module.is_filter_stream (stream, stream_om) then
+    return true
+  end
 
   -- The stream of a role loopback must not link to another role-based target
-  if stream_link_group ~= nil and
-      target_props:get_boolean ("policy.role-based.target") and
-      cutils.get_object_manager ("stream"):lookup {
+  if target_props:get_boolean ("policy.role-based.target") then
+    for role_stream in stream_om:iterate {
         type = "Stream",
-        Constraint { "node.link-group", "=", stream_link_group, type = "wp" },
         Constraint { "policy.role-based.target", "=", true, type = "wp" },
-      } then
-    return false
+      } do
+      if module.is_same_filter (stream, role_stream) then
+        return false
+      end
+    end
   end
 
-  -- Avoid circular links in the graph if stream belongs to a link group
-  if stream_link_group ~= nil then
-    return can_link_group_check (stream_link_group, target, 0)
-  end
-
-  return true
+  -- Avoid circular links in the graph
+  return can_link_filter_check (target, 0)
 end
 
 function module.check_follow_default (stream, target)
@@ -154,7 +207,16 @@ function module.check_follow_default (stream, target)
         if default_stream ~= nil and target:get_node_bound_id () ==
             default_stream:get_node_bound_id () then
           local metadata = cutils.get_default_metadata_object ()
-          metadata:set (stream:get_node_bound_id (), "target.node", "Spa:Id", "-1")
+          local node_id = stream:get_node_bound_id ()
+          local port_group = stream:get_port_group ()
+          -- The node key would also apply to the other streams of the node
+          if port_group then
+            local value = Json.Object { ["target.object"] = "-1" }
+            metadata:set (node_id, "target.stream." .. port_group,
+                "Spa:String:JSON", value:to_string ())
+          else
+            metadata:set (node_id, "target.node", "Spa:Id", "-1")
+          end
           Log.info (stream, "... set metadata to follow default")
         end
       end

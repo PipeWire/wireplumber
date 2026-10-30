@@ -39,9 +39,7 @@ SimpleEventHook {
     local target_direction = stream_utils.get_target_direction (stream)
 
     -- Bypass the hook if the stream is a smart filter
-    local link_group = stream_props["node.link-group"]
-    if link_group ~= nil and
-        futils.is_filter_smart (target_direction, link_group) then
+    if futils.is_filter_smart (target_direction, stream) then
       return
     end
 
@@ -71,7 +69,7 @@ SimpleEventHook {
       local roles_table = Json.Raw (roles_json):parse ()
       for _, target_role in ipairs (roles_table) do
         if target_role == media_role and
-            stream_utils.can_link (stream, target_stream) then
+            stream_utils.can_link (stream, target_stream, streams_om) then
           target = target_stream
           break
         end

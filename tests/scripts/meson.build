@@ -338,6 +338,69 @@ test(
   env: common_env,
 )
 
+test(
+  'scripts/linking/smart-filter-chain',
+  script_tester,
+  args: ['script-tests', 'linking/smart-filter-chain.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/smart-filter-target',
+  script_tester,
+  args: ['script-tests', 'linking/smart-filter-target.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/smart-filter-targetable',
+  script_tester,
+  args: ['script-tests', 'linking/smart-filter-targetable.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/smart-filter-peer-added',
+  script_tester,
+  args: ['script-tests', 'linking/smart-filter-peer-added.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/smart-filter-capture',
+  script_tester,
+  args: ['script-tests', 'linking/smart-filter-capture.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/smart-filter-not-smart',
+  script_tester,
+  args: ['script-tests', 'linking/smart-filter-not-smart.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/filter-shared-target',
+  script_tester,
+  args: ['script-tests', 'linking/filter-shared-target.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/smart-filter-media-type',
+  script_tester,
+  args: ['script-tests', 'linking/smart-filter-media-type.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/smart-filter-metadata-stream',
+  script_tester,
+  args: ['script-tests', 'linking/smart-filter-metadata-stream.lua'],
+  env: common_env,
+)
+
 # arguments after the test script name are components that are not loaded
 test(
   'scripts/linking/stream-added-immediate',

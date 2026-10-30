@@ -70,7 +70,7 @@ SimpleEventHook {
       }
     end
 
-    if target_stream and stream_utils.can_link (stream, target_stream) then
+    if target_stream and stream_utils.can_link (stream, target_stream, streams_om) then
       local target_props = target_stream:get_properties ()
       local target_id = target_stream.id
       local target_node_id = target_stream:get_node_bound_id ()

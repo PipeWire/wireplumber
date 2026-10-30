@@ -55,9 +55,7 @@ SimpleEventHook {
       local target_node_id = target_stream:get_node_bound_id ()
 
       -- Skip smart filters as best target
-      local target_link_group = target_props ["node.link-group"]
-      if target_link_group ~= nil and
-          futils.is_filter_smart (target_direction, target_link_group) then
+      if futils.is_filter_smart (target_direction, target_stream) then
         log:debug (stream, "... ignoring smart filter as best target")
         goto skip_target
       end
@@ -71,7 +69,7 @@ SimpleEventHook {
           tostring (target_props ["node.name"])))
 
       -- Make sure the target can be linked
-      if not stream_utils.can_link (stream, target_stream) then
+      if not stream_utils.can_link (stream, target_stream, streams_om) then
         log:debug (stream, "... cannot link, ignoring target")
         goto skip_target
       end
