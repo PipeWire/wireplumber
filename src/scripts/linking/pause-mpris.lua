@@ -8,8 +8,6 @@
 -- Pause media player applications when (one of) their output
 -- target(s) goes away.
 
-cutils = require ("common-utils")
-
 log = Log.open_topic ("s-linking.mpris")
 
 mpris = Plugin.find ("mpris")
@@ -34,8 +32,7 @@ end
 
 -- Get nodes that are (indirectly) linked to the given node by link group
 -- or links with input direction. Returns table { [node_id] = node, ... }
-function getLinkedNodes (start_id)
-  local node_om = cutils.get_object_manager ("node")
+function getLinkedNodes (start_id, node_om)
   local groups = {}
   local link_groups = {}
 
@@ -203,16 +200,27 @@ pause_hook = SimpleEventHook {
     local stream = event:get_subject ()
     local source = event:get_source ()
     local client_om = source:call ("get-object-manager", "client")
-    -- the node is already unbound when this hook runs, so
-    -- get_node_bound_id() would return SPA_ID_INVALID here
+    local stream_om = source:call ("get-object-manager", "stream")
+    local node_om = source:call ("get-object-manager", "node")
+    -- A removed node is already unbound when its stream-removed event is
+    -- dispatched, so get_node_bound_id() does not return its id anymore
     local node_id = tonumber (stream:get_property ("object.id"))
-    local node_group = getLinkedNodes (node_id)
+
+    -- Streams are also removed when the EnumPortConfig param of their node
+    -- changes
+    if stream:get_node_bound_id () == node_id then
+      return
+    end
+
+    local node_group = getLinkedNodes (node_id, node_om)
     local client_ids = {}
 
-    for id, node in pairs (node_group) do
-      local media_class = tostring(node.properties ["media.class"])
-      if media_class:find ("^Stream/Output") then
-        client_ids [node.properties ["client.id"]] = true
+    for output_stream in stream_om:iterate {
+        type = "Stream",
+        Constraint { "shape", "=", StreamShape.OUTPUT, type = "gobject" },
+      } do
+      if node_group [output_stream:get_node_bound_id ()] ~= nil then
+        client_ids [output_stream:get_property ("client.id")] = true
       end
     end
 

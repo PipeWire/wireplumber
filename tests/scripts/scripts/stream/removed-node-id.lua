@@ -47,6 +47,7 @@ SimpleEventHook {
     local stream = event:get_subject ()
 
     assert (tonumber (stream:get_properties () ["object.id"]) == node_id)
+    assert (stream:get_node_bound_id () ~= node_id)
 
     Script:finish_activation ()
   end
