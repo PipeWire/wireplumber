@@ -115,25 +115,11 @@ function get_suspend_playback (metadata_om)
 end
 
 function set_volume (streams_om, device_stream, level)
-  local link_group = device_stream:get_property ("node.link-group")
-  if link_group == nil then
-    return
-  end
-
   -- apply volume control on the companion stream of the loopback, instead of
   -- the device stream itself, as it simplifies ducking and restoration
   -- regardless of the link direction
-  local other_stream = streams_om:lookup {
-    type = "Stream",
-    Constraint { "node.link-group", "=", link_group, type = "wp" },
-    Constraint { "id", "!", device_stream.id, type = "gobject" },
-  }
+  local other_stream = stream_utils.get_filter_peer (device_stream, streams_om)
   if other_stream == nil then
-    return
-  end
-
-  local node = other_stream:get_node ()
-  if node == nil then
     return
   end
 
@@ -141,12 +127,7 @@ function set_volume (streams_om, device_stream, level)
       level < 1.0 and "duck" or "restore",
       tostring (other_stream:get_property ("node.name")), level))
 
-  local props = {
-    "Spa:Pod:Object:Param:Props",
-    "Props",
-    volume = level,
-  }
-  node:set_param ("Props", Pod.Object (props))
+  other_stream:set_props_param { volume = Pod.Float (level) }
 end
 
 function restore_volume (streams_om, device_stream)

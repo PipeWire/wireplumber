@@ -1,6 +1,6 @@
 -- Tests that a stream started with "node.target" pointing at the node that is
--- also the default sink is set to follow the default, by writing "target.node"
--- as -1 in the default metadata.
+-- also the default sink is set to follow the default, by writing -1 as the
+-- target in the default metadata.
 
 local tu = require ("test-utils")
 
@@ -48,9 +48,18 @@ SimpleEventHook {
     local target = tu.streams ["default-device-node"]
     assert (tu.getStreamLink (stream, target) ~= nil)
 
+    -- A stream with a port group only follows the default on its own key
+    local node_id = stream:get_node_bound_id ()
+    local port_group = stream:get_port_group ()
+
     tu.waitUntil (function ()
-      return tu.default_metadata:find (
-          stream:get_node_bound_id (), "target.node") == "-1"
+      if port_group == nil then
+        return tu.default_metadata:find (node_id, "target.node") == "-1"
+      end
+      local value = tu.default_metadata:find (node_id,
+          "target.stream." .. port_group)
+      return value ~= nil and
+          Json.Raw (value):parse () ["target.object"] == "-1"
     end, function ()
       Script:finish_activation ()
     end)

@@ -10,6 +10,7 @@
 -- is done by a common ancestor 'audio-group-namespace' process name.
 
 agutils = require ("audio-group-utils")
+stream_utils = require ("stream-utils")
 
 PW_AUDIO_NAMESPACE = "pw-audio-namespace"
 
@@ -117,14 +118,14 @@ SimpleEventHook {
     local stream = event:get_subject ()
     local source = event:get_source ()
     local client_om = source:call ("get-object-manager", "client")
+    local stream_om = source:call ("get-object-manager", "stream")
     local id = stream.id
     local stream_props = stream:get_properties ()
     local stream_name = stream_props["node.name"]
 
-    -- Only handle plain streams, not monitors or streams that are already
-    -- part of a link group (e.g. filters)
+    -- Only handle plain streams, not monitors or filter streams
     if stream_props:get_boolean ("stream.monitor") or
-        stream_props["node.link-group"] ~= nil then
+        stream_utils.is_filter_stream (stream, stream_om) then
       return
     end
 

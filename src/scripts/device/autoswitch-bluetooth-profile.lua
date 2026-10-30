@@ -26,6 +26,7 @@
 -- settings file: bluetooth.conf
 
 cutils = require ("common-utils")
+stream_utils = require ("stream-utils")
 log = Log.open_topic ("s-device")
 persistent_storage_hooks_registered = false
 autoswitch_hooks_registered = false
@@ -314,27 +315,21 @@ local bt_loopback_source_interest = Interest {
 local capture_stream_interest = Interest {
   type = "AudioStream",
   Constraint { "shape", "=", StreamShape.INPUT, type = "gobject" },
-  Constraint { "node.link-group", "-", type = "wp" },
+  Constraint { "stream.monitor", "!", "true", type = "wp" },
+  Constraint { "bluez5.loopback", "!", "true", type = "wp" }
+}
+
+local filter_input_interest = Interest {
+  type = "AudioStream",
   Constraint { "stream.monitor", "!", "true", type = "wp" },
   Constraint { "bluez5.loopback", "!", "true", type = "wp" }
 }
 
 -- Checks if the stream is a capture stream, which is an audio input stream
--- whose node has no link group and no output stream
+-- that does not belong to a filter
 function isCaptureStream (stream, stream_om)
-  if not capture_stream_interest:matches (stream) then
-    return false
-  end
-  local node_id = stream:get_node_bound_id ()
-  for output_stream in stream_om:iterate {
-      type = "AudioStream",
-      Constraint { "direction", "=", Direction.OUTPUT, type = "gobject" }
-    } do
-    if output_stream:get_node_bound_id () == node_id then
-      return false
-    end
-  end
-  return true
+  return capture_stream_interest:matches (stream) and
+      not stream_utils.is_filter_stream (stream, stream_om)
 end
 
 function getLinkedBluetoothLoopbackSourceStream (stream, stream_om, visited_streams)
@@ -360,30 +355,13 @@ function getLinkedBluetoothLoopbackSourceStream (stream, stream_om, visited_stre
       return peer
     end
 
-    -- A filter is either several nodes in the same link group, or one node
-    -- with several streams, so continue from the input streams of the peer's
-    -- link group if it has one, otherwise from the input streams of its node
-    local peer_node_id = peer:get_node_bound_id ()
-    local filter_link_group = peer:get_property ("node.link-group")
-    for filter_stream in stream_om:iterate {
-        type = "AudioStream",
-        Constraint { "direction", "=", Direction.INPUT, type = "gobject" },
-        Constraint { "stream.monitor", "!", "true", type = "wp" },
-        Constraint { "bluez5.loopback", "!", "true", type = "wp" }
-      } do
-      local is_filter_stream
-      if filter_link_group ~= nil then
-        is_filter_stream =
-            filter_stream:get_property ("node.link-group") == filter_link_group
-      else
-        is_filter_stream = filter_stream:get_node_bound_id () == peer_node_id
-      end
-      if is_filter_stream then
-        local bt_stream =
-            getLinkedBluetoothLoopbackSourceStream (filter_stream, stream_om, visited_streams)
-        if bt_stream ~= nil then
-          return bt_stream
-        end
+    -- Continue from the input stream of the filter
+    local filter_stream = stream_utils.get_filter_peer (peer, stream_om)
+    if filter_stream ~= nil and filter_input_interest:matches (filter_stream) then
+      local bt_stream =
+          getLinkedBluetoothLoopbackSourceStream (filter_stream, stream_om, visited_streams)
+      if bt_stream ~= nil then
+        return bt_stream
       end
     end
 

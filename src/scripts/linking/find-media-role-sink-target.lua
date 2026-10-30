@@ -26,12 +26,13 @@ SimpleEventHook {
     local stream_id = stream.id
     local node_id = stream:get_node_bound_id ()
 
-    -- Bypass the hook if the target is already set or there's no link group
+    -- Bypass the hook if the target is already set or it is not a filter stream
     local target = event:get_data ("target")
     local media_class = stream_props["media.class"]
     local is_virtual = stream_props:get_boolean ("node.virtual")
-    local link_group = stream_props["node.link-group"]
-    if target ~= nil or media_class ~= "Stream/Output/Audio" or not is_virtual or link_group == nil then
+    local streams_om = source:call ("get-object-manager", "stream")
+    if target ~= nil or media_class ~= "Stream/Output/Audio" or not is_virtual or
+        not stream_utils.is_filter_stream (stream, streams_om) then
       return
     end
 
@@ -39,15 +40,11 @@ SimpleEventHook {
         stream_id, node_id, tostring (stream_props["node.name"])))
 
     -- We link the output stream but the relevant properties are on the input
-    -- stream of the link group
-    local streams_om = source:call ("get-object-manager", "stream")
-    local input_stream = streams_om:lookup {
-      type = "Stream",
-      Constraint { "media.class", "=", "Audio/Sink", type = "wp" },
-      Constraint { "node.link-group", "=", link_group, type = "wp" },
-    }
+    -- stream of the filter
+    local input_stream = stream_utils.get_filter_peer (stream, streams_om)
     if input_stream == nil then
-      log:warning (stream, string.format ("no input stream for %s found", link_group))
+      log:warning (stream, string.format ("no input stream for %s found",
+          tostring (stream_props["node.name"])))
       return
     end
 

@@ -192,12 +192,12 @@ function module.can_link (stream, target, stream_om)
   return can_link_filter_check (target, 0)
 end
 
-function module.check_follow_default (stream, target)
+function module.check_follow_default (stream, target, stream_om)
   local stream_props = stream:get_properties ()
   local reconnect =
       not module.get_boolean_property (stream_props, "dont-reconnect")
 
-  if reconnect and stream_props ["node.link-group"] == nil then
+  if reconnect and not module.is_filter_stream (stream, stream_om) then
     local default_streams = Plugin.find ("default-streams-api")
     if default_streams ~= nil then
       local target_media_class = module.get_target_media_class (stream)

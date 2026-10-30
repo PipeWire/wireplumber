@@ -66,7 +66,8 @@ SimpleEventHook {
         -- Check this also here, in case in default targets changed
         if Settings.get_boolean ("linking.follow-default-target") and
             event:get_data ("is-node-defined-target") == true then
-          stream_utils.check_follow_default (stream, target)
+          stream_utils.check_follow_default (stream, target,
+              source:call ("get-object-manager", "stream"))
         end
 
         target = nil
