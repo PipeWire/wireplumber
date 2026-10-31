@@ -109,6 +109,12 @@ function u.getStreamError (name)
   return u.script_tester_plugin:call ("get-stream-error", name)
 end
 
+-- Whether the client stream with this node.name has a format set, which
+-- happens only when its link has negotiated one.
+function u.streamHasFormat (name)
+  return u.script_tester_plugin:call ("get-stream-has-format", name)
+end
+
 function u.restartPlugin (name)
   u.script_tester_plugin:call ("restart-plugin", name)
 end

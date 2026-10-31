@@ -28,6 +28,7 @@ struct stream_entry
   struct pw_stream *stream;
   struct spa_hook listener;
   gchar *error;
+  gboolean has_format;
 };
 
 struct _WpScriptTester
@@ -42,6 +43,7 @@ enum {
   ACTION_CREATE_STREAM_NODE,
   ACTION_RESTART_PLUGIN,
   ACTION_GET_STREAM_ERROR,
+  ACTION_GET_STREAM_HAS_FORMAT,
   N_SIGNALS
 };
 
@@ -118,9 +120,20 @@ on_client_stream_state_changed (void *data, enum pw_stream_state old_state,
   }
 }
 
+static void
+on_client_stream_param_changed (void *data, uint32_t id,
+    const struct spa_pod *param)
+{
+  struct stream_entry *entry = data;
+
+  if (id == SPA_PARAM_Format)
+    entry->has_format = (param != NULL);
+}
+
 static const struct pw_stream_events client_stream_events = {
   PW_VERSION_STREAM_EVENTS,
   .state_changed = on_client_stream_state_changed,
+  .param_changed = on_client_stream_param_changed,
 };
 
 static gchar *
@@ -130,6 +143,16 @@ wp_script_tester_get_stream_error (WpScriptTester *self, const gchar *name)
 
   g_assert_nonnull (entry);
   return g_strdup (entry->error);
+}
+
+static gboolean
+wp_script_tester_get_stream_has_format (WpScriptTester *self,
+    const gchar *name)
+{
+  struct stream_entry *entry = g_hash_table_lookup (self->streams, name);
+
+  g_assert_nonnull (entry);
+  return entry->has_format;
 }
 
 static G_GNUC_UNUSED void
@@ -157,7 +180,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
   guint n_params = 0;
   uint8_t buffer [1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-  gboolean video, encoded, dual;
+  gboolean video, any, encoded, dual;
   enum spa_video_format video_format = SPA_VIDEO_FORMAT_RGB;
   struct stream_entry *entry;
   const gchar *name;
@@ -166,6 +189,8 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
   wp_info ("create stream_type(%s) with props(%p)", stream_type, stream_props);
 
   video = g_str_has_prefix (stream_type, "video-");
+  /* no EnumFormat, like pipewiresrc with ANY caps */
+  any = g_str_has_prefix (stream_type, "video-any-");
   encoded = g_str_has_prefix (stream_type, "encoded-");
   dual = g_str_has_prefix (stream_type, "dual-");
 
@@ -204,11 +229,13 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
   g_hash_table_insert (self->streams, g_strdup (name), entry);
 
   if (video) {
-    params [n_params++] = spa_format_video_raw_build (&b, SPA_PARAM_EnumFormat,
-        &SPA_VIDEO_INFO_RAW_INIT (
-            .format = video_format,
-            .size = SPA_RECTANGLE (DEFAULT_WIDTH, DEFAULT_HEIGHT),
-            .framerate = SPA_FRACTION (DEFAULT_FRAMERATE, 1)));
+    if (!any)
+      params [n_params++] = spa_format_video_raw_build (&b,
+          SPA_PARAM_EnumFormat,
+          &SPA_VIDEO_INFO_RAW_INIT (
+              .format = video_format,
+              .size = SPA_RECTANGLE (DEFAULT_WIDTH, DEFAULT_HEIGHT),
+              .framerate = SPA_FRACTION (DEFAULT_FRAMERATE, 1)));
   } else {
     if (!encoded)
       params [n_params++] = spa_format_audio_raw_build (&b,
@@ -337,6 +364,12 @@ wp_script_tester_class_init (WpScriptTesterClass *klass)
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_script_tester_get_stream_error,
       NULL, NULL, NULL, G_TYPE_STRING, 1, G_TYPE_STRING);
+
+  signals [ACTION_GET_STREAM_HAS_FORMAT] = g_signal_new_class_handler (
+      "get-stream-has-format", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_script_tester_get_stream_has_format,
+      NULL, NULL, NULL, G_TYPE_BOOLEAN, 1, G_TYPE_STRING);
 }
 
 static void

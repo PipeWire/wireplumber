@@ -248,6 +248,13 @@ test(
 )
 
 test(
+  'scripts/linking/video-no-enum-format',
+  script_tester,
+  args: ['script-tests', 'linking/video-no-enum-format.lua'],
+  env: common_env,
+)
+
+test(
   'scripts/linking/dont-reconnect-target-removed',
   script_tester,
   args: ['script-tests', 'linking/dont-reconnect-target-removed.lua'],

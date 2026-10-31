@@ -3038,6 +3038,14 @@ wp_video_stream_enable_active (WpStream *stream, WpTransition *transition)
   self->params_changed_sigid = g_signal_connect_object (node,
       "params-changed", (GCallback) on_video_node_params_changed, self, 0);
 
+  /* A stream with no EnumFormat at all, such as pipewiresrc with ANY caps,
+   * can still be linked */
+  if (!node_has_readable_param (node, "EnumFormat")) {
+    wp_info_object (self, "no EnumFormat on activation");
+    wp_object_update_features (WP_OBJECT (self), WP_STREAM_FEATURE_ACTIVE, 0);
+    return;
+  }
+
   wp_debug_object (self, "enumerating EnumFormat params on activation...");
   wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "EnumFormat", NULL,
       NULL, (GAsyncReadyCallback) on_video_stream_enum_format_done,
