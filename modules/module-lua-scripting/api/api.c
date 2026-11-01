@@ -222,7 +222,7 @@ on_core_done (WpConnection * connection, GAsyncResult * res, GClosure * closure)
   GValue val = G_VALUE_INIT;
   int n_vals = 0;
 
-  if (!wp_connection_sync_finish (connection, res, &error)) {
+  if (wp_connection_sync_finish (connection, res, &error) < 0) {
     g_value_init (&val, G_TYPE_STRING);
     g_value_set_string (&val, error->message);
     n_vals = 1;

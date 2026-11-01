@@ -1797,7 +1797,7 @@ on_ports_config_synced (WpConnection * connection, GAsyncResult *res,
 {
   g_autoptr (GError) error = NULL;
 
-  if (!wp_connection_sync_finish (connection, res, &error)) {
+  if (wp_connection_sync_finish (connection, res, &error) < 0) {
     if (self->ports_state == WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING)
       audio_stream_notify_ports_error (self, error->message);
     return;

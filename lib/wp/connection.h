@@ -64,15 +64,15 @@ void wp_connection_update_properties (WpConnection * self,
 /* Sync */
 
 WP_API
-gboolean wp_connection_sync (WpConnection * self, GCancellable * cancellable,
+gint wp_connection_sync (WpConnection * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data);
 
 WP_API
-gboolean wp_connection_sync_closure (WpConnection * self,
+gint wp_connection_sync_closure (WpConnection * self,
     GCancellable * cancellable, GClosure * closure);
 
 WP_API
-gboolean wp_connection_sync_finish (WpConnection * self, GAsyncResult * res,
+gint wp_connection_sync_finish (WpConnection * self, GAsyncResult * res,
     GError ** error);
 
 G_END_DECLS

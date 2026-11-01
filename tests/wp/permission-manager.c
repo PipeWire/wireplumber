@@ -47,7 +47,7 @@ static void
 on_sync_done (WpConnection * connection, GAsyncResult * res, TestFixture * f)
 {
   g_autoptr (GError) error = NULL;
-  g_assert_true (wp_connection_sync_finish (connection, res, &error));
+  g_assert_cmpint (wp_connection_sync_finish (connection, res, &error), >=, 0);
   g_assert_no_error (error);
   g_main_loop_quit (f->base.loop);
 }

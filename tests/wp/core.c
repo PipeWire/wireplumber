@@ -13,6 +13,7 @@ typedef struct {
   WpBaseTestFixture base;
   WpObjectManager *om;
   gboolean connection_lost;
+  gint last_seq;
   gboolean object_added;
 } TestFixture;
 
@@ -183,7 +184,7 @@ static void
 on_sync_done_core_gone (WpConnection * connection, GAsyncResult * res, TestFixture * f)
 {
   g_autoptr (GError) error = NULL;
-  g_assert_false (wp_connection_sync_finish (connection, res, &error));
+  g_assert_cmpint (wp_connection_sync_finish (connection, res, &error), <, 0);
   g_assert_nonnull (error);
   g_main_loop_quit (f->base.loop);
 }
@@ -200,6 +201,39 @@ test_core_destroyed_with_pending_sync (TestFixture *f, gconstpointer data)
   g_main_loop_run (f->base.loop);
 }
 
+static void
+on_sync_done_check_seq (WpConnection * connection, GAsyncResult * res, TestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  gint seq = wp_connection_sync_finish (connection, res, &error);
+
+  g_assert_no_error (error);
+  g_assert_cmpint (seq, >=, 0);
+
+  /* only the last sync quits the loop */
+  if (seq == f->last_seq)
+    g_main_loop_quit (f->base.loop);
+}
+
+static void
+test_core_sync_seq (TestFixture *f, gconstpointer data)
+{
+  WpConnection *connection = wp_core_get_connection (f->base.core);
+  gint first;
+
+  connect_core (f->base.core, f);
+
+  first = wp_connection_sync (connection, NULL,
+      (GAsyncReadyCallback) on_sync_done_check_seq, f);
+  f->last_seq = wp_connection_sync (connection, NULL,
+      (GAsyncReadyCallback) on_sync_done_check_seq, f);
+  g_assert_cmpint (first, >=, 0);
+  g_assert_cmpint (f->last_seq, >, first);
+  g_main_loop_run (f->base.loop);
+
+  disconnect_core (f->base.core);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -212,6 +246,8 @@ main (gint argc, gchar *argv[])
       test_core_setup, test_core_client_disconnected, test_core_teardown);
   g_test_add ("/wp/core/connection", TestFixture, NULL,
       test_core_setup, test_connection, test_core_teardown);
+  g_test_add ("/wp/core/sync-seq", TestFixture, NULL,
+      test_core_setup, test_core_sync_seq, test_core_teardown);
   g_test_add ("/wp/core/destroyed-with-pending-sync", TestFixture, NULL,
       test_core_setup, test_core_destroyed_with_pending_sync, test_core_teardown);
 

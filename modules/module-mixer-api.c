@@ -243,7 +243,7 @@ static void
 on_sync_done (WpConnection * connection, GAsyncResult * res, WpMixerApi * self)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_connection_sync_finish (connection, res, &error))
+  if (wp_connection_sync_finish (connection, res, &error) < 0)
     wp_warning_object (connection, "sync error: %s", error->message);
   if (self->om) {
     on_objects_changed (self->om, self);

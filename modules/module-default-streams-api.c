@@ -85,7 +85,7 @@ sync_changed_notification (WpConnection * connection, GAsyncResult * res,
     WpDefaultStreamsApi * self)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_connection_sync_finish (connection, res, &error)) {
+  if (wp_connection_sync_finish (connection, res, &error) < 0) {
     wp_warning_object (self, "core sync error: %s", error->message);
     return;
   }

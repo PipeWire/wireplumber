@@ -138,7 +138,7 @@ test_core_done_cb (WpConnection * connection, GAsyncResult *res,
     WpBaseTestFixture *self)
 {
   g_autoptr (GError) error = NULL;
-  g_assert_true (wp_connection_sync_finish (connection, res, &error));
+  g_assert_cmpint (wp_connection_sync_finish (connection, res, &error), >=, 0);
   g_assert_null (error);
   g_main_loop_quit (self->loop);
 }

@@ -76,6 +76,7 @@ struct _WpConnection
   WpProperties *properties;
   struct pw_core *pw_core;
   struct pw_core_info *info;
+  gint last_seq;
   gboolean connection_lost;
   struct spa_hook core_listener;
   struct spa_hook proxy_core_listener;
@@ -133,7 +134,7 @@ core_done (void *data, uint32_t id, int seq)
       seq, WP_OBJECT_ARGS (task));
 
   if (task)
-    g_task_return_boolean (task, TRUE);
+    g_task_return_int (task, seq);
 }
 
 static void
@@ -176,6 +177,7 @@ proxy_core_destroy (void *data)
   spa_hook_remove(&self->proxy_core_listener);
   self->pw_core = NULL;
   self->connection_lost = FALSE;
+  self->last_seq = 0;
 }
 
 static const struct pw_proxy_events proxy_core_events = {
@@ -564,10 +566,10 @@ wp_connection_update_properties (WpConnection * self, WpProperties * updates)
  * \param cancellable (nullable): a GCancellable to cancel the operation
  * \param callback (scope async)(closure user_data): a function to call when the operation is done
  * \param user_data data to pass to \a callback
- * \returns TRUE if the sync operation was started, FALSE if an error
- *   occurred before returning from this function
+ * \returns the sequence number of the sync operation, or a negative errno
+ *   if an error occurred before returning from this function
  */
-gboolean
+gint
 wp_connection_sync (WpConnection * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data)
 {
@@ -606,18 +608,18 @@ invoke_closure (GObject * obj, GAsyncResult * res, gpointer data)
  * \param cancellable (nullable): a GCancellable to cancel the operation
  * \param closure (transfer floating): a closure to invoke when the operation
  *    is done
- * \returns TRUE if the sync operation was started, FALSE if an error
- *   occurred before returning from this function
+ * \returns the sequence number of the sync operation, or a negative errno
+ *   if an error occurred before returning from this function
  */
-gboolean
+gint
 wp_connection_sync_closure (WpConnection * self, GCancellable * cancellable,
     GClosure * closure)
 {
   g_autoptr (GTask) task = NULL;
   int seq;
 
-  g_return_val_if_fail (WP_IS_CONNECTION (self), FALSE);
-  g_return_val_if_fail (closure, FALSE);
+  g_return_val_if_fail (WP_IS_CONNECTION (self), -EINVAL);
+  g_return_val_if_fail (closure, -EINVAL);
 
   closure = g_closure_ref (closure);
   g_closure_sink (closure);
@@ -630,23 +632,25 @@ wp_connection_sync_closure (WpConnection * self, GCancellable * cancellable,
     g_warn_if_reached ();
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_INVARIANT, "No pipewire core");
-    return FALSE;
+    return -ENOTCONN;
   }
 
-  seq = pw_core_sync (self->pw_core, 0, 0);
+  seq = pw_core_sync (self->pw_core, 0, self->last_seq);
   if (G_UNLIKELY (seq < 0)) {
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED, "pw_core_sync failed: %s",
         g_strerror (-seq));
-    return FALSE;
+    return seq;
   }
+
+  self->last_seq = seq;
 
   wp_debug_object (self, "sync, seq 0x%x, task " WP_OBJECT_FORMAT,
       seq, WP_OBJECT_ARGS (task));
 
   g_hash_table_insert (self->async_tasks, GINT_TO_POINTER (seq),
       g_steal_pointer (&task));
-  return TRUE;
+  return seq;
 }
 
 /*!
@@ -658,14 +662,15 @@ wp_connection_sync_closure (WpConnection * self, GCancellable * cancellable,
  * \param self the connection
  * \param res a GAsyncResult
  * \param error (out) (optional): the error that occurred, if any
- * \returns TRUE if the operation succeeded, FALSE otherwise
+ * \returns the sequence number of the sync operation that finished, as it was
+ *   returned by wp_connection_sync(), or a negative value if an error occurred
  */
-gboolean
+gint
 wp_connection_sync_finish (WpConnection * self, GAsyncResult * res,
     GError ** error)
 {
-  g_return_val_if_fail (WP_IS_CONNECTION (self), FALSE);
-  g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
+  g_return_val_if_fail (WP_IS_CONNECTION (self), -EINVAL);
+  g_return_val_if_fail (g_task_is_valid (res, self), -EINVAL);
 
-  return g_task_propagate_boolean (G_TASK (res), error);
+  return g_task_propagate_int (G_TASK (res), error);
 }
