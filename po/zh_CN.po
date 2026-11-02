@@ -13,8 +13,8 @@ msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
 "issues\n"
-"POT-Creation-Date: 2026-04-30 11:35+0000\n"
-"PO-Revision-Date: 2026-05-07 16:56+0800\n"
+"POT-Creation-Date: 2026-10-28 11:51+0000\n"
+"PO-Revision-Date: 2026-11-02 09:31+0800\n"
 "Last-Translator: lumingzh <lumingzh@qq.com>\n"
 "Language-Team: Chinese (China) <i18n-zh@googlegroups.com>\n"
 "Language: zh_CN\n"
@@ -22,7 +22,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Launchpad-Export-Date: 2016-03-22 13:23+0000\n"
-"X-Generator: Gtranslator 50.0\n"
+"X-Generator: Gtranslator 51.0\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. WirePlumber
@@ -33,18 +33,37 @@ msgstr ""
 #. SPDX-License-Identifier: MIT
 #. unique device/node name tables
 #. SPA ids to node names: name = id_name_table[device_id][node_id]
+#. node error recovery state: recovery = device_recovery_table[device_name]
+#. recovery attempts are reset if the device runs this long without errors
+#. This makes sure channels are only added when using UCM as ACP already has them
+#. There can be more than one subwoofer, accounting for that
+#. Include the product name in description if HDMI node for better UX
+#. When using UCM, number of channels is not included, so add it
+#. also sanitize description, replace ':' with ' '
 #. create the underlying hidden ALSA node
 #. not suitable for loopback
-#: src/scripts/monitors/alsa.lua:106
+#: src/scripts/monitors/alsa.lua:178
 #, lua-format
 msgid "Split %s"
 msgstr "分离 %s"
 
 #. Connect ObjectConfig events to the right node
+#. Find the device for this node
+#. Get current profile
+#. Closing the device re-opens all its nodes, so make sure errors from the
+#. other nodes of the same device are ignored if a recovery is pending.
+#. Only count errors that happen shortly after the last recovery, so that
+#. sporadic errors on long-running devices are always recovered.
+#. Close the ALSA device by setting the profile to Off
+#. Re-open the ALSA device by restoring the profile after a delay
+#. The device may have been removed or re-created in the meantime
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
 #. try to negotiate the max amount of channels
 #. set priority
+#. UCM playback profiles are named "<verb>: <device>: sink" and never
+#. match the ACP prefixes above; give the conventional HiFi verb the
+#. analog bonus so codec outputs win over e.g. HDMI fallback sinks
 #. ensure the node has a media class
 #. ensure the node has a name
 #. sanitize name
@@ -52,25 +71,26 @@ msgstr "分离 %s"
 #. and a nick
 #. also sanitize nick, replace ':' with ' '
 #. ensure the node has a description
-#. also sanitize description, replace ':' with ' '
 #. add api.alsa.card.* and alsa.* properties for rule matching purposes
+#. add device form-factor property for rule matching purposes
 #. add cpu.vm.name for rule matching purposes
 #. apply properties from rules defined in JSON .conf file
+#. rules may have changed the description or what it is built from
 #. handle split HW node
 #. create split PCM node
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:438
+#: src/scripts/monitors/alsa.lua:643
 msgid "Loopback"
 msgstr "回环"
 
-#: src/scripts/monitors/alsa.lua:440
+#: src/scripts/monitors/alsa.lua:645
 msgid "Built-in Audio"
 msgstr "内置音频"
 
-#: src/scripts/monitors/alsa.lua:442
+#: src/scripts/monitors/alsa.lua:647
 msgid "Modem"
 msgstr "调制解调器"
 
@@ -141,6 +161,30 @@ msgstr "内置前摄像头"
 #: src/scripts/monitors/libcamera/name-node.lua:63
 msgid "Built-in Back Camera"
 msgstr "内置后摄像头"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-restore-timeout/description
+#: wireplumber.conf
+msgid ""
+"How long to wait, in milliseconds, before restoring the previous profile "
+"when recording stops"
+msgstr "录制停止时恢复之前配置文件前等待的时长（毫秒）"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-restore-timeout/name
+#: wireplumber.conf
+msgid "Auto-switch restore timeout"
+msgstr "自动切换恢复超时"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-switch-timeout/description
+#: wireplumber.conf
+msgid ""
+"How long to wait, in milliseconds, before switching to headset mode when "
+"recording starts"
+msgstr "录制开始时切换至耳机模式前等待的时长（毫秒）"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-switch-timeout/name
+#: wireplumber.conf
+msgid "Auto-switch timeout"
+msgstr "自动切换超时"
 
 #. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/description
 #: wireplumber.conf
