@@ -187,15 +187,31 @@ core_get_own_bound_id (lua_State *L)
 }
 
 static int
-core_idle_add (lua_State *L)
+idle_add_on_context (lua_State *L, WpContext *context, int idx)
 {
   GSource *source = NULL;
-  luaL_checktype (L, 1, LUA_TFUNCTION);
-  WpMainContext *wp_ctx =
-      wp_core_get_main_context (get_wp_core (L));
-  wp_context_idle_add_closure (WP_CONTEXT (wp_ctx),
-      &source,
-      wplua_function_to_closure (L, 1));
+  luaL_checktype (L, idx, LUA_TFUNCTION);
+  wp_context_idle_add_closure (context, &source,
+      wplua_function_to_closure (L, idx));
+  wplua_pushboxed (L, G_TYPE_SOURCE, source);
+  return 1;
+}
+
+static int
+core_idle_add (lua_State *L)
+{
+  return idle_add_on_context (L,
+      WP_CONTEXT (wp_core_get_main_context (get_wp_core (L))), 1);
+}
+
+static int
+timeout_add_on_context (lua_State *L, WpContext *context, int idx)
+{
+  GSource *source = NULL;
+  lua_Integer timeout_ms = luaL_checkinteger (L, idx);
+  luaL_checktype (L, idx + 1, LUA_TFUNCTION);
+  wp_context_timeout_add_closure (context, &source, timeout_ms,
+      wplua_function_to_closure (L, idx + 1));
   wplua_pushboxed (L, G_TYPE_SOURCE, source);
   return 1;
 }
@@ -203,46 +219,48 @@ core_idle_add (lua_State *L)
 static int
 core_timeout_add (lua_State *L)
 {
-  GSource *source = NULL;
-  lua_Integer timeout_ms = luaL_checkinteger (L, 1);
-  luaL_checktype (L, 2, LUA_TFUNCTION);
-  WpMainContext *wp_ctx =
-      wp_core_get_main_context (get_wp_core (L));
-  wp_context_timeout_add_closure (WP_CONTEXT (wp_ctx),
-      &source, timeout_ms,
-      wplua_function_to_closure (L, 2));
-  wplua_pushboxed (L, G_TYPE_SOURCE, source);
-  return 1;
+  return timeout_add_on_context (L,
+      WP_CONTEXT (wp_core_get_main_context (get_wp_core (L))), 1);
 }
 
 static void
 on_core_done (WpConnection * connection, GAsyncResult * res, GClosure * closure)
 {
   g_autoptr (GError) error = NULL;
-  GValue val = G_VALUE_INIT;
-  int n_vals = 0;
+  GValue vals[2] = { G_VALUE_INIT, G_VALUE_INIT };
+  int n_vals = 1;
+  gint seq = wp_connection_sync_finish (connection, res, &error);
 
-  if (wp_connection_sync_finish (connection, res, &error) < 0) {
-    g_value_init (&val, G_TYPE_STRING);
-    g_value_set_string (&val, error->message);
-    n_vals = 1;
+  g_value_init (&vals[0], G_TYPE_STRING);
+  if (seq < 0) {
+    g_value_set_string (&vals[0], error->message);
+  } else {
+    g_value_init (&vals[1], G_TYPE_INT);
+    g_value_set_int (&vals[1], seq);
+    n_vals = 2;
   }
-  g_closure_invoke (closure, NULL, n_vals, &val, NULL);
-  g_value_unset (&val);
+  g_closure_invoke (closure, NULL, n_vals, vals, NULL);
+  g_value_unset (&vals[0]);
+  g_value_unset (&vals[1]);
   g_closure_invalidate (closure);
   g_closure_unref (closure);
 }
 
 static int
+sync_connection (lua_State *L, WpConnection *connection, int idx)
+{
+  luaL_checktype (L, idx, LUA_TFUNCTION);
+  GClosure * closure = wplua_function_to_closure (L, idx);
+  g_closure_sink (g_closure_ref (closure));
+  lua_pushinteger (L, wp_connection_sync (connection, NULL,
+      (GAsyncReadyCallback) on_core_done, closure));
+  return 1;
+}
+
+static int
 core_sync (lua_State *L)
 {
-  luaL_checktype (L, 1, LUA_TFUNCTION);
-  GClosure * closure = wplua_function_to_closure (L, 1);
-  g_closure_sink (g_closure_ref (closure));
-  wp_connection_sync (wp_core_get_connection (get_wp_core (L)),
-      NULL, (GAsyncReadyCallback) on_core_done,
-      closure);
-  return 0;
+  return sync_connection (L, wp_core_get_connection (get_wp_core (L)), 1);
 }
 
 static gboolean
@@ -301,17 +319,37 @@ core_test_feature (lua_State *L)
 }
 
 static int
+update_connection_properties (lua_State *L, WpConnection *connection, int idx)
+{
+  WpProperties *props = NULL;
+  if (lua_istable (L, idx))
+    props = wplua_table_to_properties (L, idx);
+  else
+    props = wp_properties_ref (wplua_checkboxed (L, idx, WP_TYPE_PROPERTIES));
+
+  wp_connection_update_properties (connection, props);
+  return 0;
+}
+
+static int
 core_update_properties (lua_State *L)
 {
-  WpCore *core = get_wp_core(L);
-  WpProperties *props = NULL;
-  if (lua_istable (L, 1))
-    props = wplua_table_to_properties (L, 1);
-  else
-    props = wp_properties_ref (wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES));
+  return update_connection_properties (L,
+      wp_core_get_connection (get_wp_core (L)), 1);
+}
 
-  wp_connection_update_properties (wp_core_get_connection (core), props);
-  return 0;
+static int
+core_get_main_context (lua_State *L)
+{
+  wplua_pushobject (L, g_object_ref (wp_core_get_main_context (get_wp_core (L))));
+  return 1;
+}
+
+static int
+core_get_connection (lua_State *L)
+{
+  wplua_pushobject (L, g_object_ref (wp_core_get_connection (get_wp_core (L))));
+  return 1;
 }
 
 static const luaL_Reg core_funcs[] = {
@@ -326,6 +364,209 @@ static const luaL_Reg core_funcs[] = {
   { "require_api", core_require_api },
   { "test_feature", core_test_feature },
   { "update_properties", core_update_properties },
+  { "get_main_context", core_get_main_context },
+  { "get_connection", core_get_connection },
+  { NULL, NULL }
+};
+
+/* WpContext */
+
+static int
+push_core_or_nil (lua_State *L, WpCore *core)
+{
+  if (core)
+    wplua_pushobject (L, core);
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+push_spa_json_or_nil (lua_State *L, WpSpaJson *json)
+{
+  if (json)
+    wplua_pushboxed (L, WP_TYPE_SPA_JSON, wp_spa_json_ref (json));
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+context_get_core (lua_State *L)
+{
+  WpContext *self = wplua_checkobject (L, 1, WP_TYPE_CONTEXT);
+  return push_core_or_nil (L, wp_context_get_core (self));
+}
+
+static int
+context_get_spa_libs (lua_State *L)
+{
+  WpContext *self = wplua_checkobject (L, 1, WP_TYPE_CONTEXT);
+  return push_spa_json_or_nil (L, wp_context_get_spa_libs (self));
+}
+
+static int
+context_get_modules (lua_State *L)
+{
+  WpContext *self = wplua_checkobject (L, 1, WP_TYPE_CONTEXT);
+  return push_spa_json_or_nil (L, wp_context_get_modules (self));
+}
+
+static int
+context_get_properties (lua_State *L)
+{
+  WpContext *self = wplua_checkobject (L, 1, WP_TYPE_CONTEXT);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, wp_context_get_properties (self));
+  return 1;
+}
+
+static int
+context_get_vm_type (lua_State *L)
+{
+  WpContext *self = wplua_checkobject (L, 1, WP_TYPE_CONTEXT);
+  g_autofree gchar *vm = wp_context_get_vm_type (self);
+  lua_pushstring (L, vm);
+  return 1;
+}
+
+static int
+context_idle_add (lua_State *L)
+{
+  return idle_add_on_context (L, wplua_checkobject (L, 1, WP_TYPE_CONTEXT), 2);
+}
+
+static int
+context_timeout_add (lua_State *L)
+{
+  return timeout_add_on_context (L,
+      wplua_checkobject (L, 1, WP_TYPE_CONTEXT), 2);
+}
+
+static const luaL_Reg context_methods[] = {
+  { "get_core", context_get_core },
+  { "get_spa_libs", context_get_spa_libs },
+  { "get_modules", context_get_modules },
+  { "get_properties", context_get_properties },
+  { "get_vm_type", context_get_vm_type },
+  { "idle_add", context_idle_add },
+  { "timeout_add", context_timeout_add },
+  { NULL, NULL }
+};
+
+/* WpMainContext */
+
+static int
+main_context_get_connection (lua_State *L)
+{
+  WpMainContext *self = wplua_checkobject (L, 1, WP_TYPE_MAIN_CONTEXT);
+  wplua_pushobject (L, g_object_ref (wp_main_context_get_connection (self)));
+  return 1;
+}
+
+static const luaL_Reg main_context_methods[] = {
+  { "get_connection", main_context_get_connection },
+  { NULL, NULL }
+};
+
+/* WpConnection */
+
+static int
+connection_get_core (lua_State *L)
+{
+  WpConnection *self = wplua_checkobject (L, 1, WP_TYPE_CONNECTION);
+  return push_core_or_nil (L, wp_connection_get_core (self));
+}
+
+static int
+connection_get_own_bound_id (lua_State *L)
+{
+  WpConnection *self = wplua_checkobject (L, 1, WP_TYPE_CONNECTION);
+  lua_pushinteger (L, wp_connection_get_own_bound_id (self));
+  return 1;
+}
+
+static int
+connection_get_remote_cookie (lua_State *L)
+{
+  WpConnection *self = wplua_checkobject (L, 1, WP_TYPE_CONNECTION);
+  lua_pushinteger (L, wp_connection_get_remote_cookie (self));
+  return 1;
+}
+
+static int
+connection_get_remote_name (lua_State *L)
+{
+  WpConnection *self = wplua_checkobject (L, 1, WP_TYPE_CONNECTION);
+  lua_pushstring (L, wp_connection_get_remote_name (self));
+  return 1;
+}
+
+static int
+connection_get_remote_user_name (lua_State *L)
+{
+  WpConnection *self = wplua_checkobject (L, 1, WP_TYPE_CONNECTION);
+  lua_pushstring (L, wp_connection_get_remote_user_name (self));
+  return 1;
+}
+
+static int
+connection_get_remote_host_name (lua_State *L)
+{
+  WpConnection *self = wplua_checkobject (L, 1, WP_TYPE_CONNECTION);
+  lua_pushstring (L, wp_connection_get_remote_host_name (self));
+  return 1;
+}
+
+static int
+connection_get_remote_version (lua_State *L)
+{
+  WpConnection *self = wplua_checkobject (L, 1, WP_TYPE_CONNECTION);
+  lua_pushstring (L, wp_connection_get_remote_version (self));
+  return 1;
+}
+
+static int
+connection_get_remote_properties (lua_State *L)
+{
+  WpConnection *self = wplua_checkobject (L, 1, WP_TYPE_CONNECTION);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES,
+      wp_connection_get_remote_properties (self));
+  return 1;
+}
+
+static int
+connection_get_properties (lua_State *L)
+{
+  WpConnection *self = wplua_checkobject (L, 1, WP_TYPE_CONNECTION);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, wp_connection_get_properties (self));
+  return 1;
+}
+
+static int
+connection_update_properties (lua_State *L)
+{
+  return update_connection_properties (L,
+      wplua_checkobject (L, 1, WP_TYPE_CONNECTION), 2);
+}
+
+static int
+connection_sync (lua_State *L)
+{
+  return sync_connection (L, wplua_checkobject (L, 1, WP_TYPE_CONNECTION), 2);
+}
+
+static const luaL_Reg connection_methods[] = {
+  { "get_core", connection_get_core },
+  { "get_own_bound_id", connection_get_own_bound_id },
+  { "get_remote_cookie", connection_get_remote_cookie },
+  { "get_remote_name", connection_get_remote_name },
+  { "get_remote_user_name", connection_get_remote_user_name },
+  { "get_remote_host_name", connection_get_remote_host_name },
+  { "get_remote_version", connection_get_remote_version },
+  { "get_remote_properties", connection_get_remote_properties },
+  { "get_properties", connection_get_properties },
+  { "update_properties", connection_update_properties },
+  { "sync", connection_sync },
   { NULL, NULL }
 };
 
@@ -3874,6 +4115,12 @@ wp_lua_scripting_api_init (lua_State *L)
 
   wplua_register_type_methods (L, G_TYPE_SOURCE,
       NULL, source_methods);
+  wplua_register_type_methods (L, WP_TYPE_CONTEXT,
+      NULL, context_methods);
+  wplua_register_type_methods (L, WP_TYPE_MAIN_CONTEXT,
+      NULL, main_context_methods);
+  wplua_register_type_methods (L, WP_TYPE_CONNECTION,
+      NULL, connection_methods);
   wplua_register_type_methods (L, WP_TYPE_OBJECT,
       NULL, object_methods);
   wplua_register_type_methods (L, WP_TYPE_PROXY,

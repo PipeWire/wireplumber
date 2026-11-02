@@ -53,6 +53,12 @@ test(
   env: common_env,
 )
 test(
+  'wplua/lua-context',
+  script_tester,
+  args: ['lua-api-tests', 'context.lua'],
+  env: common_env,
+)
+test(
   'wplua/lua-settings',
   script_tester,
   args: ['lua-api-tests', 'settings.lua'],
