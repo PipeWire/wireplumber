@@ -15,7 +15,7 @@ Dependencies
 In order to compile WirePlumber you will need:
 
 * GLib >= 2.68
-* PipeWire >= 1.0
+* PipeWire >= 1.0.4
 * Lua 5.3 or 5.4
 
 Lua is optional in the sense that if it is not found in the system, a bundled

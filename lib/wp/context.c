@@ -252,8 +252,6 @@ wp_context_class_init (WpContextClass * klass)
       context_props);
 }
 
-#include "private/parse-conf-section.c"
-
 static gboolean
 wp_context_load (WpContext * self, GError ** error)
 {
@@ -277,14 +275,14 @@ wp_context_load (WpContext * self, GError ** error)
   conf_pw = wp_properties_unref_and_take_pw_properties (conf_wp);
 
   if (priv->spa_libs) {
-    if ((res = _pw_context_parse_conf_section (priv->pw_context, conf_pw,
+    if ((res = pw_context_parse_conf_section (priv->pw_context, conf_pw,
                 "context.spa-libs")) < 0)
       goto error;
     wp_info_object (self, "parsed %d context.spa-libs items", res);
   }
 
   if (priv->modules) {
-    if ((res = _pw_context_parse_conf_section (priv->pw_context, conf_pw,
+    if ((res = pw_context_parse_conf_section (priv->pw_context, conf_pw,
                 "context.modules")) < 0)
       goto error;
     wp_info_object (self, "parsed %d context.modules items", res);
