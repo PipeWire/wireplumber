@@ -5,15 +5,13 @@
 --
 -- SPDX-License-Identifier: MIT
 
-cutils = require ("common-utils")
 stream_utils = require ("stream-utils")
 
 log = Log.open_topic ("s-stream")
 
-
-function reconfigureAudioStreams ()
-  local stream_links_om = cutils.get_object_manager ("stream-link")
-  local streams_om = cutils.get_object_manager ("stream")
+function reconfigureAudioStreams (source)
+  local stream_links_om = source:call ("get-object-manager", "stream-link")
+  local streams_om = source:call ("get-object-manager", "stream")
   local linked = {}
 
   log:info ("reconfiguring the audio streams after a settings change")
@@ -56,7 +54,18 @@ function reconfigureAudioStreams ()
   end
 end
 
-Settings.subscribe ("stream.features.audio.*", reconfigureAudioStreams)
+SimpleEventHook {
+  name = "stream/configure-ports-on-setting-changed",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "setting-changed" },
+      Constraint { "event.subject.key", "#", "stream.features.audio.*" },
+    },
+  },
+  execute = function (event)
+    reconfigureAudioStreams (event:get_source ())
+  end
+}:register ()
 
 -- Configures the ports of new audio streams that are not linked right away
 -- (targets, non-autoconnect and dont-remix streams), since a node with no
