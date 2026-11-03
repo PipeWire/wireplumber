@@ -10,11 +10,6 @@ log = Log.open_topic("s-stream")
 config = {}
 config.rules = Conf.get_section_as_json("stream.software-dsp.rules", Json.Array{})
 
--- TODO: port from Obj Manager to Hooks
-clients_om = ObjectManager {
-  Interest { type = "client" }
-}
-
 filter_streams = {}
 hidden_nodes = {}
 
@@ -26,6 +21,7 @@ SimpleEventHook {
     },
   },
   execute = function(event)
+    local source = event:get_source()
     local stream = event:get_subject()
     local stream_props = stream:get_properties()
     local stream_name = stream_props["node.name"]
@@ -56,7 +52,8 @@ SimpleEventHook {
         if props["hide-parent"] then
           local bound_id = stream:get_node_bound_id()
           log:debug("Setting permissions to '-' on " .. stream_name .. " for open clients")
-          for client in clients_om:iterate{ type = "client" } do
+          local clients_om = source:call("get-object-manager", "client")
+          for client in clients_om:iterate() do
             if not client["properties"]["wireplumber.daemon"] then
               client:update_permissions { [bound_id] = Perm.NONE }
             end
@@ -85,12 +82,20 @@ SimpleEventHook {
   end
 }:register()
 
-clients_om:connect("object-added", function (om, client)
-  for _, id in pairs(hidden_nodes) do
-    if not client["properties"]["wireplumber.daemon"] then
+SimpleEventHook {
+  name = "stream/dsp/hide-parent-from-new-client",
+  interests = {
+    EventInterest {
+      Constraint  { "event.type", "=", "client-added" },
+    },
+  },
+  execute = function(event)
+    local client = event:get_subject()
+    if client["properties"]["wireplumber.daemon"] then
+      return
+    end
+    for _, id in pairs(hidden_nodes) do
       client:update_permissions { [id] = Perm.NONE }
     end
   end
-end)
-
-clients_om:activate()
+}:register()
