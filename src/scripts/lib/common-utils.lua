@@ -47,17 +47,6 @@ function cutils.getTargetDirection (properties)
   return target_direction
 end
 
-cutils.source_plugin = nil
-cutils.object_managers = {}
-
-function cutils.get_object_manager (name)
-  cutils.source_plugin = cutils.source_plugin or
-      Plugin.find ("standard-event-source")
-  cutils.object_managers [name] = cutils.object_managers [name] or
-      cutils.source_plugin:call ("get-object-manager", name)
-  return cutils.object_managers [name]
-end
-
 function cutils.arrayContains (a, value)
   for _, v in ipairs (a) do
     if v == value then

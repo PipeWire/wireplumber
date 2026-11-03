@@ -6,7 +6,6 @@
 -- SPDX-License-Identifier: MIT
 
 -- Script is a Lua Module of common Lua test utility functions
-local cu = require ("common-utils")
 
 local u = {}
 
@@ -133,12 +132,15 @@ function u.disconnectClient ()
   u.script_tester_plugin:call ("disconnect-client")
 end
 
-u.default_metadata = cu.get_object_manager ("metadata"):lookup {
+local metadata_om = Plugin.find ("standard-event-source"):call (
+    "get-object-manager", "metadata")
+
+u.default_metadata = metadata_om:lookup {
   Constraint { "metadata.name", "=", "default" },
 }
 assert (u.default_metadata ~= nil)
 
-u.settings_metadata = cu.get_object_manager ("metadata"):lookup {
+u.settings_metadata = metadata_om:lookup {
   Constraint { "metadata.name", "=", "sm-settings" },
 }
 assert (u.settings_metadata ~= nil)
