@@ -22,19 +22,6 @@ function cutils.parseParam (param, id)
   end
 end
 
-function cutils.getTargetDirection (properties)
-  local target_direction = nil
-
-  if properties ["item.node.direction"] == "output" or
-      (properties ["item.node.direction"] == "input" and
-          cutils.parseBool (properties ["stream.capture.sink"])) then
-    target_direction = "input"
-  else
-    target_direction = "output"
-  end
-  return target_direction
-end
-
 function cutils.arrayContains (a, value)
   for _, v in ipairs (a) do
     if v == value then
