@@ -158,49 +158,68 @@ SimpleEventHook {
   end
 }:register ()
 
-function reconfigureAudioAdapters ()
-  local ids = {}
+AsyncEventHook {
+  name = "node/reconfigure-audio-adapters",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "setting-changed" },
+      Constraint { "event.subject.key", "#", "node.features.audio.*" },
+    },
+  },
+  steps = {
+    start = {
+      next = "none",
+      execute = function (event, transition)
+        local reconfigured = {}
 
-  -- Get the Id of all session items that are audio adapters
-  for id, item in pairs(items) do
-    local si_props = item.properties
-    if si_props ["item.factory.name"] == "si-audio-adapter" then
-      table.insert (ids, id)
-    end
-  end
+        -- Remove and re-configure all audio adapters, so that they are unlinked
+        for id, item in pairs (items) do
+          if item.properties ["item.factory.name"] == "si-audio-adapter" then
+            log:info (item, "Started re-configuring audio adapter")
+            item:remove ()
+            if item:configure (configProperties (
+                item:get_associated_proxy ("node"))) then
+              reconfigured [id] = item
+            else
+              log:warning (item, "Could not re-configure audio adapter")
+              items [id] = nil
+            end
+          end
+        end
 
-  -- Re-configure all audio adapters
-  for _, id in pairs (ids) do
-    local item = items[id]
-    local node = item:get_associated_proxy ("node")
+        -- Register the items only after all of them are activated, so that
+        -- streams are not linked before their target devices are available
+        local pending = 0
+        for _ in pairs (reconfigured) do
+          pending = pending + 1
+        end
+        if pending == 0 then
+          transition:advance ()
+          return
+        end
 
-    log:info (item, "Started re-configuring audio adapter")
+        for id, item in pairs (reconfigured) do
+          item:activate (Features.ALL, function (si, e)
+            if e then
+              log:warning (si, "Could not re-activate audio adapter")
+              reconfigured [id] = nil
+            else
+              log:info (si, "Successfully re-activated audio adapter")
+            end
 
-    -- Remove the session item so that it is unlinked
-    items[id] = nil
-    item:remove()
-
-    -- Configure the session item
-    if not item:configure (configProperties (node)) then
-      log:warning (item, "Could not re-configure audio adapter")
-      goto skip_item
-    end
-
-    -- Activate the session item so that it is linked again
-    items[id] = item
-    item:activate (Features.ALL, function (si, e)
-      if e then
-        log:warning (si, "Could not re-activate audio adapter")
-      else
-        log:info (si, "Successfully re-activated audio adapter")
-        si:register ()
-      end
-    end)
-
-    ::skip_item::
-  end
-end
-
-Settings.subscribe ("node.features.audio.*", function ()
-  reconfigureAudioAdapters ()
-end)
+            pending = pending - 1
+            if pending == 0 then
+              for rid, ritem in pairs (reconfigured) do
+                -- skip items whose node was removed in the meantime
+                if items [rid] == ritem then
+                  ritem:register ()
+                end
+              end
+              transition:advance ()
+            end
+          end)
+        end
+      end,
+    },
+  },
+}:register ()
