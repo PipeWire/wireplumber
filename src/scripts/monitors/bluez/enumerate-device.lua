@@ -132,10 +132,23 @@ SimpleEventHook {
 }:register ()
 
 -- Check BT loopbacks every time the autoswitch setting changes
-Settings.subscribe ("bluetooth.autoswitch-to-headset-profile", function ()
-  source = source or Plugin.find ("standard-event-source")
-  for spa_device in monitor:iterate_managed_objects() do
-    local e = source:call ("create-event", "create-bluez-device-loopback-node", spa_device, nil)
-    EventDispatcher.push_event (e)
+SimpleEventHook {
+  name = "monitor/bluez/check-loopbacks-on-setting-changed",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "setting-changed" },
+      Constraint { "event.subject.key", "=", "bluetooth.autoswitch-to-headset-profile" },
+    },
+  },
+  execute = function (event)
+    if monitor == nil then
+      return
+    end
+
+    local source = event:get_source ()
+    for spa_device in monitor:iterate_managed_objects () do
+      source:call ("push-event", "create-bluez-device-loopback-node",
+          spa_device, nil)
+    end
   end
-end)
+}:register ()
