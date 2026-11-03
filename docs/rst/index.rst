@@ -52,6 +52,7 @@ Table of Contents
 
    man/wireplumber.rst
    man/wpctl.rst
+   man/wpdot.rst
    man/wpexec.rst
 
 .. toctree::

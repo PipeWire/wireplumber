@@ -447,7 +447,7 @@ with the specified process ID and apply the operation to all of them.
 SEE ALSO
 --------
 
-**wireplumber**\ (1), **wpexec**\ (1), **pipewire**\ (1), **pw-cli**\ (1),
-**pw-dump**\ (1)
+**wireplumber**\ (1), **wpdot**\ (1), **wpexec**\ (1), **pipewire**\ (1),
+**pw-cli**\ (1), **pw-dump**\ (1)
 
 WirePlumber Documentation: https://pipewire.pages.freedesktop.org/wireplumber/

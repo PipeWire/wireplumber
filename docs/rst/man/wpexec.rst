@@ -89,6 +89,7 @@ Exit codes follow the conventions of **sysexits.h**\ (3head):
 SEE ALSO
 --------
 
-**wireplumber**\ (1), **wpctl**\ (1), **pipewire**\ (1), **sysexits.h**\ (3head)
+**wireplumber**\ (1), **wpctl**\ (1), **wpdot**\ (1), **pipewire**\ (1),
+**sysexits.h**\ (3head)
 
 WirePlumber Documentation: https://pipewire.pages.freedesktop.org/wireplumber/

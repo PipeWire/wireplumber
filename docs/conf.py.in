@@ -55,5 +55,6 @@ pygments_style = "friendly"
 man_pages = [
     ('man/wireplumber', 'wireplumber', 'PipeWire Session Manager', ['The WirePlumber Developers'], 1),
     ('man/wpctl', 'wpctl', 'WirePlumber Control CLI', ['The WirePlumber Developers'], 1),
+    ('man/wpdot', 'wpdot', 'WirePlumber DOT Graph Generator', ['The WirePlumber Developers'], 1),
     ('man/wpexec', 'wpexec', 'WirePlumber Script Interpreter', ['The WirePlumber Developers'], 1),
 ]
