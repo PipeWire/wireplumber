@@ -11,7 +11,6 @@
 -- Stores the Props (volumes, mute and channel map) of each audio stream and
 -- restores them when the stream appears again.
 
-cutils = require ("common-utils")
 log = Log.open_topic ("s-stream")
 
 config = {}
@@ -316,7 +315,7 @@ function getFormatChannels (format)
 end
 
 function buildDefaultChannelVolumes (stream, stream_props)
-  local direction = cutils.mediaClassToDirection (stream_props ["media.class"] or "")
+  local direction = stream:get_direction ()
   local def_vol = 1.0
   local channels = nil
   local res = {}
@@ -324,9 +323,9 @@ function buildDefaultChannelVolumes (stream, stream_props)
   local str = stream_props ["state.default-volume"]
   if str ~= nil then
     def_vol = tonumber (str)
-  elseif direction == "input" then
+  elseif direction == Direction.INPUT then
     def_vol = Settings.get_float ("stream.default-capture-volume")
-  elseif direction == "output" then
+  elseif direction == Direction.OUTPUT then
     def_vol = Settings.get_float ("stream.default-playback-volume")
   end
 
