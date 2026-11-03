@@ -70,6 +70,8 @@ struct _WpStandardEventSource
   WpEventHook *rescan_done_hook;
   gboolean rescan_scheduled[N_RESCAN_CONTEXTS];
   gint n_oms_installed;
+  WpSettings *settings;
+  guintptr settings_sub_id;
 };
 
 static guint signals[N_SIGNALS] = {0};
@@ -164,6 +166,8 @@ get_default_event_priority (const gchar *event_type)
     return 500;
   if (g_str_has_prefix(event_type, "autoswitch-"))
     return 400;
+  else if (!g_strcmp0 (event_type, "setting-changed"))
+    return -400;
   else if (!g_strcmp0 (event_type, "rescan-for-default-streams"))
     return -490;
   else if (!g_strcmp0 (event_type, "rescan-for-linking"))
@@ -333,6 +337,19 @@ on_metadata_changed (WpMetadata *obj, guint32 subject,
 }
 
 static void
+on_setting_changed (WpSettings *obj, const gchar *setting, WpSpaJson *value,
+    WpStandardEventSource *self)
+{
+  g_autoptr (WpProperties) properties = wp_properties_new_empty ();
+  g_autofree gchar *value_str = value ? wp_spa_json_to_string (value) : NULL;
+  wp_properties_set (properties, "event.subject.key", setting);
+  wp_properties_set (properties, "event.subject.value", value_str);
+
+  wp_standard_event_source_push_event (self, "setting-changed", NULL,
+      properties);
+}
+
+static void
 on_params_changed (WpPipewireObject *obj, const gchar *id,
     WpStandardEventSource *self)
 {
@@ -456,6 +473,13 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "#s", "rescan-for-*",
       NULL);
   wp_event_dispatcher_register_hook (dispatcher, self->rescan_done_hook);
+
+  /* push an event when a setting changes */
+  self->settings = wp_settings_find (core, NULL);
+  if (self->settings && wp_object_test_active_features (
+          WP_OBJECT (self->settings), WP_SETTINGS_LOADED))
+    self->settings_sub_id = wp_settings_subscribe (self->settings, "*",
+        (WpSettingsChangedCallback) on_setting_changed, self);
 }
 
 static void
@@ -468,6 +492,13 @@ wp_standard_event_source_disable (WpPlugin * plugin)
 
   for (gint i = 0; i < N_OBJECT_TYPES; i++)
     g_clear_object (&self->oms[i]);
+
+  /* the subscription is already gone if the settings were deactivated */
+  if (self->settings_sub_id && wp_object_test_active_features (
+          WP_OBJECT (self->settings), WP_SETTINGS_LOADED))
+    wp_settings_unsubscribe (self->settings, self->settings_sub_id);
+  self->settings_sub_id = 0;
+  g_clear_object (&self->settings);
 
   if (dispatcher)
     wp_event_dispatcher_unregister_hook (dispatcher, self->rescan_done_hook);
