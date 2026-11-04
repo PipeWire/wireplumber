@@ -112,7 +112,9 @@ wp_logind_enable (WpPlugin * plugin, WpTransition * transition)
       self, NULL);
 
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
-  GMainContext *context = wp_core_get_g_main_context (core);
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (core);
+  GMainContext *context = wp_context_get_g_main_context (WP_CONTEXT (wp_ctx));
   g_source_attach (self->source, context);
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);

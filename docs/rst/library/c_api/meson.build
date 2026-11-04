@@ -4,6 +4,7 @@ sphinx_files += files(
   'client_api.rst',
   'component_loader_api.rst',
   'conf_api.rst',
+  'context_api.rst',
   'core_api.rst',
   'device_api.rst',
   'event_api.rst',

@@ -753,7 +753,8 @@ wp_impl_node_new_from_pw_factory (WpCore * core,
      thread; pw_core_export() later ties it to that context's connection */
   g_autoptr (WpClientContext) ctx = wp_client_context_find (core);
   struct pw_context *pw_context = ctx ?
-      wp_client_context_get_pw_context (ctx) : wp_core_get_pw_context (core);
+      wp_client_context_get_pw_context (ctx) :
+      wp_context_get_pw_context (WP_CONTEXT (wp_core_get_main_context (core)));
   struct pw_impl_factory *factory = NULL;
   struct pw_impl_node *node = NULL;
   WpImplNode *self = NULL;

@@ -169,7 +169,9 @@ static int
 core_get_vm_type (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
-  g_autofree gchar *vm = wp_core_get_vm_type (core);
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (core);
+  g_autofree gchar *vm = wp_context_get_vm_type (WP_CONTEXT (wp_ctx));
   lua_pushstring (L, vm);
   return 1;
 }
@@ -188,7 +190,10 @@ core_idle_add (lua_State *L)
 {
   GSource *source = NULL;
   luaL_checktype (L, 1, LUA_TFUNCTION);
-  wp_core_idle_add_closure (get_wp_core (L), &source,
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (get_wp_core (L));
+  wp_context_idle_add_closure (WP_CONTEXT (wp_ctx),
+      &source,
       wplua_function_to_closure (L, 1));
   wplua_pushboxed (L, G_TYPE_SOURCE, source);
   return 1;
@@ -200,7 +205,10 @@ core_timeout_add (lua_State *L)
   GSource *source = NULL;
   lua_Integer timeout_ms = luaL_checkinteger (L, 1);
   luaL_checktype (L, 2, LUA_TFUNCTION);
-  wp_core_timeout_add_closure (get_wp_core (L), &source, timeout_ms,
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (get_wp_core (L));
+  wp_context_timeout_add_closure (WP_CONTEXT (wp_ctx),
+      &source, timeout_ms,
       wplua_function_to_closure (L, 2));
   wplua_pushboxed (L, G_TYPE_SOURCE, source);
   return 1;
@@ -256,7 +264,10 @@ core_quit (lua_State *L)
 
   /* disconnecting the core will immediately destroy the lua plugin
      and the lua engine, so we cannot call it directly */
-  wp_core_idle_add (core, NULL, G_SOURCE_FUNC (core_disconnect), core, NULL);
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (core);
+  wp_context_idle_add (WP_CONTEXT (wp_ctx),
+      NULL, G_SOURCE_FUNC (core_disconnect), core, NULL);
   return 0;
 }
 

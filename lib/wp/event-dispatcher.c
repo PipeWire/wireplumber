@@ -380,7 +380,10 @@ wp_event_dispatcher_get_instance (WpCore * core)
     dispatcher = g_object_new (WP_TYPE_EVENT_DISPATCHER, NULL);
     g_weak_ref_set (&dispatcher->core, core);
 
-    struct pw_context *context = wp_core_get_pw_context (core);
+    WpMainContext *wp_ctx =
+        wp_core_get_main_context (core);
+    struct pw_context *context =
+        wp_context_get_pw_context (WP_CONTEXT (wp_ctx));
     uint32_t n_support;
     const struct spa_support *support =
         pw_context_get_support (context, &n_support);
@@ -390,7 +393,8 @@ wp_event_dispatcher_get_instance (WpCore * core)
     dispatcher->eventfd = spa_system_eventfd_create (dispatcher->system, 0);
     g_source_add_unix_fd (dispatcher->source, dispatcher->eventfd, G_IO_IN);
 
-    g_source_attach (dispatcher->source, wp_core_get_g_main_context (core));
+    g_source_attach (dispatcher->source,
+        wp_context_get_g_main_context (WP_CONTEXT (wp_ctx)));
     wp_core_register_object (core, g_object_ref (dispatcher));
 
     wp_info_object (dispatcher, "event-dispatcher inited");

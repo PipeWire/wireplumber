@@ -164,8 +164,10 @@ test_module_fallback_to_main_context (TestFixture * f, gconstpointer data)
 
   g_object_get (module, "pw-impl-module", &pw_module, NULL);
   g_assert_nonnull (pw_module);
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (f->base.core);
   g_assert_true (pw_impl_module_get_context (pw_module) ==
-      wp_core_get_pw_context (f->base.core));
+      wp_context_get_pw_context (WP_CONTEXT (wp_ctx)));
 }
 
 struct destroy_data {
@@ -321,8 +323,10 @@ test_local_node_in_client_context (TestFixture * f, gconstpointer data)
   /* it must live in the client context, not in the core's own one */
   g_object_get (node, "pw-impl-node", &pw_node, NULL);
   g_assert_nonnull (pw_node);
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (f->base.core);
   g_assert_true (pw_impl_node_get_context (pw_node) !=
-      wp_core_get_pw_context (f->base.core));
+      wp_context_get_pw_context (WP_CONTEXT (wp_ctx)));
 
   wp_object_activate (WP_OBJECT (node), WP_PROXY_FEATURE_BOUND, NULL,
       (GAsyncReadyCallback) on_object_activated, f);

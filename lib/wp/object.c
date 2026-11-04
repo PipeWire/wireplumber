@@ -426,7 +426,10 @@ on_transition_completed (WpTransition * transition, GParamSpec * param,
     g_autoptr (WpCore) core = wp_object_get_core (self);
     g_return_if_fail (core != NULL);
 
-    wp_core_idle_add (core, &priv->idle_advnc_source,
+    WpMainContext *wp_ctx =
+        wp_core_get_main_context (core);
+    wp_context_idle_add (WP_CONTEXT (wp_ctx),
+        &priv->idle_advnc_source,
         G_SOURCE_FUNC (wp_object_advance_transitions), g_object_ref (self),
         g_object_unref);
   }
@@ -494,7 +497,10 @@ wp_object_activate_closure (WpObject * self,
   g_queue_push_tail (priv->transitions, transition);
 
   if (!priv->idle_advnc_source) {
-    wp_core_idle_add (core, &priv->idle_advnc_source,
+    WpMainContext *wp_ctx =
+        wp_core_get_main_context (core);
+    wp_context_idle_add (WP_CONTEXT (wp_ctx),
+        &priv->idle_advnc_source,
         G_SOURCE_FUNC (wp_object_advance_transitions), g_object_ref (self),
         g_object_unref);
   }
@@ -618,7 +624,10 @@ wp_object_update_features (WpObject * self, WpObjectFeatures activated,
     g_autoptr (WpCore) core = wp_object_get_core (self);
     g_return_if_fail (core != NULL);
 
-    wp_core_idle_add (core, &priv->idle_advnc_source,
+    WpMainContext *wp_ctx =
+        wp_core_get_main_context (core);
+    wp_context_idle_add (WP_CONTEXT (wp_ctx),
+        &priv->idle_advnc_source,
         G_SOURCE_FUNC (wp_object_advance_transitions), g_object_ref (self),
         g_object_unref);
   }

@@ -360,15 +360,17 @@ WpClientContext *
 wp_client_context_new (WpCore * core, WpSpaJson * args, GError ** error)
 {
   g_autoptr (WpClientContext) self = NULL;
+  WpContext *main_ctx;
   struct pw_properties *props = NULL;
 
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
   self = g_object_new (WP_TYPE_CLIENT_CONTEXT, NULL);
   g_weak_ref_set (&self->core, core);
+  main_ctx = WP_CONTEXT (wp_core_get_main_context (core));
   self->g_main_context =
-      g_main_context_ref (wp_core_get_g_main_context (core) ?
-          wp_core_get_g_main_context (core) : g_main_context_default ());
+      g_main_context_ref (wp_context_get_g_main_context (main_ctx) ?
+          wp_context_get_g_main_context (main_ctx) : g_main_context_default ());
 
   self->thread_loop = pw_thread_loop_new ("wp-client", NULL);
   if (!self->thread_loop) {

@@ -635,10 +635,7 @@ wp_conf_section_update_props (WpConf *self, const gchar *section,
 
 #include "private/parse-conf-section.c"
 
-/*
- * Shared implementation, also used for pw_contexts that are not configured
- * directly from a WpConf section; see private/conf-sections.h
- */
+/* Used by the client context; see private/conf-sections.h */
 gint
 wp_pw_context_apply_conf_sections (gpointer log_object,
     struct pw_context * context, WpSpaJson * spa_libs, WpSpaJson * modules,
@@ -685,35 +682,4 @@ error:
   g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
       "failed to parse pw_context sections: %s", spa_strerror (res));
   return -1;
-}
-
-/*!
- * \brief Parses standard pw_context sections from \a conf
- *
- * \ingroup wpconf
- * \param self the configuration
- * \param context the associated pw_context
- */
-void
-wp_conf_parse_pw_context_sections (WpConf * self, struct pw_context * context)
-{
-  g_autoptr (WpSpaJson) spa_libs = NULL;
-  g_autoptr (WpSpaJson) modules = NULL;
-  g_autoptr (GError) error = NULL;
-  gint res;
-
-  g_return_if_fail (WP_IS_CONF (self));
-  g_return_if_fail (context);
-
-  spa_libs = wp_conf_get_section (self, "context.spa-libs");
-  modules = wp_conf_get_section (self, "context.modules");
-
-  res = wp_pw_context_apply_conf_sections (self, context, spa_libs, modules,
-      &error);
-  if (res < 0)
-    wp_critical_object (self, "%s", error->message);
-  else if (res > 0)
-    wp_info_object (self, "parsed %d context.modules items", res);
-  else
-    wp_warning_object (self, "no modules loaded from context.modules");
 }

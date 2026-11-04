@@ -14,6 +14,7 @@
 #include "component-loader.h"
 #include "dynamic-rules.h"
 #include "conf.h"
+#include "context.h"
 #include "core.h"
 #include "device.h"
 #include "error.h"

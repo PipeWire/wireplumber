@@ -414,7 +414,10 @@ wp_state_save_after_timeout (WpState *self, WpCore *core, WpProperties *props)
   self->timeout_props = wp_properties_ref (props);
 
   /* Add the timeout callback */
-  wp_core_timeout_add_closure (core, &self->timeout_source, self->timeout,
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (core);
+  wp_context_timeout_add_closure (WP_CONTEXT (wp_ctx),
+      &self->timeout_source, self->timeout,
       g_cclosure_new_object (G_CALLBACK (timeout_save_state_callback),
           G_OBJECT (self)));
 }
@@ -634,7 +637,10 @@ state_metadata_save_after_timeout (WpStateMetadata *self)
   g_clear_pointer (&self->timeout_source, g_source_unref);
 
   /* Add the timeout callback */
-  wp_core_timeout_add_closure (core, &self->timeout_source, self->timeout,
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (core);
+  wp_context_timeout_add_closure (WP_CONTEXT (wp_ctx),
+      &self->timeout_source, self->timeout,
       g_cclosure_new_object (G_CALLBACK (state_metadata_timeout_save_cb),
           G_OBJECT (self)));
 }

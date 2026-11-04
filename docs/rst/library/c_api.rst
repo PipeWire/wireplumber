@@ -8,6 +8,7 @@ C API Documentation
 
    c_api/wp_api.rst
    c_api/core_api.rst
+   c_api/context_api.rst
    c_api/object_api.rst
    c_api/obj_manager_api.rst
    c_api/obj_interest_api.rst

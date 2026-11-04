@@ -733,7 +733,10 @@ ensure_no_media_session (GTask * task, WpCore * core, WpSpaJson * args)
   /* make the object manager owned by the task and the task owned by the core;
      use an idle callback to test when it is ok to unref the task */
   g_task_set_task_data (task, om, g_object_unref);
-  wp_core_idle_add (core, NULL, (GSourceFunc) ensure_no_media_session_task_idle,
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (core);
+  wp_context_idle_add (WP_CONTEXT (wp_ctx),
+      NULL, (GSourceFunc) ensure_no_media_session_task_idle,
       g_object_ref (task), g_object_unref);
 
   wp_object_manager_add_interest (om, WP_TYPE_CLIENT,
@@ -1003,7 +1006,11 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
         g_task_return_error (task, g_steal_pointer (&error));
     }
     else if (g_str_equal (type, "pw-module")) {
-      if (!pw_context_load_module (wp_core_get_pw_context (core), component,
+      WpMainContext *wp_ctx =
+          wp_core_get_main_context (core);
+      if (!pw_context_load_module (
+              wp_context_get_pw_context (WP_CONTEXT (wp_ctx)),
+              component,
               args ? wp_spa_json_get_data (args) : NULL, NULL)) {
         g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
             WP_LIBRARY_ERROR_OPERATION_FAILED,

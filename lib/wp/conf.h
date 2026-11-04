@@ -14,8 +14,6 @@
 
 G_BEGIN_DECLS
 
-struct pw_context;
-
 /*!
  * \brief The WpConf GType
  * \ingroup wpconf
@@ -68,10 +66,6 @@ WpSpaJson * wp_conf_get_section (WpConf *self, const gchar *section);
 WP_API
 gint wp_conf_section_update_props (WpConf * self, const gchar * section,
     WpProperties * props);
-
-WP_API
-void wp_conf_parse_pw_context_sections (WpConf * self,
-    struct pw_context * context);
 
 G_END_DECLS
 

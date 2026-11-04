@@ -10,13 +10,10 @@
 #define __WIREPLUMBER_CORE_H__
 
 #include "object.h"
-#include "properties.h"
-#include "spa-json.h"
-#include "conf.h"
+#include "context.h"
 
 G_BEGIN_DECLS
 
-struct pw_context;
 struct pw_core;
 typedef struct _WpObjectManager WpObjectManager;
 
@@ -49,16 +46,10 @@ WP_API
 WpConf * wp_core_get_conf (WpCore * self);
 
 WP_API
-GMainContext * wp_core_get_g_main_context (WpCore * self);
-
-WP_API
-struct pw_context * wp_core_get_pw_context (WpCore * self);
+WpMainContext * wp_core_get_main_context (WpCore * self);
 
 WP_API
 struct pw_core * wp_core_get_pw_core (WpCore * self);
-
-WP_API
-gchar *wp_core_get_vm_type (WpCore *self);
 
 /* Properties */
 
@@ -90,22 +81,6 @@ WP_API
 void wp_core_update_properties (WpCore * self, WpProperties * updates);
 
 /* Callback */
-
-WP_API
-void wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
-    gpointer data, GDestroyNotify destroy);
-
-WP_API
-void wp_core_idle_add_closure (WpCore * self, GSource **source,
-    GClosure * closure);
-
-WP_API
-void wp_core_timeout_add (WpCore * self, GSource **source, guint timeout_ms,
-    GSourceFunc function, gpointer data, GDestroyNotify destroy);
-
-WP_API
-void wp_core_timeout_add_closure (WpCore * self, GSource **source,
-    guint timeout_ms, GClosure * closure);
 
 WP_API
 gboolean wp_core_sync (WpCore * self, GCancellable * cancellable,

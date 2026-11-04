@@ -163,7 +163,8 @@ wp_impl_module_constructed (GObject * object)
   if (self->ctx)
     context = wp_client_context_get_pw_context (self->ctx);
   else if (core)
-    context = wp_core_get_pw_context (core);
+    context = wp_context_get_pw_context (
+        WP_CONTEXT (wp_core_get_main_context (core)));
 
   if (!core || !context) {
     g_warning ("Tried to load module on unconnected core");

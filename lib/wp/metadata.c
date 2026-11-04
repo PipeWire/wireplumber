@@ -669,12 +669,14 @@ wp_impl_metadata_constructed (GObject *object)
   WpMetadataPrivate *priv =
       wp_metadata_get_instance_private (WP_METADATA (self));
   g_autoptr (WpCore) core = NULL;
+  WpMainContext *wp_ctx = NULL;
   struct pw_context *pw_context;
   struct pw_properties *props = NULL;
 
   core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
-  pw_context = wp_core_get_pw_context (core);
+  wp_ctx = wp_core_get_main_context (core);
+  pw_context = wp_context_get_pw_context (WP_CONTEXT (wp_ctx));
   g_return_if_fail (pw_context);
 
   if (self->properties)

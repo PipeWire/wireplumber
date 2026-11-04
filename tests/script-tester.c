@@ -272,8 +272,10 @@ static void
 wp_script_tester_connect_client (WpScriptTester *self, WpProperties *props)
 {
   ScriptRunnerFixture *f = self->test_fixture;
+  WpMainContext *wp_ctx =
+      wp_core_get_main_context (f->base.client_core);
   struct pw_core *client = pw_context_connect (
-      wp_core_get_pw_context (f->base.client_core),
+      wp_context_get_pw_context (WP_CONTEXT (wp_ctx)),
       props ? wp_properties_to_pw_properties (props) : NULL, 0);
 
   g_assert_nonnull (client);

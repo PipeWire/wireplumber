@@ -8,97 +8,15 @@
 
 #include "core.h"
 #include "wp.h"
+#include "private/context.h"
 #include "private/registry.h"
 #include "private/internal-comp-loader.h"
 
 #include <pipewire/pipewire.h>
 
-#include <spa/utils/result.h>
-#include <spa/debug/types.h>
-#include <spa/support/cpu.h>
-
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-core")
 
 #define MAIN_SOCKET_FD_PROPERTY "wireplumber.main-socket-fd"
-
-/*
- * Integration between the PipeWire main loop and GMainLoop
- */
-
-#define WP_LOOP_SOURCE(x) ((WpLoopSource *) x)
-
-typedef struct _WpLoopSource WpLoopSource;
-struct _WpLoopSource
-{
-  GSource parent;
-  struct pw_loop *loop;
-  gboolean entered;
-};
-
-static gboolean
-wp_loop_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
-{
-  WpLoopSource *ls = WP_LOOP_SOURCE (s);
-  int result;
-
-  if (!ls->entered) {
-    wp_trace_boxed (G_TYPE_SOURCE, s, "entering pw main loop");
-    pw_loop_enter (ls->loop);
-    ls->entered = TRUE;
-    g_source_set_ready_time (s, -1);
-  }
-
-  result = pw_loop_iterate (ls->loop, 0);
-
-  if (G_UNLIKELY (result < 0))
-    wp_warning_boxed (G_TYPE_SOURCE, s,
-        "pw_loop_iterate failed: %s", spa_strerror (result));
-
-  return G_SOURCE_CONTINUE;
-}
-
-static void
-wp_loop_source_finalize (GSource * s)
-{
-  WpLoopSource *ls = WP_LOOP_SOURCE (s);
-
-  wp_trace_boxed (G_TYPE_SOURCE, s, "finalize loop source");
-
-  /* Source should be left from the thread it was entered from.
-   *
-   * This puts additional restrictions to upper layers on how WpLoopSource (and
-   * WpCore) can be used: they must be finalized from the GMainContext thread.
-   */
-  if (ls->entered) {
-    wp_trace_boxed (G_TYPE_SOURCE, s, "leaving pw main loop");
-    pw_loop_leave (ls->loop);
-  }
-
-  pw_loop_destroy (ls->loop);
-}
-
-static GSourceFuncs source_funcs = {
-  NULL,
-  NULL,
-  wp_loop_source_dispatch,
-  wp_loop_source_finalize
-};
-
-static GSource *
-wp_loop_source_new (void)
-{
-  GSource *s = g_source_new (&source_funcs, sizeof (WpLoopSource));
-  WP_LOOP_SOURCE(s)->loop = pw_loop_new (NULL);
-
-  g_source_add_unix_fd (s,
-      pw_loop_get_fd (WP_LOOP_SOURCE(s)->loop),
-      G_IO_IN | G_IO_ERR | G_IO_HUP);
-
-  /* dispatch immediately to enter the loop */
-  g_source_set_ready_time (s, 0);
-
-  return (GSource *) s;
-}
 
 /*! \defgroup wpcore WpCore */
 /*!
@@ -109,9 +27,9 @@ wp_loop_source_new (void)
  *
  * The core object has the following responsibilities:
  *  * it initializes the PipeWire library
- *  * it creates a `pw_context` and allows connecting to the PipeWire server,
- *    creating a local `pw_core`
- *  * it glues the PipeWire library's event loop system with GMainLoop
+ *  * it creates the WpMainContext, which wraps the `pw_context` and glues the
+ *    PipeWire library's event loop system with GMainLoop
+ *  * it allows connecting to the PipeWire server, creating a local `pw_core`
  *  * it maintains a list of registered objects, which other classes use
  *    to keep objects loaded permanently into memory
  *  * it watches the PipeWire registry and keeps track of remote and local
@@ -128,19 +46,20 @@ wp_loop_source_new (void)
  * is created, using the WpConf API. It is then passed to the core as an
  * argument in the constructor.
  *
- * If a configuration file is not provided, the core will let the underlying
- * `pw_context` load its own configuration, based on the rules that apply to
- * all pipewire clients (e.g. it respects the `PIPEWIRE_CONFIG_NAME` environment
- * variable and loads "client.conf" as a last resort).
+ * If a configuration file is not provided, the core lets the `pw_context` of
+ * the main context load its own configuration, based on the rules that apply
+ * to all pipewire clients (e.g. it respects the `PIPEWIRE_CONFIG_NAME`
+ * environment variable and loads "client.conf" as a last resort).
  *
- * If a configuration file is provided, the core does not let the underlying
- * `pw_context` load any configuration and instead uses the provided WpConf
- * object.
+ * If a configuration file is provided, the `pw_context` does not load any
+ * configuration, and the "context.properties", "context.spa-libs" and
+ * "context.modules" sections of the provided WpConf are used instead.
  *
  * \gproperties
  *
- * \gproperty{g-main-context, GMainContext *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
- *   A GMainContext to attach to}
+ * \gproperty{g-main-context, GMainContext *,
+ *   G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY,
+ *   The GMainContext to use for events}
  *
  * \gproperty{properties, WpProperties *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
  *   The pipewire properties of the pw_core}
@@ -174,7 +93,7 @@ struct _WpCore
 {
   WpObject parent;
 
-  /* main loop integration */
+  /* main loop integration, until it is handed over to the main context */
   GMainContext *g_main_context;
 
   /* the socket to connect to, or -1 for the default one */
@@ -184,8 +103,7 @@ struct _WpCore
   WpProperties *properties;
 
   /* pipewire main objects */
-  GSource *loop_source;
-  struct pw_context *pw_context;
+  WpMainContext *main_context;
   struct pw_core *pw_core;
   struct pw_core_info *info;
 
@@ -295,7 +213,8 @@ core_error (void *data, uint32_t id, int seq, int res, const char *message)
 
   /* protocol socket disconnected; schedule disconnecting our core */
   if (id == 0 && res == -EPIPE) {
-    wp_core_idle_add_closure (self, NULL, g_cclosure_new_object (
+    wp_context_idle_add_closure (WP_CONTEXT (self->main_context), NULL,
+        g_cclosure_new_object (
             G_CALLBACK (core_disconnect_async), G_OBJECT (self)));
   }
 }
@@ -338,13 +257,15 @@ static const struct pw_proxy_events proxy_core_events = {
 };
 
 static void
-wp_core_parse_main_socket_fd (WpCore *self)
+wp_core_parse_main_socket_fd (WpCore * self)
 {
-  const gchar *str = NULL;
+  g_autoptr (WpProperties) props = NULL;
+  const gchar *str;
   gint64 fd;
 
-  if (!self->properties ||
-      !(str = wp_properties_get (self->properties, MAIN_SOCKET_FD_PROPERTY)))
+  props = wp_context_get_properties (WP_CONTEXT (self->main_context));
+  str = wp_properties_get (props, MAIN_SOCKET_FD_PROPERTY);
+  if (!str)
     return;
 
   if (!g_ascii_string_to_signed (str, 10, -1, G_MAXINT, &fd, NULL)) {
@@ -358,6 +279,8 @@ wp_core_parse_main_socket_fd (WpCore *self)
 static gboolean
 wp_core_connect_internal (WpCore *self)
 {
+  struct pw_context *pw_context =
+      wp_context_get_pw_context (WP_CONTEXT (self->main_context));
   struct pw_properties *p = NULL;
 
   /* Don't do anything if core is already connected */
@@ -368,9 +291,9 @@ wp_core_connect_internal (WpCore *self)
   p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
 
   if (self->main_socket_fd == -1) {
-    self->pw_core = pw_context_connect (self->pw_context, p, 0);
+    self->pw_core = pw_context_connect (pw_context, p, 0);
   } else {
-    self->pw_core = pw_context_connect_fd (self->pw_context,
+    self->pw_core = pw_context_connect_fd (pw_context,
         self->main_socket_fd, p, 0);
   }
 
@@ -401,63 +324,45 @@ wp_core_init (WpCore * self)
 }
 
 static void
-wp_core_constructed (GObject *object)
+wp_core_constructed (GObject * object)
 {
   WpCore *self = WP_CORE (object);
+  WpSpaJson *spa_libs = NULL;
+  WpSpaJson *modules = NULL;
 
-  /* context */
-  {
-    struct pw_properties *p = NULL;
-    const gchar *str = NULL;
-    g_autoptr (GSource) source = wp_loop_source_new ();
+  /* use our own configuration file, if specified */
+  if (self->conf) {
+    wp_info_object (self, "using configuration file: %s",
+        wp_conf_get_name (self->conf));
 
-    /* use our own configuration file, if specified */
-    if (self->conf) {
-      wp_info_object (self, "using configuration file: %s",
-          wp_conf_get_name (self->conf));
+    /* ensure we have our very own properties set,
+       since we are going to modify it */
+    self->properties = self->properties ?
+        wp_properties_ensure_unique_owner (self->properties) :
+        wp_properties_new_empty ();
 
-      /* ensure we have our very own properties set,
-         since we are going to modify it */
-      self->properties = self->properties ?
-          wp_properties_ensure_unique_owner (self->properties) :
-          wp_properties_new_empty ();
+    /* load context.properties */
+    wp_conf_section_update_props (self->conf, "context.properties",
+        self->properties);
 
-      /* load context.properties */
-      wp_conf_section_update_props (self->conf, "context.properties",
-          self->properties);
+    /* disable loading of a configuration file in pw_context */
+    wp_properties_set (self->properties, PW_KEY_CONFIG_NAME, "null");
+    wp_properties_set (self->properties, "context.modules.allow-empty", "true");
 
-      /* disable loading of a configuration file in pw_context */
-      wp_properties_set (self->properties, PW_KEY_CONFIG_NAME, "null");
-      wp_properties_set (self->properties, "context.modules.allow-empty", "true");
-    }
-
-    wp_core_parse_main_socket_fd (self);
-
-    /* properties are fully stored in the pw_context, no need to keep a copy */
-    p = self->properties ?
-        wp_properties_unref_and_take_pw_properties (self->properties) : NULL;
-    self->properties = NULL;
-
-    self->pw_context = pw_context_new (WP_LOOP_SOURCE(source)->loop, p, 0);
-    g_return_if_fail (self->pw_context);
-
-    /* use the same config option as pipewire to set the log level */
-    p = (struct pw_properties *) pw_context_get_properties (self->pw_context);
-    if (!g_getenv("WIREPLUMBER_DEBUG") &&
-        (str = pw_properties_get(p, "log.level")) != NULL) {
-      if (!wp_log_set_level (str))
-        wp_warning ("ignoring invalid log.level in config file: %s", str);
-    }
-
-    /* parse pw_context specific configuration sections */
-    if (self->conf)
-      wp_conf_parse_pw_context_sections (self->conf, self->pw_context);
-
-    self->loop_source = g_source_ref (source);
-
-    /* Start source */
-    g_source_attach (source, self->g_main_context);
+    spa_libs = wp_conf_get_section (self->conf, "context.spa-libs");
+    modules = wp_conf_get_section (self->conf, "context.modules");
+    if (!modules)
+      wp_warning_object (self, "no modules loaded from context.modules");
   }
+
+  /* Create the main context. We also hand over the properties and the
+   * g_main_context properties to the main context */
+  self->main_context = wp_main_context_new (self, self->g_main_context,
+      g_steal_pointer (&self->properties), spa_libs, modules);
+  g_clear_pointer (&self->g_main_context, g_main_context_unref);
+
+  /* Parse the socket Id from the props */
+  wp_core_parse_main_socket_fd (self);
 
   G_OBJECT_CLASS (wp_core_parent_class)->constructed (object);
 }
@@ -482,10 +387,7 @@ wp_core_finalize (GObject * obj)
   if (self->pw_core)
     pw_core_disconnect (self->pw_core);
 
-  g_clear_pointer (&self->pw_context, pw_context_destroy);
-  if (self->loop_source)
-    g_source_destroy (self->loop_source);
-  g_clear_pointer (&self->loop_source, g_source_unref);
+  g_clear_object (&self->main_context);
 
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->g_main_context, g_main_context_unref);
@@ -504,9 +406,6 @@ wp_core_get_property (GObject * object, guint property_id,
   WpCore *self = WP_CORE (object);
 
   switch (property_id) {
-  case PROP_G_MAIN_CONTEXT:
-    g_value_set_boxed (value, self->g_main_context);
-    break;
   case PROP_PROPERTIES:
     g_value_take_boxed (value, wp_core_get_properties (self));
     break;
@@ -672,7 +571,7 @@ wp_core_class_init (WpCoreClass * klass)
 
   properties[PROP_G_MAIN_CONTEXT] = g_param_spec_boxed ("g-main-context", "g-main-context",
       "A GMainContext to attach to", G_TYPE_MAIN_CONTEXT,
-      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+      G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
   properties[PROP_PROPERTIES] = g_param_spec_boxed ("properties", "properties", "Extra properties",
       WP_TYPE_PROPERTIES, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
@@ -729,32 +628,17 @@ wp_core_get_conf (WpCore * self)
 }
 
 /*!
- * \brief Gets the GMainContext of the core
+ * \brief Gets the main context of the core
  *
  * \ingroup wpcore
  * \param self the core
- * \returns (transfer none) (nullable): the GMainContext that is in
- *   use by this core for events
+ * \returns (transfer none): the main context of \a self
  */
-GMainContext *
-wp_core_get_g_main_context (WpCore * self)
+WpMainContext *
+wp_core_get_main_context (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  return self->g_main_context;
-}
-
-/*!
- * \brief Gets the internal PipeWire context of the core
- *
- * \ingroup wpcore
- * \param self the core
- * \returns (transfer none): the internal pw_context object
- */
-struct pw_context *
-wp_core_get_pw_context (WpCore * self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  return self->pw_context;
+  return self->main_context;
 }
 
 /*!
@@ -770,89 +654,6 @@ wp_core_get_pw_core (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
   return self->pw_core;
-}
-
-/*!
- * \brief Gets the virtual machine type of the core
- *
- * \ingroup wpcore
- * \param self the core
- * \returns (transfer full) (nullable): a comma separated string with all the
- *   virtual machine types that this core matches, or NULL if the core is not
- *   running in a virtual machine. VM types that are not known to WirePlumber
- *   are reported as "unknown".
- *
- * \since 0.4.11
- */
-gchar *
-wp_core_get_vm_type (WpCore *self)
-{
-  const struct spa_support *support;
-  uint32_t n_support;
-  struct spa_cpu *spa_cpu;
-  uint32_t vm_type;
-  uint32_t matched = 0;
-  gchar *res;
-  gboolean first = TRUE;
-
-  struct vm_type_info {
-    uint32_t type;
-    const gchar *name;
-  };
-
-  static struct vm_type_info vm_types[] = {
-    {SPA_CPU_VM_OTHER, "other"},
-    {SPA_CPU_VM_KVM, "kvm"},
-    {SPA_CPU_VM_QEMU, "qemu"},
-    {SPA_CPU_VM_BOCHS, "bochs"},
-    {SPA_CPU_VM_XEN, "xen"},
-    {SPA_CPU_VM_UML, "uml"},
-    {SPA_CPU_VM_VMWARE, "vmware"},
-    {SPA_CPU_VM_ORACLE, "oracle"},
-    {SPA_CPU_VM_MICROSOFT, "microsoft"},
-    {SPA_CPU_VM_ZVM, "zvm"},
-    {SPA_CPU_VM_PARALLELS, "parallels"},
-    {SPA_CPU_VM_BHYVE, "bhyve"},
-    {SPA_CPU_VM_QNX, "qnx"},
-    {SPA_CPU_VM_ACRN, "acrn"},
-    {SPA_CPU_VM_POWERVM, "powervm"},
-    {0, NULL},
-  };
-
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  g_return_val_if_fail (self->pw_context, NULL);
-
-  /* Get spa_cpu */
-  support = pw_context_get_support (self->pw_context, &n_support);
-  spa_cpu = spa_support_find (support, n_support, SPA_TYPE_INTERFACE_CPU);
-  g_return_val_if_fail (spa_cpu, NULL);
-
-  /* Just return NULL if CPU is not a VM */
-  vm_type = spa_cpu_get_vm_type (spa_cpu);
-  if (vm_type == SPA_CPU_VM_NONE)
-    return NULL;
-
-  /* Otherwise return a string with all matching VM types */
-  res = g_strdup ("");
-  for (guint i = 0; vm_types[i].name; i++) {
-    if (vm_type & vm_types[i].type) {
-      matched |= vm_types[i].type;
-      gchar *tmp = g_strdup_printf ("%s%s%s", res, first ? "": ",",
-          vm_types[i].name);
-      g_free (res);
-      res = tmp;
-      first = FALSE;
-    }
-  }
-
-  /* Some VM types were not in the table above */
-  if (matched != vm_type) {
-    gchar *tmp = g_strdup_printf ("%s%sunknown", res, first ? "": ",");
-    g_free (res);
-    res = tmp;
-  }
-
-  return res;
 }
 
 /*!
@@ -974,7 +775,11 @@ wp_core_get_remote_properties (WpCore * self)
 WpProperties *
 wp_core_get_properties (WpCore * self)
 {
+  struct pw_context *pw_context;
+
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
+
+  pw_context = wp_context_get_pw_context (WP_CONTEXT (self->main_context));
 
   /* pw_core has all the properties of the pw_context,
      plus our updates, passed in pw_context_connect() */
@@ -983,13 +788,13 @@ wp_core_get_properties (WpCore * self)
 
   /* if there is no connection yet, return the properties of the context */
   else if (!self->properties)
-    return wp_properties_new_wrap (pw_context_get_properties (self->pw_context));
+    return wp_properties_new_wrap (pw_context_get_properties (pw_context));
 
   /* ... plus any further updates that we got from wp_core_update_properties() */
   else {
     /* we need to copy here in order to augment with the updates */
     WpProperties *ret =
-        wp_properties_new_copy (pw_context_get_properties (self->pw_context));
+        wp_properties_new_copy (pw_context_get_properties (pw_context));
     wp_properties_update (ret, self->properties);
     return ret;
   }
@@ -1024,131 +829,6 @@ wp_core_update_properties (WpCore * self, WpProperties * updates)
 
   if (self->pw_core)
     pw_core_update_properties (self->pw_core, wp_properties_peek_dict (upd));
-}
-
-/*!
- * \brief Adds an idle callback to be called in the same GMainContext as the
- * one used by this core.
- *
- * This is essentially the same as g_idle_add_full(), but it adds the created
- * GSource on the GMainContext used by this core instead of the default context.
- *
- * \ingroup wpcore
- * \param self the core
- * \param source (out) (optional): the source
- * \param function (scope notified)(closure data)(destroy destroy): the function to call
- * \param data data to pass to \a function
- * \param destroy (nullable): a function to destroy \a data
- */
-void
-wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
-    gpointer data, GDestroyNotify destroy)
-{
-  g_autoptr (GSource) s = NULL;
-
-  g_return_if_fail (WP_IS_CORE (self));
-
-  s = g_idle_source_new ();
-  g_source_set_callback (s, function, data, destroy);
-  g_source_attach (s, self->g_main_context);
-
-  if (source)
-    *source = g_source_ref (s);
-}
-
-/*!
- * \brief Adds an idle callback to be called in the same GMainContext as
- * the one used by this core.
- *
- * This is the same as wp_core_idle_add(), but it allows you to specify a
- * GClosure instead of a C callback.
- *
- * \ingroup wpcore
- * \param self the core
- * \param source (out) (optional): the source
- * \param closure the closure to invoke
- */
-void
-wp_core_idle_add_closure (WpCore * self, GSource **source, GClosure * closure)
-{
-  g_autoptr (GSource) s = NULL;
-
-  g_return_if_fail (WP_IS_CORE (self));
-  g_return_if_fail (closure != NULL);
-
-  s = g_idle_source_new ();
-  g_source_set_closure (s, closure);
-  g_source_attach (s, self->g_main_context);
-
-  if (source)
-    *source = g_source_ref (s);
-}
-
-/*!
- * \brief Adds a timeout callback to be called at regular intervals in the same
- * GMainContext as the one used by this core.
- *
- * The function is called repeatedly until it returns FALSE, at which point
- * the timeout is automatically destroyed and the function will not be called
- * again. The first call to the function will be at the end of the first
- * interval.
-
- * This is essentially the same as g_timeout_add_full(), but it adds
- * the created GSource on the GMainContext used by this core instead of the
- * default context.
- *
- * \ingroup wpcore
- * \param self the core
- * \param source (out) (optional): the source
- * \param timeout_ms the timeout in milliseconds
- * \param function (scope notified)(closure data)(destroy destroy): the function to call
- * \param data data to pass to \a function
- * \param destroy (nullable): a function to destroy \a data
- */
-void
-wp_core_timeout_add (WpCore * self, GSource **source, guint timeout_ms,
-    GSourceFunc function, gpointer data, GDestroyNotify destroy)
-{
-  g_autoptr (GSource) s = NULL;
-
-  g_return_if_fail (WP_IS_CORE (self));
-
-  s = g_timeout_source_new (timeout_ms);
-  g_source_set_callback (s, function, data, destroy);
-  g_source_attach (s, self->g_main_context);
-
-  if (source)
-    *source = g_source_ref (s);
-}
-
-/*!
- * \brief Adds a timeout callback to be called at regular intervals in the same
- * GMainContext as the one used by this core.
- *
- * This is the same as wp_core_timeout_add(), but it allows you to specify a
- * GClosure instead of a C callback.
- *
- * \ingroup wpcore
- * \param self the core
- * \param source (out) (optional): the source
- * \param timeout_ms the timeout in milliseconds
- * \param closure the closure to invoke
- */
-void
-wp_core_timeout_add_closure (WpCore * self, GSource **source, guint timeout_ms,
-    GClosure * closure)
-{
-  g_autoptr (GSource) s = NULL;
-
-  g_return_if_fail (WP_IS_CORE (self));
-  g_return_if_fail (closure != NULL);
-
-  s = g_timeout_source_new (timeout_ms);
-  g_source_set_closure (s, closure);
-  g_source_attach (s, self->g_main_context);
-
-  if (source)
-    *source = g_source_ref (s);
 }
 
 /*!

@@ -218,6 +218,17 @@ main (gint argc, gchar **argv)
     return WP_EXIT_CONFIG;
   }
 
+  /* use the same config option as pipewire to set the log level */
+  if (!g_getenv ("WIREPLUMBER_DEBUG")) {
+    g_autoptr (WpProperties) conf_props = wp_properties_new_empty ();
+    const gchar *str;
+
+    wp_conf_section_update_props (conf, "context.properties", conf_props);
+    str = wp_properties_get (conf_props, "log.level");
+    if (str && !wp_log_set_level (str))
+      wp_warning ("ignoring invalid log.level in config file: %s", str);
+  }
+
   warn_about_deprecated_config ();
 
   /* prepare core properties */

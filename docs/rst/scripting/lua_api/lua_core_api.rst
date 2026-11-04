@@ -57,7 +57,7 @@ For some functionality, though, the following static functions are exposed.
 
 .. function:: Core.get_vm_type()
 
-   Binds :c:func:`wp_core_get_vm_type`
+   Binds :c:func:`wp_context_get_vm_type`
 
    Detects whether WirePlumber is running inside a virtual machine. The ALSA
    monitor uses this to apply VM-specific workarounds.
@@ -68,7 +68,7 @@ For some functionality, though, the following static functions are exposed.
 
 .. function:: Core.idle_add(callback)
 
-   Binds :c:func:`wp_core_idle_add_closure`
+   Binds :c:func:`wp_context_idle_add_closure`
 
    Schedules to call *callback* the next time that the event loop will be idle
 
@@ -81,7 +81,7 @@ For some functionality, though, the following static functions are exposed.
 
 .. function:: Core.timeout_add(timeout_ms, callback)
 
-   Binds :c:func:`wp_core_timeout_add_closure`
+   Binds :c:func:`wp_context_timeout_add_closure`
 
    Schedules to call *callback* after *timeout_ms* milliseconds
 

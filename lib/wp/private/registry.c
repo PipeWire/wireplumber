@@ -389,7 +389,10 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 
     /* schedule exposing when adding the first global */
     if (self->tmp_globals->len == 1) {
-      wp_core_idle_add_closure (core, NULL,
+      WpMainContext *wp_ctx =
+          wp_core_get_main_context (core);
+      wp_context_idle_add_closure (WP_CONTEXT (wp_ctx),
+          NULL,
           g_cclosure_new_object (G_CALLBACK (expose_tmp_globals), G_OBJECT (core)));
     }
   } else {

@@ -127,7 +127,10 @@ on_require_api_transition_done (WpCore * core, GAsyncResult * res, gpointer data
 
   if (!wp_transition_finish (res, &error)) {
     wp_warning ("Core.require_api failed: %s", error->message);
-    wp_core_idle_add (core, NULL, G_SOURCE_FUNC (core_disconnect), core, NULL);
+    WpMainContext *wp_ctx =
+        wp_core_get_main_context (core);
+    wp_context_idle_add (WP_CONTEXT (wp_ctx),
+        NULL, G_SOURCE_FUNC (core_disconnect), core, NULL);
     return;
   }
 

@@ -1018,7 +1018,8 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
      its own thread; pw_core_export() later ties it to that connection */
   g_autoptr (WpClientContext) ctx = wp_client_context_find (core);
   struct pw_context *pw_context = ctx ?
-      wp_client_context_get_pw_context (ctx) : wp_core_get_pw_context (core);
+      wp_client_context_get_pw_context (ctx) :
+      wp_context_get_pw_context (WP_CONTEXT (wp_core_get_main_context (core)));
   struct spa_handle *handle = NULL;
   WpSpaDevice *self = NULL;
 
