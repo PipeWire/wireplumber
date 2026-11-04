@@ -145,12 +145,6 @@ wp_loop_source_new (void)
  * \gproperty{properties, WpProperties *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
  *   The pipewire properties of the pw_core}
  *
- * \gproperty{pw-context, gpointer (struct pw_context *), G_PARAM_READABLE,
- *   The pipewire context}
- *
- * \gproperty{pw-core, gpointer (struct pw_core *), G_PARAM_READABLE,
- *   The pipewire core}
- *
  * \gproperty{conf, WpConf *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
  *   The main configuration file}
  *
@@ -190,6 +184,7 @@ struct _WpCore
   WpProperties *properties;
 
   /* pipewire main objects */
+  GSource *loop_source;
   struct pw_context *pw_context;
   struct pw_core *pw_core;
   struct pw_core_info *info;
@@ -205,17 +200,10 @@ struct _WpCore
   GHashTable *async_tasks; // <int seq, GTask*>
 };
 
-struct context_data {
-  grefcount rc;
-  GSource *loop_source;
-};
-
 enum {
   PROP_0,
   PROP_G_MAIN_CONTEXT,
   PROP_PROPERTIES,
-  PROP_PW_CONTEXT,
-  PROP_PW_CORE,
   PROP_CONF,
   N_PROPS,
 };
@@ -418,7 +406,7 @@ wp_core_constructed (GObject *object)
   WpCore *self = WP_CORE (object);
 
   /* context */
-  if (!self->pw_context) {
+  {
     struct pw_properties *p = NULL;
     const gchar *str = NULL;
     g_autoptr (GSource) source = wp_loop_source_new ();
@@ -450,8 +438,7 @@ wp_core_constructed (GObject *object)
         wp_properties_unref_and_take_pw_properties (self->properties) : NULL;
     self->properties = NULL;
 
-    self->pw_context = pw_context_new (WP_LOOP_SOURCE(source)->loop, p,
-        sizeof (struct context_data));
+    self->pw_context = pw_context_new (WP_LOOP_SOURCE(source)->loop, p, 0);
     g_return_if_fail (self->pw_context);
 
     /* use the same config option as pipewire to set the log level */
@@ -466,19 +453,10 @@ wp_core_constructed (GObject *object)
     if (self->conf)
       wp_conf_parse_pw_context_sections (self->conf, self->pw_context);
 
-    /* Init refcount */
-    struct context_data *cd = pw_context_get_user_data (self->pw_context);
-    g_return_if_fail (cd);
-    g_ref_count_init (&cd->rc);
-    cd->loop_source = g_source_ref (source);
+    self->loop_source = g_source_ref (source);
 
     /* Start source */
     g_source_attach (source, self->g_main_context);
-  } else {
-    /* Increase refcount */
-    struct context_data *cd = pw_context_get_user_data (self->pw_context);
-    g_return_if_fail (cd);
-    g_ref_count_inc (&cd->rc);
   }
 
   G_OBJECT_CLASS (wp_core_parent_class)->constructed (object);
@@ -499,21 +477,15 @@ static void
 wp_core_finalize (GObject * obj)
 {
   WpCore *self = WP_CORE (obj);
-  struct context_data *cd = pw_context_get_user_data (self->pw_context);
-  g_return_if_fail (cd);
 
   /* the registry was already cleared in dispose() */
   if (self->pw_core)
     pw_core_disconnect (self->pw_core);
 
-  /* Clear pw-context if refcount reaches 0 */
-  if (g_ref_count_dec (&cd->rc)) {
-    GSource *source = cd->loop_source;
-
-    g_clear_pointer (&self->pw_context, pw_context_destroy);
-    g_source_destroy (source);
-    g_source_unref (source);
-  }
+  g_clear_pointer (&self->pw_context, pw_context_destroy);
+  if (self->loop_source)
+    g_source_destroy (self->loop_source);
+  g_clear_pointer (&self->loop_source, g_source_unref);
 
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->g_main_context, g_main_context_unref);
@@ -538,12 +510,6 @@ wp_core_get_property (GObject * object, guint property_id,
   case PROP_PROPERTIES:
     g_value_take_boxed (value, wp_core_get_properties (self));
     break;
-  case PROP_PW_CONTEXT:
-    g_value_set_pointer (value, self->pw_context);
-    break;
-  case PROP_PW_CORE:
-    g_value_set_pointer (value, self->pw_core);
-    break;
   case PROP_CONF:
     g_value_set_object (value, self->conf);
     break;
@@ -565,9 +531,6 @@ wp_core_set_property (GObject * object, guint property_id,
     break;
   case PROP_PROPERTIES:
     self->properties = g_value_dup_boxed (value);
-    break;
-  case PROP_PW_CONTEXT:
-    self->pw_context = g_value_get_pointer (value);
     break;
   case PROP_CONF:
     self->conf = g_value_dup_object (value);
@@ -714,12 +677,6 @@ wp_core_class_init (WpCoreClass * klass)
   properties[PROP_PROPERTIES] = g_param_spec_boxed ("properties", "properties", "Extra properties",
       WP_TYPE_PROPERTIES, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  properties[PROP_PW_CONTEXT] = g_param_spec_pointer ("pw-context", "pw-context", "The pipewire context",
-      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
-
-  properties[PROP_PW_CORE] = g_param_spec_pointer ("pw-core", "pw-core", "The pipewire core",
-      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-
   properties[PROP_CONF] = g_param_spec_object ("conf", "conf", "The main configuration file",
       WP_TYPE_CONF, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
@@ -754,50 +711,7 @@ wp_core_new (GMainContext * context, WpConf * conf, WpProperties * properties)
       "g-main-context", context,
       "conf", conf,
       "properties", properties,
-      "pw-context", NULL,
       NULL);
-}
-
-/*!
- * \brief Clones a core with the same context as \a self
- *
- * \ingroup wpcore
- * \param self the core
- * \returns (transfer full): the clone WpCore
- */
-WpCore *
-wp_core_clone (WpCore * self)
-{
-  return g_object_new (WP_TYPE_CORE,
-      "core", self,
-      "g-main-context", self->g_main_context,
-      "conf", self->conf,
-      "properties", self->properties,
-      "pw-context", self->pw_context,
-      NULL);
-}
-
-/*!
- * \brief Returns NULL
- *
- * \deprecated The export core used to be a secondary connection to PipeWire,
- * sharing the loop of \a self, on which objects implemented in-process were
- * exported. It has been superseded by the client context, which hosts those
- * objects in a separate pw_context running on its own thread, so that they are
- * not affected by anything that blocks WirePlumber's main loop. The client
- * context is internal and has no WpCore associated with it; objects are placed
- * in it transparently, so there is no replacement for this method.
- *
- * \ingroup wpcore
- * \param self the core
- * \returns (transfer full) (nullable): NULL
- */
-WpCore *
-wp_core_get_export_core (WpCore * self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-
-  return NULL;
 }
 
 /*!
