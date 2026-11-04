@@ -696,9 +696,17 @@ wp_impl_node_pw_object_mixin_priv_interface_init (
 WpImplNode *
 wp_impl_node_new_wrap (WpCore * core, struct pw_impl_node * node)
 {
+  g_autoptr (WpClientContext) ctx = core ? wp_client_context_find (core) : NULL;
+
+  /* the node lives in the client context if it was created in it */
+  if (ctx && node && pw_impl_node_get_context (node) !=
+      wp_context_get_pw_context (WP_CONTEXT (ctx)))
+    g_clear_object (&ctx);
+
   return g_object_new (WP_TYPE_IMPL_NODE,
       "core", core,
       "pw-impl-node", node,
+      "client-context", ctx,
       NULL);
 }
 
@@ -724,20 +732,20 @@ wp_impl_node_new_from_pw_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties)
 {
   g_autoptr (WpProperties) props = properties;
-  /* the node is created in the client context, so that it runs on its own
-     thread; pw_core_export() later ties it to that context's connection */
-  g_autoptr (WpClientContext) ctx = wp_client_context_find (core);
-  struct pw_context *pw_context = ctx ?
-      wp_client_context_get_pw_context (ctx) :
-      wp_context_get_pw_context (WP_CONTEXT (wp_core_get_main_context (core)));
+  g_autoptr (WpContext) ctx = WP_CONTEXT (wp_client_context_find (core));
+  struct pw_context *pw_context = NULL;
   struct pw_impl_factory *factory = NULL;
   struct pw_impl_node *node = NULL;
   WpImplNode *self = NULL;
 
+  if (!ctx)
+    ctx = WP_CONTEXT (g_object_ref (wp_core_get_main_context (core)));
+
+  pw_context = wp_context_get_pw_context (ctx);
   g_return_val_if_fail (pw_context != NULL, NULL);
 
-  if (ctx)
-    wp_client_context_lock (ctx);
+  if (WP_IS_CLIENT_CONTEXT (ctx))
+    wp_client_context_lock (WP_CLIENT_CONTEXT (ctx));
 
   factory = pw_context_find_factory (pw_context, factory_name);
   if (!factory) {
@@ -758,12 +766,10 @@ wp_impl_node_new_from_pw_factory (WpCore * core,
   /* construct while still holding the lock: wp_impl_node_constructed() reads
      from the node, which the loop thread may otherwise be running already */
   self = wp_impl_node_new_wrap (core, node);
-  if (self)
-    wp_proxy_set_client_context (WP_PROXY (self), ctx);
 
 out:
-  if (ctx)
-    wp_client_context_unlock (ctx);
+  if (WP_IS_CLIENT_CONTEXT (ctx))
+    wp_client_context_unlock (WP_CLIENT_CONTEXT (ctx));
 
   return self;
 }

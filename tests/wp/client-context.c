@@ -56,16 +56,6 @@ test_client_context_teardown (TestFixture * f, gconstpointer data)
   wp_base_test_fixture_teardown (&f->base);
 }
 
-static void
-on_component_loaded (WpCore * core, GAsyncResult * res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  gboolean ok = wp_core_load_component_finish (core, res, &error);
-  g_assert_no_error (error);
-  g_assert_true (ok);
-  g_main_loop_quit (f->base.loop);
-}
-
 struct node_count {
   const gchar * const *names;
   guint found;
@@ -117,11 +107,52 @@ static const gchar * const local_node_names[] = {
 };
 
 static void
-load_client_context (TestFixture * f)
+on_component_loaded (WpCore * core, GAsyncResult * res, TestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+
+  g_assert_true (wp_core_load_component_finish (core, res, &error));
+  g_assert_no_error (error);
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
+register_client_context (TestFixture * f)
 {
   wp_core_load_component (f->base.core, "client-context", "built-in", NULL,
       NULL, NULL, (GAsyncReadyCallback) on_component_loaded, f);
   g_main_loop_run (f->base.loop);
+}
+
+static void
+test_load (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpClientContext) ctx = NULL;
+  g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpImplModule) module = NULL;
+  guint found = 0;
+
+  ctx = wp_client_context_find (f->base.core);
+  g_assert_null (ctx);
+
+  register_client_context (f);
+
+  ctx = wp_client_context_find (f->base.core);
+  g_assert_nonnull (ctx);
+  core = wp_context_get_core (WP_CONTEXT (ctx));
+  g_assert_true (core == f->base.core);
+  g_assert_nonnull (wp_context_get_pw_core (WP_CONTEXT (ctx)));
+
+  module = wp_impl_module_load (f->base.core, "libpipewire-module-loopback",
+      LOOPBACK_ARGS, NULL);
+  g_assert_nonnull (module);
+
+  for (guint i = 0; i < 100 && found < 2; i++) {
+    g_usleep (20 * 1000);
+    found = server_nodes (f, loopback_node_names);
+  }
+
+  g_assert_cmpuint (found, ==, 2);
 }
 
 static void
@@ -131,7 +162,7 @@ test_module_runs_while_main_loop_is_blocked (TestFixture * f,
   g_autoptr (WpImplModule) module = NULL;
   guint found = 0;
 
-  load_client_context (f);
+  register_client_context (f);
 
   module = wp_impl_module_load (f->base.core, "libpipewire-module-loopback",
       LOOPBACK_ARGS, NULL);
@@ -149,7 +180,7 @@ test_module_runs_while_main_loop_is_blocked (TestFixture * f,
 }
 
 /*
- * Without the client-context component, module loading must keep working the
+ * Without a client context, module loading must keep working the
  * way it always has, in the core's own pw_context.
  */
 static void
@@ -266,7 +297,7 @@ test_module_unload_in_client_context (TestFixture * f, gconstpointer data)
   g_autoptr (WpImplModule) module = NULL;
   struct destroy_data d = { 0, };
 
-  load_client_context (f);
+  register_client_context (f);
 
   module = wp_impl_module_load (f->base.core, "libpipewire-module-loopback",
       LOOPBACK_ARGS, NULL);
@@ -309,7 +340,7 @@ test_local_node_in_client_context (TestFixture * f, gconstpointer data)
   struct pw_impl_node *pw_node = NULL;
   guint bound_id;
 
-  load_client_context (f);
+  register_client_context (f);
 
   node = wp_impl_node_new_from_pw_factory (f->base.core, "adapter",
       wp_properties_new (
@@ -353,6 +384,9 @@ main (gint argc, gchar *argv[])
   g_test_init (&argc, &argv, NULL);
   wp_init (WP_INIT_ALL);
 
+  g_test_add ("/wp/client-context/load", TestFixture, NULL,
+      test_client_context_setup, test_load,
+      test_client_context_teardown);
   g_test_add ("/wp/client-context/module-runs-while-main-loop-is-blocked",
       TestFixture, NULL,
       test_client_context_setup, test_module_runs_while_main_loop_is_blocked,

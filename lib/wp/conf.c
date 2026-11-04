@@ -11,10 +11,6 @@
 #include "json-utils.h"
 #include "base-dirs.h"
 #include "error.h"
-#include "private/conf-sections.h"
-
-#include <pipewire/pipewire.h>
-#include <spa/utils/result.h>
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-conf")
 
@@ -631,55 +627,4 @@ wp_conf_section_update_props (WpConf *self, const gchar *section,
   if (!json)
     return 0;
   return wp_properties_update_from_json (props, json);
-}
-
-#include "private/parse-conf-section.c"
-
-/* Used by the client context; see private/conf-sections.h */
-gint
-wp_pw_context_apply_conf_sections (gpointer log_object,
-    struct pw_context * context, WpSpaJson * spa_libs, WpSpaJson * modules,
-    GError ** error)
-{
-  gint res, n_modules = 0;
-  WpProperties *conf_wp;
-  struct pw_properties *conf_pw;
-
-  g_return_val_if_fail (context, -1);
-
-  /* convert the sections into a pipewire-style conf dictionary */
-  conf_wp = wp_properties_new ("config.path", "wpconf", NULL);
-  if (spa_libs) {
-    g_autofree gchar *js = wp_spa_json_parse_string (spa_libs);
-    wp_properties_set (conf_wp, "context.spa-libs", js);
-  }
-  if (modules) {
-    g_autofree gchar *js = wp_spa_json_parse_string (modules);
-    wp_properties_set (conf_wp, "context.modules", js);
-  }
-  conf_pw = wp_properties_unref_and_take_pw_properties (conf_wp);
-
-  /* parse sections */
-  if (spa_libs) {
-    if ((res = _pw_context_parse_conf_section (context, conf_pw,
-                "context.spa-libs")) < 0)
-      goto error;
-    wp_info_object (log_object, "parsed %d context.spa-libs items", res);
-  }
-
-  if (modules) {
-    if ((res = _pw_context_parse_conf_section (context, conf_pw,
-                "context.modules")) < 0)
-      goto error;
-    n_modules = res;
-  }
-
-  pw_properties_free (conf_pw);
-  return n_modules;
-
-error:
-  pw_properties_free (conf_pw);
-  g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-      "failed to parse pw_context sections: %s", spa_strerror (res));
-  return -1;
 }

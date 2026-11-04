@@ -96,6 +96,19 @@ G_DECLARE_FINAL_TYPE (WpMainContext, wp_main_context, WP, MAIN_CONTEXT, WpContex
 WP_API
 WpConnection * wp_main_context_get_connection (WpMainContext * self);
 
+
+/*!
+ * \brief The WpClientContext GType
+ * \ingroup wpcontext
+ */
+#define WP_TYPE_CLIENT_CONTEXT (wp_client_context_get_type ())
+WP_API
+G_DECLARE_FINAL_TYPE (WpClientContext, wp_client_context, WP, CLIENT_CONTEXT,
+    WpContext)
+
+WP_API
+WpClientContext * wp_client_context_find (WpCore * core);
+
 G_END_DECLS
 
 #endif

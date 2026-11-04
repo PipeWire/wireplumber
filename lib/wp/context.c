@@ -15,9 +15,12 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
+#include <pipewire/thread-loop.h>
 
 #include <spa/support/cpu.h>
 #include <spa/utils/result.h>
+
+#include <errno.h>
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-context")
 
@@ -814,4 +817,523 @@ wp_main_context_get_connection (WpMainContext * self)
 
   WpContextPrivate *priv = wp_context_get_instance_private (WP_CONTEXT (self));
   return priv->connection;
+}
+
+
+/* WpClientContext */
+
+/* main thread queue, see wp_client_context_queue_in_main() */
+
+typedef struct {
+  WpClientContextFunc callback;
+  gpointer data;
+  GDestroyNotify destroy;
+} QueueItem;
+
+static void
+queue_item_free (QueueItem * item)
+{
+  if (item->destroy)
+    item->destroy (item->data);
+  g_free (item);
+}
+
+/*!
+ * \struct WpClientContext
+ *
+ * The client context is a secondary context that runs a `pw_context` on its own
+ * `pw_thread_loop`, with its own connection to PipeWire. It is created by the
+ * "client-context" built-in component, which starts it and registers it on the
+ * core, and wp_client_context_find() returns it, or NULL if it does not exist.
+ *
+ * When it exists, it hosts every PipeWire object that WirePlumber implements
+ * in-process: PipeWire modules loaded with WpImplModule, nodes created with
+ * WpImplNode and SPA devices wrapped by WpSpaDevice. Otherwise, these objects
+ * live in the WpMainContext.
+ *
+ * The purpose is isolation: the GMainContext of the core also dispatches the
+ * event dispatcher, whose hooks are Lua scripts that can run for an arbitrarily
+ * long time, and GSource priorities do not preempt, so anything sharing that
+ * loop stalls for as long as a hook runs. Media objects cannot afford that.
+ *
+ * \b Threading
+ *
+ * All the GObjects remain owned by the thread that runs the GMainContext of the
+ * core (the main thread), so their API does not change. The `pw_context` and
+ * the `pw_core` of the client context, and everything that lives on them, are
+ * owned by the loop thread instead:
+ *  * the objects returned by wp_context_get_pw_context() and
+ *    wp_context_get_pw_core() on a client context must not be used from the main
+ *    thread
+ *  * WirePlumber hands events that arrive on the loop thread over to the main
+ *    thread, in order, so signals are always emitted on the main thread
+ */
+struct _WpClientContext
+{
+  WpContext parent;
+
+  struct pw_thread_loop *thread_loop;
+
+  /* queue of calls to be dispatched on the main thread;
+     protected by queue_lock, which may be taken from any thread */
+  GMutex queue_lock;
+  GQueue queue;
+  GSource *queue_source;
+  gboolean stopping;
+
+  /* modified on the main thread only */
+  gint started;
+  gboolean modules_loaded;
+};
+
+
+G_DEFINE_TYPE (WpClientContext, wp_client_context, WP_TYPE_CONTEXT)
+
+typedef struct {
+  GSource parent;
+  WpClientContext *self;
+} QueueSource;
+
+static gboolean
+queue_source_has_items (QueueSource * qs)
+{
+  WpClientContext *self = qs->self;
+  gboolean ready;
+
+  g_mutex_lock (&self->queue_lock);
+  ready = !g_queue_is_empty (&self->queue);
+  g_mutex_unlock (&self->queue_lock);
+
+  return ready;
+}
+
+static gboolean
+queue_source_prepare (GSource * s, gint * timeout)
+{
+  *timeout = -1;
+  return queue_source_has_items ((QueueSource *) s);
+}
+
+static gboolean
+queue_source_check (GSource * s)
+{
+  return queue_source_has_items ((QueueSource *) s);
+}
+
+static gboolean
+queue_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
+{
+  WpClientContext *self = ((QueueSource *) s)->self;
+  QueueItem *item;
+
+  /* dispatch a single item, so that other sources get a chance to run
+     in between; if there are more, prepare() will return TRUE again */
+  g_mutex_lock (&self->queue_lock);
+  item = g_queue_pop_head (&self->queue);
+  g_mutex_unlock (&self->queue_lock);
+
+  if (item) {
+    item->callback (item->data);
+    queue_item_free (item);
+  }
+
+  return G_SOURCE_CONTINUE;
+}
+
+static GSourceFuncs queue_source_funcs = {
+  queue_source_prepare,
+  queue_source_check,
+  queue_source_dispatch,
+  NULL
+};
+
+static void
+on_connection_disconnected (WpConnection * connection, WpClientContext * self)
+{
+  wp_warning_object (self, "client context connection lost");
+}
+
+struct start_data {
+  struct pw_thread_loop *thread_loop;
+  gboolean started;
+};
+
+static void
+on_loop_started (void *data, uint64_t count)
+{
+  struct start_data *d = data;
+  d->started = TRUE;
+  pw_thread_loop_signal (d->thread_loop, false);
+}
+
+/*
+ * Starts the loop thread and waits until it runs the loop. Until then, the
+ * loop is not bound to any thread and invokes on it run on the calling thread,
+ * which would defeat wp_client_context_run_in_thread().
+ */
+static int
+start_loop_thread (WpClientContext * self)
+{
+  struct pw_loop *loop = pw_thread_loop_get_loop (self->thread_loop);
+  struct start_data d = { .thread_loop = self->thread_loop, .started = FALSE };
+  struct spa_source *source;
+  int res;
+
+  /* the event is only dispatched from within the loop thread's iteration */
+  source = pw_loop_add_event (loop, on_loop_started, &d);
+  if (!source)
+    return -errno;
+  pw_loop_signal_event (loop, source);
+
+  pw_thread_loop_lock (self->thread_loop);
+  res = pw_thread_loop_start (self->thread_loop);
+  if (res >= 0) {
+    while (!d.started)
+      pw_thread_loop_wait (self->thread_loop);
+  }
+  pw_loop_destroy_source (loop, source);
+  pw_thread_loop_unlock (self->thread_loop);
+
+  return res;
+}
+
+/* The context only runs after wp_client_context_start(), which also loads the
+   modules, and is only used for local objects after it is registered on the
+   core; g_main_context is (transfer none) and the other arguments are
+   (transfer full), all of them (nullable) */
+WpClientContext *
+wp_client_context_new (WpCore * core, GMainContext * g_main_context,
+    WpProperties * properties, WpSpaJson * spa_libs, WpSpaJson * modules)
+{
+  g_autoptr (WpProperties) props = properties;
+  g_autoptr (WpSpaJson) sl = spa_libs;
+  g_autoptr (WpSpaJson) m = modules;
+
+  return g_object_new (WP_TYPE_CLIENT_CONTEXT,
+      "core", core,
+      "g-main-context", g_main_context,
+      "spa-libs", sl,
+      "modules", m,
+      "properties", props,
+      NULL);
+}
+
+/* Must be called from the main thread; the PipeWire modules are only loaded
+   the first time, and it does nothing if the context is already started */
+gboolean
+wp_client_context_start (WpClientContext * self, GError ** error)
+{
+  WpContextPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_CLIENT_CONTEXT (self), FALSE);
+
+  priv = wp_context_get_instance_private (WP_CONTEXT (self));
+
+  if (g_atomic_int_get (&self->started))
+    return TRUE;
+
+  if (!self->thread_loop) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "failed to get the client context thread loop");
+    return FALSE;
+  }
+
+  if (!wp_context_get_pw_context (WP_CONTEXT (self))) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "failed to get the client pw_context");
+    return FALSE;
+  }
+
+  /* Everything below runs before the loop thread is started,
+     so no locking is needed yet */
+
+  if (!self->modules_loaded) {
+    if (!wp_context_load (WP_CONTEXT (self), error))
+      return FALSE;
+    self->modules_loaded = TRUE;
+  }
+
+  if (!wp_connection_connect (priv->connection, -1)) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_SERVICE_UNAVAILABLE,
+        "failed to connect the client context to PipeWire: %s",
+        g_strerror (errno));
+    return FALSE;
+  }
+
+  g_mutex_lock (&self->queue_lock);
+  self->stopping = FALSE;
+  g_mutex_unlock (&self->queue_lock);
+
+  if (start_loop_thread (self) < 0) {
+    wp_client_context_stop (self);
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "failed to start the client context thread loop");
+    return FALSE;
+  }
+
+  g_atomic_int_set (&self->started, TRUE);
+  wp_info_object (self, "client context started");
+  return TRUE;
+}
+
+static void
+wp_client_context_stop_queue (WpClientContext * self)
+{
+  QueueItem *item;
+
+  g_mutex_lock (&self->queue_lock);
+  self->stopping = TRUE;
+  g_mutex_unlock (&self->queue_lock);
+
+  while ((item = g_queue_pop_head (&self->queue)))
+    queue_item_free (item);
+}
+
+/* Must be called from the main thread; queued callbacks are dropped and the
+   context can be started again afterwards */
+void
+wp_client_context_stop (WpClientContext * self)
+{
+  WpContextPrivate *priv;
+
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
+
+  priv = wp_context_get_instance_private (WP_CONTEXT (self));
+
+  /* stop the loop thread first; from here on, nothing can be queued anymore
+     and no pw/spa callback can run */
+  if (self->thread_loop)
+    pw_thread_loop_stop (self->thread_loop);
+  g_atomic_int_set (&self->started, FALSE);
+
+  /* only the main thread writes stopping, so it can be read without the lock */
+  if (!self->stopping)
+    wp_client_context_stop_queue (self);
+
+  if (priv->connection)
+    wp_connection_disconnect (priv->connection);
+
+  wp_info_object (self, "client context stopped");
+}
+
+void
+wp_client_context_lock (WpClientContext * self)
+{
+  if (self)
+    pw_thread_loop_lock (self->thread_loop);
+}
+
+void
+wp_client_context_unlock (WpClientContext * self)
+{
+  if (self)
+    pw_thread_loop_unlock (self->thread_loop);
+}
+
+gboolean
+wp_client_context_in_thread (WpClientContext * self)
+{
+  return self && pw_thread_loop_in_thread (self->thread_loop);
+}
+
+typedef struct {
+  WpClientContextFunc callback;
+  gpointer data;
+  GMutex lock;
+  GCond cond;
+  gboolean done;
+} RunInThreadData;
+
+static int
+do_run_in_thread (struct spa_loop *loop, bool async, uint32_t seq,
+    const void *data, size_t size, void *user_data)
+{
+  RunInThreadData *d = user_data;
+
+  d->callback (d->data);
+
+  g_mutex_lock (&d->lock);
+  d->done = TRUE;
+  g_cond_signal (&d->cond);
+  g_mutex_unlock (&d->lock);
+  return 0;
+}
+
+void
+wp_client_context_run_in_thread (WpClientContext * self,
+    WpClientContextFunc callback, gpointer data)
+{
+  RunInThreadData d = { .callback = callback, .data = data, .done = FALSE };
+  int res;
+
+  g_return_if_fail (callback);
+
+  /* a stopped context has no thread to run callback or to race with */
+  if (!self || !g_atomic_int_get (&self->started) ||
+      pw_thread_loop_in_thread (self->thread_loop)) {
+    callback (data);
+    return;
+  }
+
+  /* wait for completion ourselves instead of doing a blocking invoke: the loop
+     acks a blocking invoke as soon as it flushes its queue again, which
+     \a callback does if it makes an invoke of its own, and then we would
+     return while \a callback is still running */
+  g_mutex_init (&d.lock);
+  g_cond_init (&d.cond);
+
+  /* invoking on the loop from another thread requires holding the lock */
+  pw_thread_loop_lock (self->thread_loop);
+  res = pw_loop_invoke (pw_thread_loop_get_loop (self->thread_loop),
+      do_run_in_thread, SPA_ID_INVALID, NULL, 0, false, &d);
+  pw_thread_loop_unlock (self->thread_loop);
+
+  if (res < 0) {
+    wp_critical_object (self, "failed to invoke on the loop thread: %s",
+        spa_strerror (res));
+  } else {
+    g_mutex_lock (&d.lock);
+    while (!d.done)
+      g_cond_wait (&d.cond, &d.lock);
+    g_mutex_unlock (&d.lock);
+  }
+
+  g_cond_clear (&d.cond);
+  g_mutex_clear (&d.lock);
+}
+
+void
+wp_client_context_queue_in_main (WpClientContext * self,
+    WpClientContextFunc callback, gpointer data, GDestroyNotify destroy)
+{
+  QueueItem *item;
+
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
+  g_return_if_fail (callback);
+
+  item = g_new0 (QueueItem, 1);
+  item->callback = callback;
+  item->data = data;
+  item->destroy = destroy;
+
+  g_mutex_lock (&self->queue_lock);
+  if (G_UNLIKELY (self->stopping)) {
+    g_mutex_unlock (&self->queue_lock);
+    queue_item_free (item);
+    return;
+  }
+  g_queue_push_tail (&self->queue, item);
+  g_mutex_unlock (&self->queue_lock);
+
+  g_main_context_wakeup (wp_context_get_g_main_context (WP_CONTEXT (self)));
+}
+
+static struct pw_loop *
+wp_client_context_get_pw_loop (WpContext * ctx)
+{
+  WpClientContext *self = WP_CLIENT_CONTEXT (ctx);
+  return self->thread_loop ? pw_thread_loop_get_loop (self->thread_loop) : NULL;
+}
+
+static void
+wp_client_context_init (WpClientContext * self)
+{
+  g_mutex_init (&self->queue_lock);
+  g_queue_init (&self->queue);
+  self->stopping = TRUE;
+}
+
+static void
+wp_client_context_constructed (GObject * object)
+{
+  WpClientContext *self = WP_CLIENT_CONTEXT (object);
+  WpContextPrivate *priv;
+
+  /* wp_client_context_start() reports the error if this fails */
+  self->thread_loop = pw_thread_loop_new ("wp-client", NULL);
+
+  /* this creates the pw_context and the core connection */
+  G_OBJECT_CLASS (wp_client_context_parent_class)->constructed (object);
+
+  /* it only dispatches while the context is started, because the queue is
+     empty otherwise */
+  self->queue_source = g_source_new (&queue_source_funcs, sizeof (QueueSource));
+  ((QueueSource *) self->queue_source)->self = self;
+  g_source_set_priority (self->queue_source, G_PRIORITY_DEFAULT);
+  g_source_attach (self->queue_source,
+      wp_context_get_g_main_context (WP_CONTEXT (self)));
+
+  priv = wp_context_get_instance_private (WP_CONTEXT (self));
+  if (priv->connection)
+    g_signal_connect (priv->connection, "disconnected",
+        G_CALLBACK (on_connection_disconnected), self);
+}
+
+static void
+wp_client_context_dispose (GObject * object)
+{
+  WpClientContext *self = WP_CLIENT_CONTEXT (object);
+
+  wp_client_context_stop (self);
+
+  /* the source points to self without holding a reference */
+  if (self->queue_source) {
+    g_source_destroy (self->queue_source);
+    g_clear_pointer (&self->queue_source, g_source_unref);
+  }
+
+  G_OBJECT_CLASS (wp_client_context_parent_class)->dispose (object);
+}
+
+static void
+wp_client_context_finalize (GObject * object)
+{
+  WpClientContext *self = WP_CLIENT_CONTEXT (object);
+
+  g_clear_pointer (&self->thread_loop, pw_thread_loop_destroy);
+  g_mutex_clear (&self->queue_lock);
+
+  G_OBJECT_CLASS (wp_client_context_parent_class)->finalize (object);
+}
+
+static void
+wp_client_context_class_init (WpClientContextClass * klass)
+{
+  GObjectClass *object_class = (GObjectClass *) klass;
+  WpContextClass *context_class = (WpContextClass *) klass;
+
+  object_class->constructed = wp_client_context_constructed;
+  object_class->dispose = wp_client_context_dispose;
+  object_class->finalize = wp_client_context_finalize;
+
+  context_class->get_pw_loop = wp_client_context_get_pw_loop;
+}
+
+static gboolean
+find_client_context_func (gpointer object, gpointer data)
+{
+  return WP_IS_CLIENT_CONTEXT (object);
+}
+
+/*!
+ * \brief Finds the registered client context of the core
+ *
+ * When it exists, the client context hosts the objects that are implemented in
+ * this process: WpImplModule, WpImplNode and WpSpaDevice.
+ *
+ * \ingroup wpcontext
+ * \param core the WpCore
+ * \returns (transfer full) (nullable): the client context of \a core, or NULL
+ *   if the "client-context" component is not loaded
+ */
+WpClientContext *
+wp_client_context_find (WpCore * core)
+{
+  GObject *ctx;
+
+  g_return_val_if_fail (WP_IS_CORE (core), NULL);
+
+  ctx = wp_core_find_object (core, (GEqualFunc) find_client_context_func,
+      NULL);
+  return ctx ? WP_CLIENT_CONTEXT (ctx) : NULL;
 }

@@ -8,7 +8,7 @@
 
 #include "module.h"
 #include "log.h"
-#include "private/client-context.h"
+#include "private/context.h"
 
 #include <pipewire/impl.h>
 
@@ -135,14 +135,16 @@ wp_impl_module_constructed (GObject * object)
   struct pw_context *context = NULL;
   struct load_data d = { .self = self };
 
-  /* prefer the client context, so that the module runs on its own thread and
-     is not delayed by whatever WirePlumber's main loop happens to be doing */
-  self->ctx = core ? wp_client_context_find (core) : NULL;
-  if (self->ctx)
-    context = wp_client_context_get_pw_context (self->ctx);
-  else if (core)
-    context = wp_context_get_pw_context (
-        WP_CONTEXT (wp_core_get_main_context (core)));
+  if (core) {
+    g_autoptr (WpContext) ctx = WP_CONTEXT (wp_client_context_find (core));
+    if (!ctx)
+      ctx = WP_CONTEXT (g_object_ref (wp_core_get_main_context (core)));
+
+    context = wp_context_get_pw_context (ctx);
+
+    if (WP_IS_CLIENT_CONTEXT (ctx))
+      self->ctx = WP_CLIENT_CONTEXT (g_object_ref (ctx));
+  }
 
   if (!core || !context) {
     g_warning ("Tried to load module on unconnected core");

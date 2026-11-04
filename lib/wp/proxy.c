@@ -36,6 +36,11 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-proxy")
  * \gproperty{pw-proxy, gpointer, G_PARAM_READABLE,
  *   The `struct pw_proxy *`}
  *
+ * \gproperty{client-context, WpClientContext *,
+ *   G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
+ *   The client context that the object of this proxy lives in; NULL means the
+ *   main context}
+ *
  * \gsignals
  *
  * \par bound
@@ -112,6 +117,7 @@ enum {
   PROP_0,
   PROP_BOUND_ID,
   PROP_PW_PROXY,
+  PROP_CLIENT_CONTEXT,
   N_PROPS,
 };
 
@@ -366,6 +372,25 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
   case PROP_PW_PROXY:
     g_value_set_pointer (value, wp_proxy_get_pw_proxy (self));
     break;
+  case PROP_CLIENT_CONTEXT:
+    g_value_set_object (value, wp_proxy_get_client_context (self));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_proxy_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY (object));
+
+  switch (property_id) {
+  case PROP_CLIENT_CONTEXT:
+    priv->client_ctx = g_value_dup_object (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -395,6 +420,7 @@ wp_proxy_class_init (WpProxyClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
 
   object_class->get_property = wp_proxy_get_property;
+  object_class->set_property = wp_proxy_set_property;
   object_class->dispose = wp_proxy_dispose;
   object_class->finalize = wp_proxy_finalize;
 
@@ -408,6 +434,11 @@ wp_proxy_class_init (WpProxyClass * klass)
 
   properties[PROP_PW_PROXY] = g_param_spec_pointer ("pw-proxy", "pw-proxy", "The struct pw_proxy *",
       G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+  properties[PROP_CLIENT_CONTEXT] = g_param_spec_object ("client-context",
+      "client-context", "The client context that the object lives in",
+      WP_TYPE_CLIENT_CONTEXT,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (object_class, N_PROPS, properties);
 
@@ -516,8 +547,8 @@ wp_proxy_get_pw_proxy (WpProxy * self)
  * This can be called only if there is no `pw_proxy` already set.
  * Takes ownership of \a proxy.
  *
- * \remarks If the proxy belongs to the client context (see
- *   wp_proxy_set_client_context()), this must be called with the client
+ * \remarks If the proxy belongs to the client context (see the
+ *   "client-context" property), this must be called with the client
  *   context locked, in the same locked section that created \a proxy, so that
  *   no event can be missed in between.
  *
@@ -545,21 +576,6 @@ wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy)
 }
 
 /*
- * Declares that this proxy's pw_proxy lives on \a ctx's connection; see
- * WpClientContext. Must be called before wp_proxy_set_pw_proxy().
- */
-void
-wp_proxy_set_client_context (WpProxy * self, WpClientContext * ctx)
-{
-  g_return_if_fail (WP_IS_PROXY (self));
-
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-
-  g_return_if_fail (priv->pw_proxy == NULL);
-  g_set_object (&priv->client_ctx, ctx);
-}
-
-/*
  * Returns the client context this proxy belongs to, or NULL. (transfer none)
  */
 WpClientContext *
@@ -580,6 +596,6 @@ wp_proxy_get_export_pw_core (WpProxy * self, WpCore * core)
 {
   WpClientContext *ctx = wp_proxy_get_client_context (self);
 
-  return ctx ? wp_client_context_get_pw_core (ctx) :
+  return ctx ? wp_context_get_pw_core (WP_CONTEXT (ctx)) :
       wp_connection_get_pw_core (wp_core_get_connection (core));
 }

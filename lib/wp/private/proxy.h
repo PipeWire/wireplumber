@@ -9,11 +9,9 @@
 #define __WIREPLUMBER_PRIVATE_PROXY_H__
 
 #include "../proxy.h"
-#include "client-context.h"
+#include "context.h"
 
 G_BEGIN_DECLS
-
-void wp_proxy_set_client_context (WpProxy * self, WpClientContext * ctx);
 
 WpClientContext * wp_proxy_get_client_context (WpProxy * self);
 

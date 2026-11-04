@@ -976,19 +976,19 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties)
 {
   g_autoptr (WpProperties) props = properties;
-  /* the handle is loaded into the client context, so that the device runs on
-     its own thread; pw_core_export() later ties it to that connection */
-  g_autoptr (WpClientContext) ctx = wp_client_context_find (core);
-  struct pw_context *pw_context = ctx ?
-      wp_client_context_get_pw_context (ctx) :
-      wp_context_get_pw_context (WP_CONTEXT (wp_core_get_main_context (core)));
+  g_autoptr (WpContext) ctx = WP_CONTEXT (wp_client_context_find (core));
+  struct pw_context *pw_context = NULL;
   struct spa_handle *handle = NULL;
   WpSpaDevice *self = NULL;
 
+  if (!ctx)
+    ctx = WP_CONTEXT (g_object_ref (wp_core_get_main_context (core)));
+
+  pw_context = wp_context_get_pw_context (ctx);
   g_return_val_if_fail (pw_context != NULL, NULL);
 
-  if (ctx)
-    wp_client_context_lock (ctx);
+  if (WP_IS_CLIENT_CONTEXT (ctx))
+    wp_client_context_lock (WP_CLIENT_CONTEXT (ctx));
 
   /* Load the monitor handle */
   handle = pw_context_load_spa_handle (pw_context, factory_name,
@@ -1002,13 +1002,16 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
 
   /* construct while still holding the lock: wp_spa_device_constructed() calls
      into the handle, which the loop thread may otherwise be running already */
-  self = wp_spa_device_new_wrap (core, handle, g_steal_pointer (&props));
-  if (self)
-    wp_proxy_set_client_context (WP_PROXY (self), ctx);
+  self = g_object_new (WP_TYPE_SPA_DEVICE,
+      "core", core,
+      "spa-device-handle", handle,
+      "properties", props,
+      "client-context", WP_IS_CLIENT_CONTEXT (ctx) ? ctx : NULL,
+      NULL);
 
 out:
-  if (ctx)
-    wp_client_context_unlock (ctx);
+  if (WP_IS_CLIENT_CONTEXT (ctx))
+    wp_client_context_unlock (WP_CLIENT_CONTEXT (ctx));
 
   return self;
 }
