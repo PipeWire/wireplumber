@@ -747,52 +747,6 @@ ensure_no_media_session (GTask * task, WpCore * core, WpSpaJson * args)
   wp_core_install_object_manager (core, om);
 }
 
-/*
- * The client pw_context never loads a .conf file of its own (see
- * build_client_context_properties_from_args()); it is configured only from the
- * component's "arguments", falling back to the main WpConf and then to the
- * lists below.
- *
- * The spa factory mappings that the modules below need, used when neither the
- * component arguments nor the main WpConf provide a "context.spa-libs" section.
- * This is the same set that pipewire's client.conf has.
- */
-#define DEFAULT_CONTEXT_SPA_LIBS \
-  "{" \
-  "  audio.convert.* = audioconvert/libspa-audioconvert" \
-  "  support.*       = support/libspa-support" \
-  "}"
-
-/*
- * The modules that the client context needs in order to be useful, used when
- * the component does not provide a "context.modules" argument. Note that
- * modules are per-context, so these are loaded in addition to whatever the
- * main context has loaded:
- *  - protocol-native: required to connect at all
- *  - client-node: required by pw_core_export(), which is how pw_stream and
- *    pw_filter (and therefore module-loopback, module-filter-chain, ...)
- *    publish their local pw_impl_node
- *  - client-device: same, for the spa_device handles behind SpaDevice()
- *  - adapter: pw_stream_connect() wraps its node in an adapter, and it is also
- *    the factory behind LocalNode("adapter")
- *  - spa-node-factory: the factory behind LocalNode("spa-node-factory")
- *  - metadata: needed by modules that watch or set metadata
- *  - rt: RT priority for this context's data loop
- *
- * This is essentially the client side of pipewire's own client.conf, which is
- * what these modules would get if they ran in a process of their own.
- */
-#define DEFAULT_CONTEXT_MODULES \
-  "[" \
-  "  { name = libpipewire-module-rt, flags = [ ifexists, nofail ] }" \
-  "  { name = libpipewire-module-protocol-native }" \
-  "  { name = libpipewire-module-client-node }" \
-  "  { name = libpipewire-module-client-device }" \
-  "  { name = libpipewire-module-adapter }" \
-  "  { name = libpipewire-module-spa-node-factory }" \
-  "  { name = libpipewire-module-metadata }" \
-  "]"
-
 /* Builds the properties of a client context from those of the main core's
    connection and the "context.properties" of the component's "arguments" */
 static WpProperties *
@@ -839,7 +793,6 @@ load_client_context (GTask * task, WpCore * core, WpSpaJson * args)
 {
   g_autoptr (GError) error = NULL;
   g_autoptr (WpClientContext) ctx = NULL;
-  g_autoptr (WpConf) conf = wp_core_get_conf (core);
   WpContext *main_ctx = WP_CONTEXT (wp_core_get_main_context (core));
   WpSpaJson *spa_libs = NULL;
   WpSpaJson *modules = NULL;
@@ -851,14 +804,11 @@ load_client_context (GTask * task, WpCore * core, WpSpaJson * args)
     wp_spa_json_object_get (args, "context.modules", "J", &modules, NULL);
   }
 
-  /* the client context needs the same spa factory mappings as the main one */
-  if (!spa_libs && conf)
-    spa_libs = wp_conf_get_section (conf, "context.spa-libs");
-  if (!spa_libs)
-    spa_libs = wp_spa_json_new_from_string (DEFAULT_CONTEXT_SPA_LIBS);
-
-  if (!modules)
-    modules = wp_spa_json_new_from_string (DEFAULT_CONTEXT_MODULES);
+  /* fall back to the ones of the main context, if any */
+  if (!spa_libs && wp_context_get_spa_libs (main_ctx))
+    spa_libs = wp_spa_json_ref (wp_context_get_spa_libs (main_ctx));
+  if (!modules && wp_context_get_modules (main_ctx))
+    modules = wp_spa_json_ref (wp_context_get_modules (main_ctx));
 
   ctx = wp_client_context_new (core, wp_context_get_g_main_context (main_ctx),
       build_client_context_properties_from_args (core, args),

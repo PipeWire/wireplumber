@@ -119,7 +119,22 @@ on_component_loaded (WpCore * core, GAsyncResult * res, TestFixture * f)
 static void
 register_client_context (TestFixture * f)
 {
-  wp_core_load_component (f->base.core, "client-context", "built-in", NULL,
+  /* the main context has no spa-libs or modules to inherit, because the
+     fixture creates the core without a WpConf */
+  g_autoptr (WpSpaJson) args = wp_spa_json_new_from_string (
+      "{"
+      "  context.spa-libs = {"
+      "    audio.convert.* = audioconvert/libspa-audioconvert"
+      "    support.*       = support/libspa-support"
+      "  }"
+      "  context.modules = ["
+      "    { name = libpipewire-module-protocol-native }"
+      "    { name = libpipewire-module-client-node }"
+      "    { name = libpipewire-module-adapter }"
+      "  ]"
+      "}");
+
+  wp_core_load_component (f->base.core, "client-context", "built-in", args,
       NULL, NULL, (GAsyncReadyCallback) on_component_loaded, f);
   g_main_loop_run (f->base.loop);
 }
