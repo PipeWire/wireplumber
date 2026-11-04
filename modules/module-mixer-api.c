@@ -240,11 +240,11 @@ collect_stream_info (WpMixerApi * self, struct stream_info *info,
 static void on_objects_changed (WpObjectManager * om, WpMixerApi * self);
 
 static void
-on_sync_done (WpCore * core, GAsyncResult * res, WpMixerApi * self)
+on_sync_done (WpConnection * connection, GAsyncResult * res, WpMixerApi * self)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_core_sync_finish (core, res, &error))
-    wp_warning_object (core, "sync error: %s", error->message);
+  if (!wp_connection_sync_finish (connection, res, &error))
+    wp_warning_object (connection, "sync error: %s", error->message);
   if (self->om) {
     on_objects_changed (self->om, self);
   }
@@ -257,7 +257,8 @@ on_params_changed (GObject * obj, const gchar * param_name,
   if ((WP_IS_STREAM (obj) && !g_strcmp0 (param_name, "Props")) ||
       (WP_IS_DEVICE (obj) && !g_strcmp0 (param_name, "Route"))) {
     g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-    wp_core_sync (core, NULL, (GAsyncReadyCallback) on_sync_done, self);
+    wp_connection_sync (wp_core_get_connection (core),
+        NULL, (GAsyncReadyCallback) on_sync_done, self);
   }
 }
 

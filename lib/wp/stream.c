@@ -1446,7 +1446,7 @@ get_default_clock_rate (WpAudioStream * self)
   core = wp_object_get_core (WP_OBJECT (self));
   g_return_val_if_fail (core, 48000);
 
-  props = wp_core_get_remote_properties (core);
+  props = wp_connection_get_remote_properties (wp_core_get_connection (core));
   g_return_val_if_fail (props, 48000);
 
   rate_str = wp_properties_get (props, "default.clock.rate");
@@ -1792,11 +1792,12 @@ audio_stream_check_ports_configured (WpAudioStream *self)
  * param change to wait for instead.
  */
 static void
-on_ports_config_synced (WpCore *core, GAsyncResult *res, WpAudioStream *self)
+on_ports_config_synced (WpConnection * connection, GAsyncResult *res,
+    WpAudioStream *self)
 {
   g_autoptr (GError) error = NULL;
 
-  if (!wp_core_sync_finish (core, res, &error)) {
+  if (!wp_connection_sync_finish (connection, res, &error)) {
     if (self->ports_state == WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING)
       audio_stream_notify_ports_error (self, error->message);
     return;
@@ -2524,7 +2525,8 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
   self->pending_ports_config_seq = seq;
   self->pending_ports_config_synced = FALSE;
   audio_stream_set_ports_state (self, WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING);
-  wp_core_sync_closure (core, NULL, g_cclosure_new_object (
+  wp_connection_sync_closure (wp_core_get_connection (core),
+      NULL, g_cclosure_new_object (
       G_CALLBACK (on_ports_config_synced), G_OBJECT (self)));
 
   return TRUE;

@@ -191,7 +191,7 @@ wp_global_proxy_step_bind (WpObject * object,
       return;
     }
 
-    pw_core = wp_core_get_pw_core (core);
+    pw_core = wp_connection_get_pw_core (wp_core_get_connection (core));
     if (G_UNLIKELY (!pw_core)) {
         wp_transition_return_error (WP_TRANSITION (transition), g_error_new (
             WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,

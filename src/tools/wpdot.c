@@ -45,7 +45,7 @@ wp_dot_clear (WpDot * self)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (WpDot, wp_dot_clear)
 
 static void
-async_quit (WpCore *core, GAsyncResult *res, WpDot *self)
+async_quit (WpConnection * connection, GAsyncResult *res, WpDot *self)
 {
   g_main_loop_quit (self->loop);
 }
@@ -460,7 +460,8 @@ wp_dot_run (WpDot * self)
       fprintf (stderr, "Error: cannot open output file '%s': %s\n",
           self->output_file, g_strerror (errno));
       self->exit_code = 1;
-      wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+      wp_connection_sync (wp_core_get_connection (self->core),
+          NULL, (GAsyncReadyCallback) async_quit, self);
       return;
     }
     opened_file = TRUE;
@@ -608,7 +609,8 @@ wp_dot_run (WpDot * self)
     fprintf (stdout, "Graph written to %s\n", self->output_file);
   }
 
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  wp_connection_sync (wp_core_get_connection (self->core),
+      NULL, (GAsyncReadyCallback) async_quit, self);
 }
 
 static void
@@ -721,7 +723,7 @@ main (gint argc, gchar **argv)
   wp_object_activate (WP_OBJECT (dot.core), WP_CORE_FEATURE_CONNECTED, NULL,
       (GAsyncReadyCallback) on_core_activated, &dot);
 
-  g_signal_connect_swapped (dot.core, "disconnected",
+  g_signal_connect_swapped (wp_core_get_connection (dot.core), "disconnected",
       (GCallback) g_main_loop_quit, dot.loop);
   g_signal_connect_swapped (dot.om, "installed",
       (GCallback) wp_dot_run, &dot);

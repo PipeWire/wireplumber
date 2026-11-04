@@ -240,8 +240,8 @@ on_core_activated (WpObject * core, GAsyncResult * res, TestFixture *f)
 static void
 activate_components (TestFixture *f)
 {
-  wp_core_update_properties (f->base.core, wp_properties_new (
-      "wireplumber.profile", "test", NULL));
+  wp_connection_update_properties (wp_core_get_connection (f->base.core),
+      wp_properties_new ("wireplumber.profile", "test", NULL));
   wp_object_activate (WP_OBJECT (f->base.core), WP_CORE_FEATURE_COMPONENTS,
       NULL, (GAsyncReadyCallback) on_core_activated, f);
   g_main_loop_run (f->base.loop);
@@ -291,13 +291,32 @@ test_deactivate_connected (TestFixture *f, gconstpointer data)
 {
   activate_components (f);
 
-  /* remove the "disconnected" handler that fails the test */
-  g_signal_handlers_disconnect_by_data (f->base.core, &f->base);
-
   wp_object_deactivate (WP_OBJECT (f->base.core), WP_CORE_FEATURE_CONNECTED);
   assert_components_cleared (f);
   g_assert_false (wp_object_test_active_features (WP_OBJECT (f->base.core),
       WP_CORE_FEATURE_CONNECTED));
+  g_assert_null (wp_connection_get_pw_core (
+      wp_core_get_connection (f->base.core)));
+}
+
+static void
+test_components_only_setup (TestFixture *f, gconstpointer data)
+{
+  f->base.conf_file =
+    g_strdup_printf ("%s/component-loader.conf", g_getenv ("G_TEST_SRCDIR"));
+  wp_base_test_fixture_setup (&f->base, WP_BASE_TEST_FLAG_DONT_CONNECT);
+  f->loader = g_object_new (WP_TYPE_TEST_COMP_LOADER, NULL);
+  wp_core_register_object (f->base.core, f->loader);
+}
+
+static void
+test_components_only (TestFixture *f, gconstpointer data)
+{
+  g_assert_false (wp_object_test_active_features (WP_OBJECT (f->base.core),
+      WP_CORE_FEATURE_CONNECTED));
+
+  /* this checks that both features become active */
+  activate_components (f);
 }
 
 gint
@@ -316,6 +335,8 @@ main (gint argc, gchar *argv[])
       test_dependencies_setup, test_deactivate_components, test_teardown);
   g_test_add ("/wp/comploader/deactivate_connected", TestFixture, NULL,
       test_dependencies_setup, test_deactivate_connected, test_teardown);
+  g_test_add ("/wp/comploader/components_only", TestFixture, NULL,
+      test_components_only_setup, test_components_only, test_teardown);
 
   return g_test_run ();
 }

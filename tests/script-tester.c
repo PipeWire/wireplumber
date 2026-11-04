@@ -222,7 +222,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
 
   entry = g_new0 (struct stream_entry, 1);
   entry->stream = pw_stream_new (
-      wp_core_get_pw_core (f->base.client_core),
+      wp_connection_get_pw_core (wp_core_get_connection (f->base.client_core)),
       name, wp_properties_unref_and_take_pw_properties (g_steal_pointer (&props)));
   pw_stream_add_listener (entry->stream, &entry->listener,
       &client_stream_events, entry);

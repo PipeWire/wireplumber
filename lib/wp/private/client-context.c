@@ -290,7 +290,8 @@ start_loop_thread (WpClientContext * self)
 static struct pw_properties *
 build_properties (WpCore * core, WpSpaJson * args)
 {
-  g_autoptr (WpProperties) props = wp_core_get_properties (core);
+  g_autoptr (WpProperties) props = wp_connection_get_properties (
+      wp_core_get_connection (core));
 
   /* we are going to modify these */
   props = wp_properties_ensure_unique_owner (g_steal_pointer (&props));

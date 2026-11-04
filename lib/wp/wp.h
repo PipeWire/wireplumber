@@ -16,6 +16,7 @@
 #include "conf.h"
 #include "context.h"
 #include "core.h"
+#include "connection.h"
 #include "device.h"
 #include "error.h"
 #include "event-dispatcher.h"

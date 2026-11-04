@@ -767,7 +767,8 @@ wp_spa_device_activate_execute_step (WpObject * object,
     /* the device must be exported on the connection of the context it lives
        in, the same way as WpImplNode */
     struct pw_core *pw_core = ctx ?
-        wp_client_context_get_pw_core (ctx) : wp_core_get_pw_core (core);
+        wp_client_context_get_pw_core (ctx) :
+        wp_context_get_pw_core (WP_CONTEXT (wp_core_get_main_context (core)));
     struct pw_proxy *proxy;
     gint err;
     g_return_if_fail (pw_core);

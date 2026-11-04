@@ -81,11 +81,11 @@ wp_default_streams_api_init (WpDefaultStreamsApi * self)
 }
 
 static void
-sync_changed_notification (WpCore * core, GAsyncResult * res,
+sync_changed_notification (WpConnection * connection, GAsyncResult * res,
     WpDefaultStreamsApi * self)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_core_sync_finish (core, res, &error)) {
+  if (!wp_connection_sync_finish (connection, res, &error)) {
     wp_warning_object (self, "core sync error: %s", error->message);
     return;
   }
@@ -99,7 +99,8 @@ schedule_changed_notification (WpDefaultStreamsApi *self)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
-  wp_core_sync_closure (core, NULL, g_cclosure_new_object (
+  wp_connection_sync_closure (wp_core_get_connection (core),
+      NULL, g_cclosure_new_object (
       G_CALLBACK (sync_changed_notification), G_OBJECT (self)));
 }
 

@@ -141,7 +141,8 @@ test_om_interest_on_pw_props (TestFixture *f, gconstpointer user_data)
   g_main_loop_run (f->base.loop);
 
   /* ensure the base core is in sync */
-  wp_core_sync (f->base.core, NULL, (GAsyncReadyCallback) test_core_done_cb, f);
+  wp_connection_sync (wp_core_get_connection (f->base.core),
+      NULL, (GAsyncReadyCallback) test_core_done_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* request that node from the base core */

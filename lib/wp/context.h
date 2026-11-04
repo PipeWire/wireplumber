@@ -22,6 +22,9 @@ G_BEGIN_DECLS
 
 struct pw_context;
 struct pw_loop;
+struct pw_core;
+
+typedef struct _WpConnection WpConnection;
 
 /*!
  * \brief The WpContext GType
@@ -59,6 +62,9 @@ WP_API
 struct pw_context * wp_context_get_pw_context (WpContext * self);
 
 WP_API
+struct pw_core * wp_context_get_pw_core (WpContext * self);
+
+WP_API
 gchar * wp_context_get_vm_type (WpContext * self);
 
 WP_API
@@ -86,6 +92,9 @@ void wp_context_timeout_add_closure (WpContext * self, GSource **source,
 #define WP_TYPE_MAIN_CONTEXT (wp_main_context_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpMainContext, wp_main_context, WP, MAIN_CONTEXT, WpContext)
+
+WP_API
+WpConnection * wp_main_context_get_connection (WpMainContext * self);
 
 G_END_DECLS
 

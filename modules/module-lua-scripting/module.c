@@ -140,7 +140,8 @@ wp_lua_scripting_plugin_supports_type (WpComponentLoader * cl,
 static gchar *
 find_script (const gchar * script, WpCore *core)
 {
-  g_autoptr (WpProperties) p = wp_core_get_properties (core);
+  g_autoptr (WpProperties) p =
+      wp_connection_get_properties (wp_core_get_connection (core));
   const gchar *str = wp_properties_get (p, "wireplumber.daemon");
   gboolean daemon = !g_strcmp0 (str, "true");
 

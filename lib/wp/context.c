@@ -8,6 +8,7 @@
  */
 
 #include "private/context.h"
+#include "private/connection.h"
 #include "core.h"
 #include "error.h"
 #include "log.h"
@@ -25,7 +26,8 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-context")
  * \struct WpContext
  *
  * The base class of the contexts that WirePlumber runs PipeWire objects in. A
- * context wraps a `pw_context` that runs on a loop, and is associated with the
+ * context wraps a `pw_context` that runs on a loop, owns a WpConnection that
+ * connects it to the PipeWire server, and is associated with the
  * GMainContext of the core.
  *
  * \gproperties
@@ -59,6 +61,7 @@ struct _WpContextPrivate
 
   /* Info */
   struct pw_context *pw_context;
+  WpConnection *connection;
 };
 
 enum {
@@ -91,6 +94,7 @@ wp_context_constructed (GObject * object)
   WpContextClass *klass = WP_CONTEXT_GET_CLASS (self);
   struct pw_loop *loop;
   struct pw_properties *props = NULL;
+  g_autoptr (WpCore) core = NULL;
 
   G_OBJECT_CLASS (wp_context_parent_class)->constructed (object);
 
@@ -107,6 +111,10 @@ wp_context_constructed (GObject * object)
   /* create the pipewire context */
   priv->pw_context = pw_context_new (loop, g_steal_pointer (&props), 0);
   g_return_if_fail (priv->pw_context);
+
+  /* create the connection */
+  core = g_weak_ref_get (&priv->core);
+  priv->connection = wp_connection_new (core, self);
 }
 
 static void
@@ -114,6 +122,11 @@ wp_context_dispose (GObject * object)
 {
   WpContextPrivate *priv =
       wp_context_get_instance_private (WP_CONTEXT (object));
+
+  /* the connection needs the pw_context */
+  if (priv->connection)
+    wp_connection_disconnect (priv->connection);
+  g_clear_object (&priv->connection);
 
   /* subclasses destroy the loop in finalize() */
   g_clear_pointer (&priv->pw_context, pw_context_destroy);
@@ -584,6 +597,23 @@ wp_context_timeout_add_closure (WpContext * self, GSource **source,
 }
 
 /*!
+ * \brief Gets the connection of the context to PipeWire
+ *
+ * \ingroup wpcontext
+ * \param self the context
+ * \returns (transfer none) (nullable): the internal pw_core object, or NULL if
+ *   the context is not connected to PipeWire
+ */
+struct pw_core *
+wp_context_get_pw_core (WpContext * self)
+{
+  g_return_val_if_fail (WP_IS_CONTEXT (self), NULL);
+
+  WpContextPrivate *priv = wp_context_get_instance_private (self);
+  return priv->connection ? wp_connection_get_pw_core (priv->connection) : NULL;
+}
+
+/*!
  * \brief Gets the core of the context
  *
  * \ingroup wpcontext
@@ -684,7 +714,8 @@ wp_loop_source_new (void)
  * \struct WpMainContext
  *
  * The context wraps a `pw_context` and glues the PipeWire library's event loop
- * system with GMainLoop. It is created by wp_core_new().
+ * system with GMainLoop. It owns the WpConnection that connects it to the PipeWire
+ * server. It is created by wp_core_new().
  */
 struct _WpMainContext
 {
@@ -767,4 +798,20 @@ wp_main_context_new (WpCore * core, GMainContext * g_main_context,
       "modules", m,
       "properties", props,
       NULL);
+}
+
+/*!
+ * \brief Gets the connection of the context to PipeWire
+ *
+ * \ingroup wpcontext
+ * \param self the context
+ * \returns (transfer none): the connection of \a self
+ */
+WpConnection *
+wp_main_context_get_connection (WpMainContext * self)
+{
+  g_return_val_if_fail (WP_IS_MAIN_CONTEXT (self), NULL);
+
+  WpContextPrivate *priv = wp_context_get_instance_private (WP_CONTEXT (self));
+  return priv->connection;
 }

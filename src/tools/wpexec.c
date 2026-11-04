@@ -225,6 +225,14 @@ init_done (WpCore * core, GAsyncResult * res, WpExec * d)
   }
 }
 
+/* Core.quit() deactivates the core */
+static void
+on_core_features_changed (WpObject * core, GParamSpec * pspec, GMainLoop * loop)
+{
+  if (!wp_object_test_active_features (core, WP_CORE_FEATURE_CONNECTED))
+    g_main_loop_quit (loop);
+}
+
 gint
 main (gint argc, gchar **argv)
 {
@@ -248,8 +256,10 @@ main (gint argc, gchar **argv)
   d.core = wp_core_new (NULL, NULL, wp_properties_new (
           PW_KEY_APP_NAME, "wpexec",
           NULL));
-  g_signal_connect_swapped (d.core, "disconnected",
+  g_signal_connect_swapped (wp_core_get_connection (d.core), "disconnected",
       G_CALLBACK (g_main_loop_quit), d.loop);
+  g_signal_connect (d.core, "notify::active-features",
+      G_CALLBACK (on_core_features_changed), d.loop);
 
   /* watch for exit signals */
   g_unix_signal_add (SIGINT, signal_handler, &d);

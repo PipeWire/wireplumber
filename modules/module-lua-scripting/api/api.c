@@ -138,7 +138,8 @@ static int
 core_get_properties (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
-  WpProperties *p = wp_core_get_properties (core);
+  WpProperties *p = wp_connection_get_properties (
+      wp_core_get_connection (core));
   wplua_pushboxed (L, WP_TYPE_PROPERTIES, p);
   return 1;
 }
@@ -146,19 +147,19 @@ core_get_properties (lua_State *L)
 static int
 core_get_info (lua_State *L)
 {
-  WpCore * core = get_wp_core (L);
-  WpProperties *p = wp_core_get_remote_properties (core);
+  WpConnection * connection = wp_core_get_connection (get_wp_core (L));
+  WpProperties *p = wp_connection_get_remote_properties (connection);
 
   lua_newtable (L);
-  lua_pushinteger (L, wp_core_get_remote_cookie (core));
+  lua_pushinteger (L, wp_connection_get_remote_cookie (connection));
   lua_setfield (L, -2, "cookie");
-  lua_pushstring (L, wp_core_get_remote_name (core));
+  lua_pushstring (L, wp_connection_get_remote_name (connection));
   lua_setfield (L, -2, "name");
-  lua_pushstring (L, wp_core_get_remote_user_name (core));
+  lua_pushstring (L, wp_connection_get_remote_user_name (connection));
   lua_setfield (L, -2, "user_name");
-  lua_pushstring (L, wp_core_get_remote_host_name (core));
+  lua_pushstring (L, wp_connection_get_remote_host_name (connection));
   lua_setfield (L, -2, "host_name");
-  lua_pushstring (L, wp_core_get_remote_version (core));
+  lua_pushstring (L, wp_connection_get_remote_version (connection));
   lua_setfield (L, -2, "version");
   wplua_pushboxed (L, WP_TYPE_PROPERTIES, p);
   lua_setfield (L, -2, "properties");
@@ -180,7 +181,7 @@ static int
 core_get_own_bound_id (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
-  guint32 id = wp_core_get_own_bound_id (core);
+  guint32 id = wp_connection_get_own_bound_id (wp_core_get_connection (core));
   lua_pushinteger (L, id);
   return 1;
 }
@@ -215,13 +216,13 @@ core_timeout_add (lua_State *L)
 }
 
 static void
-on_core_done (WpCore * core, GAsyncResult * res, GClosure * closure)
+on_core_done (WpConnection * connection, GAsyncResult * res, GClosure * closure)
 {
   g_autoptr (GError) error = NULL;
   GValue val = G_VALUE_INIT;
   int n_vals = 0;
 
-  if (!wp_core_sync_finish (core, res, &error)) {
+  if (!wp_connection_sync_finish (connection, res, &error)) {
     g_value_init (&val, G_TYPE_STRING);
     g_value_set_string (&val, error->message);
     n_vals = 1;
@@ -238,7 +239,8 @@ core_sync (lua_State *L)
   luaL_checktype (L, 1, LUA_TFUNCTION);
   GClosure * closure = wplua_function_to_closure (L, 1);
   g_closure_sink (g_closure_ref (closure));
-  wp_core_sync (get_wp_core (L), NULL, (GAsyncReadyCallback) on_core_done,
+  wp_connection_sync (wp_core_get_connection (get_wp_core (L)),
+      NULL, (GAsyncReadyCallback) on_core_done,
       closure);
   return 0;
 }
@@ -254,7 +256,8 @@ static int
 core_quit (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
-  g_autoptr (WpProperties) p = wp_core_get_properties (core);
+  g_autoptr (WpProperties) p =
+      wp_connection_get_properties (wp_core_get_connection (core));
   const gchar *daemon = wp_properties_get (p, "wireplumber.daemon");
   if (!g_strcmp0 (daemon, "true")) {
     wp_warning ("script attempted to quit, but the engine is "
@@ -277,7 +280,8 @@ static int
 core_require_api (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
-  g_autoptr (WpProperties) p = wp_core_get_properties (core);
+  g_autoptr (WpProperties) p =
+      wp_connection_get_properties (wp_core_get_connection (core));
   const gchar *daemon = wp_properties_get (p, "wireplumber.daemon");
   if (!g_strcmp0 (daemon, "true")) {
     wp_warning ("script attempted to load an API module, but the engine is "
@@ -306,7 +310,7 @@ core_update_properties (lua_State *L)
   else
     props = wp_properties_ref (wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES));
 
-  wp_core_update_properties (core, props);
+  wp_connection_update_properties (wp_core_get_connection (core), props);
   return 0;
 }
 
@@ -2328,8 +2332,9 @@ conf_get_section_as_properties (lua_State *L)
   if (lua_isuserdata (L, argi)) {
     conf = g_object_ref (wplua_checkobject (L, argi, WP_TYPE_CONF));
     argi++;
-  } else
+  } else {
     conf = wp_core_get_conf (get_wp_core (L));
+  }
 
   section = luaL_checkstring (L, argi);
   argi++;
@@ -2362,8 +2367,9 @@ conf_get_section_as_object (lua_State *L)
   if (lua_isuserdata (L, argi)) {
     conf = g_object_ref (wplua_checkobject (L, argi, WP_TYPE_CONF));
     argi++;
-  } else
+  } else {
     conf = wp_core_get_conf (get_wp_core (L));
+  }
 
   section = luaL_checkstring (L, argi);
   argi++;
@@ -2395,8 +2401,9 @@ conf_get_section_as_array (lua_State *L)
   if (lua_isuserdata (L, argi)) {
     conf = g_object_ref (wplua_checkobject (L, argi, WP_TYPE_CONF));
     argi++;
-  } else
+  } else {
     conf = wp_core_get_conf (get_wp_core (L));
+  }
 
   section = luaL_checkstring (L, argi);
   argi++;
@@ -2429,8 +2436,9 @@ conf_get_section_as_json (lua_State *L)
   if (lua_isuserdata (L, argi)) {
     conf = g_object_ref (wplua_checkobject (L, argi, WP_TYPE_CONF));
     argi++;
-  } else
+  } else {
     conf = wp_core_get_conf (get_wp_core (L));
+  }
 
   section = luaL_checkstring (L, argi);
   argi++;

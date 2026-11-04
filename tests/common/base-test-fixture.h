@@ -51,10 +51,12 @@ timeout_callback (WpBaseTestFixture * self)
 }
 
 static void
-disconnected_callback (WpCore *core, WpBaseTestFixture * self)
+disconnected_callback (WpConnection *connection, WpBaseTestFixture * self)
 {
-  wp_critical_object (core, "%s core disconnected",
-      (core == self->client_core) ? "client" : "sm");
+  wp_critical_object (connection, "%s core lost its connection",
+      (self->client_core && connection ==
+          wp_core_get_connection (self->client_core)) ?
+          "client" : "sm");
   g_test_fail ();
   g_main_loop_quit (self->loop);
 }
@@ -102,7 +104,7 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
       wp_properties_ref (props));
   g_assert_true (self->core);
 
-  g_signal_connect (self->core, "disconnected",
+  g_signal_connect (wp_core_get_connection (self->core), "disconnected",
       (GCallback) disconnected_callback, self);
 
   if (!(flags & WP_BASE_TEST_FLAG_DONT_CONNECT)) {
@@ -117,7 +119,8 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
   if (flags & WP_BASE_TEST_FLAG_CLIENT_CORE) {
     self->client_core = wp_core_new (self->context, NULL,
         wp_properties_ref (props));
-    g_signal_connect (self->client_core, "disconnected",
+    g_signal_connect (
+        wp_core_get_connection (self->client_core), "disconnected",
         (GCallback) disconnected_callback, self);
 
     if (!(flags & WP_BASE_TEST_FLAG_DONT_CONNECT)) {
@@ -131,10 +134,11 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
 }
 
 static void
-test_core_done_cb (WpCore *core, GAsyncResult *res, WpBaseTestFixture *self)
+test_core_done_cb (WpConnection * connection, GAsyncResult *res,
+    WpBaseTestFixture *self)
 {
   g_autoptr (GError) error = NULL;
-  g_assert_true (wp_core_sync_finish (core, res, &error));
+  g_assert_true (wp_connection_sync_finish (connection, res, &error));
   g_assert_null (error);
   g_main_loop_quit (self->loop);
 }
@@ -145,10 +149,11 @@ wp_base_test_fixture_teardown (WpBaseTestFixture * self)
   /* wait for all client core pending tasks to be done */
   if (self->client_core && wp_object_test_active_features (
         WP_OBJECT (self->client_core), WP_CORE_FEATURE_CONNECTED)) {
-    wp_core_sync (self->client_core, NULL,
+    wp_connection_sync (wp_core_get_connection (self->client_core), NULL,
         (GAsyncReadyCallback) test_core_done_cb, self);
     g_main_loop_run (self->loop);
-    g_signal_handlers_disconnect_by_data (self->client_core, self);
+    g_signal_handlers_disconnect_by_data (
+        wp_core_get_connection (self->client_core), self);
     wp_object_deactivate (WP_OBJECT (self->client_core),
         WP_CORE_FEATURE_CONNECTED);
   }
@@ -156,10 +161,12 @@ wp_base_test_fixture_teardown (WpBaseTestFixture * self)
   /* wait for all core pending tasks to be done */
   if (self->core && wp_object_test_active_features (WP_OBJECT (self->core),
         WP_CORE_FEATURE_CONNECTED)) {
-    wp_core_sync (self->core, NULL, (GAsyncReadyCallback) test_core_done_cb,
+    wp_connection_sync (wp_core_get_connection (self->core),
+        NULL, (GAsyncReadyCallback) test_core_done_cb,
         self);
     g_main_loop_run (self->loop);
-    g_signal_handlers_disconnect_by_data (self->core, self);
+    g_signal_handlers_disconnect_by_data (
+        wp_core_get_connection (self->core), self);
     wp_object_deactivate (WP_OBJECT (self->core), WP_CORE_FEATURE_CONNECTED);
   }
 

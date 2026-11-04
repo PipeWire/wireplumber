@@ -36,7 +36,8 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
 
-  if (subject != wp_core_get_own_bound_id (core))
+  if (subject != wp_connection_get_own_bound_id (
+          wp_core_get_connection (core)))
     return;
 
   if (spa_streq(key, "log.level"))

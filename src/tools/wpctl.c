@@ -154,7 +154,7 @@ wp_ctl_clear (WpCtl * self)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (WpCtl, wp_ctl_clear)
 
 static void
-async_quit (WpCore *core, GAsyncResult *res, WpCtl * self)
+async_quit (WpConnection * connection, GAsyncResult *res, WpCtl * self)
 {
   g_main_loop_quit (self->loop);
 }
@@ -717,12 +717,13 @@ status_run (WpCtl * self)
   context.mixer_api = wp_plugin_find (self->core, "mixer-api");
 
   /* server + clients */
+  WpConnection *connection = wp_core_get_connection (self->core);
   printf ("PipeWire '%s' [%s, %s@%s, cookie:%u]\n",
-      wp_core_get_remote_name (self->core),
-      wp_core_get_remote_version (self->core),
-      wp_core_get_remote_user_name (self->core),
-      wp_core_get_remote_host_name (self->core),
-      wp_core_get_remote_cookie (self->core));
+      wp_connection_get_remote_name (connection),
+      wp_connection_get_remote_version (connection),
+      wp_connection_get_remote_user_name (connection),
+      wp_connection_get_remote_host_name (connection),
+      wp_connection_get_remote_cookie (connection));
 
   printf (TREE_INDENT_NODE "Clients:\n");
   it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_CLIENT, NULL);
@@ -1582,7 +1583,8 @@ set_default_run (WpCtl * self)
 
   for (guint i = 0; i < G_N_ELEMENTS (streams); i++)
     g_clear_object (&streams[i]);
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  wp_connection_sync (wp_core_get_connection (self->core),
+      NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
 out:
@@ -1712,7 +1714,8 @@ set_volume_run (WpCtl * self)
   if (!res)
     goto out;
 
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  wp_connection_sync (wp_core_get_connection (self->core),
+      NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
 out:
@@ -1810,7 +1813,8 @@ set_mute_run (WpCtl * self)
   if (!res)
     goto out;
 
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  wp_connection_sync (wp_core_get_connection (self->core),
+      NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
 out:
@@ -2073,7 +2077,8 @@ set_profile_run (WpCtl * self)
         "index", "i", cmdline.set_profile.index,
         "save", "b", TRUE,
         NULL));
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  wp_connection_sync (wp_core_get_connection (self->core),
+      NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
 out:
@@ -2587,7 +2592,8 @@ set_route_run (WpCtl * self)
         "index", "i", cmdline.set_route.index,
         "device", "i", route_device,
         NULL));
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  wp_connection_sync (wp_core_get_connection (self->core),
+      NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
 out:
@@ -2656,7 +2662,8 @@ clear_default_run (WpCtl * self)
     }
   }
 
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  wp_connection_sync (wp_core_get_connection (self->core),
+      NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
 out:
@@ -2885,7 +2892,8 @@ settings_run (WpCtl * self)
     g_assert_not_reached ();
   }
 
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  wp_connection_sync (wp_core_get_connection (self->core),
+      NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
 out:
@@ -2969,7 +2977,8 @@ set_log_level_run (WpCtl * self)
     wp_metadata_set (settings, cmdline.set_log_level.id, "log.level", "", cmdline.set_log_level.level);
   }
 
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  wp_connection_sync (wp_core_get_connection (self->core),
+      NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
 out:
@@ -3565,7 +3574,7 @@ main (gint argc, gchar **argv)
       (GAsyncReadyCallback) on_core_activated, &ctl);
 
   /* run */
-  g_signal_connect_swapped (ctl.core, "disconnected",
+  g_signal_connect_swapped (wp_core_get_connection (ctl.core), "disconnected",
       (GCallback) g_main_loop_quit, ctl.loop);
   g_signal_connect_swapped (ctl.om, "installed",
       (GCallback) cmd->run, &ctl);

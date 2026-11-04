@@ -68,7 +68,7 @@ daemon_exit (WpDaemon * d, gint code)
 }
 
 static void
-on_disconnected (WpCore *core, WpDaemon * d)
+on_disconnected (WpConnection * connection, WpDaemon * d)
 {
   wp_info ("disconnected from pipewire");
   daemon_exit (d, WP_EXIT_OK);
@@ -254,7 +254,8 @@ main (gint argc, gchar **argv)
   d.loop = g_main_loop_new (NULL, FALSE);
   d.core = wp_core_new (NULL, g_steal_pointer (&conf),
       g_steal_pointer (&properties));
-  g_signal_connect (d.core, "disconnected", G_CALLBACK (on_disconnected), &d);
+  g_signal_connect (wp_core_get_connection (d.core), "disconnected",
+      G_CALLBACK (on_disconnected), &d);
 
   /* watch for exit signals */
   g_unix_signal_add (SIGINT, signal_handler_int, &d);

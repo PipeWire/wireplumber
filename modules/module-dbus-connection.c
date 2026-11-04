@@ -118,11 +118,12 @@ do_connect (WpDBusConnection * self, GAsyncReadyCallback callback,
 }
 
 static void
-on_sync_reconnect (WpCore * core, GAsyncResult * res, WpDBusConnection * self)
+on_sync_reconnect (WpConnection * connection, GAsyncResult * res,
+    WpDBusConnection * self)
 {
   g_autoptr (GError) error = NULL;
 
-  if (!wp_core_sync_finish (core, res, &error)) {
+  if (!wp_connection_sync_finish (connection, res, &error)) {
     wp_warning_object (self, "core sync error: %s", error->message);
     return;
   }
@@ -148,7 +149,8 @@ on_connection_closed (GDBusConnection * connection,
   if (core && wp_object_test_active_features (WP_OBJECT (core),
           WP_CORE_FEATURE_CONNECTED)) {
     wp_notice_object (self, "Trying to reconnect after core sync");
-    wp_core_sync_closure (core, NULL, g_cclosure_new_object (
+    wp_connection_sync_closure (wp_core_get_connection (core),
+        NULL, g_cclosure_new_object (
         G_CALLBACK (on_sync_reconnect), G_OBJECT (self)));
   }
 }

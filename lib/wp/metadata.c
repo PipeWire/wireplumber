@@ -255,10 +255,10 @@ static const struct pw_metadata_events metadata_events = {
 };
 
 static void
-initial_sync_done (WpCore * core, GAsyncResult * res, WpMetadata * self)
+initial_sync_done (WpConnection * connection, GAsyncResult * res, WpMetadata * self)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_core_sync_finish (core, res, &error)) {
+  if (!wp_connection_sync_finish (connection, res, &error)) {
     wp_warning_object (self, "core sync error: %s", error->message);
     return;
   }
@@ -277,7 +277,7 @@ wp_metadata_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
   pw_metadata_add_listener (priv->iface, &priv->listener,
       &metadata_events, self);
   priv->remove_listener = TRUE;
-  wp_core_sync_closure (core, NULL,
+  wp_connection_sync_closure (wp_core_get_connection (core), NULL,
       g_cclosure_new_object ((GCallback) initial_sync_done, G_OBJECT (self)));
 }
 
@@ -759,7 +759,8 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
   switch (step) {
   case STEP_BIND: {
     g_autoptr (WpCore) core = wp_object_get_core (object);
-    struct pw_core *pw_core = wp_core_get_pw_core (core);
+    struct pw_core *pw_core =
+        wp_connection_get_pw_core (wp_core_get_connection (core));
     const struct pw_properties *props = NULL;
     struct pw_proxy *proxy;
     gint err;

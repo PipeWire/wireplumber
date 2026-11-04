@@ -53,7 +53,7 @@ typedef struct
 } Data;
 
 static void
-async_quit (WpCore * core, GAsyncResult * res, Data * data)
+async_quit (WpConnection * connection, GAsyncResult * res, Data * data)
 {
   g_main_loop_quit (data->loop);
 }
@@ -126,7 +126,8 @@ on_om_installed (WpObjectManager * om, Data * data)
   wp_pipewire_object_set_param (pwobj, "Props", 0,
       construct_params_pod (data->arg_params));
 
-  wp_core_sync (data->core, NULL, (GAsyncReadyCallback) async_quit, data);
+  wp_connection_sync (wp_core_get_connection (data->core),
+      NULL, (GAsyncReadyCallback) async_quit, data);
 }
 
 static void

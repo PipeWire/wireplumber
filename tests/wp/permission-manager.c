@@ -23,7 +23,8 @@ test_permission_manager_setup (TestFixture * f, gconstpointer data)
   wp_base_test_fixture_setup (&f->base, WP_BASE_TEST_FLAG_CLIENT_CORE);
 
   /* find the client object of the "client" core on the sm core */
-  client_id = wp_core_get_own_bound_id (f->base.client_core);
+  client_id = wp_connection_get_own_bound_id (
+      wp_core_get_connection (f->base.client_core));
   om = wp_object_manager_new ();
   wp_object_manager_add_interest (om, WP_TYPE_CLIENT,
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", client_id, NULL);
@@ -43,10 +44,10 @@ test_permission_manager_teardown (TestFixture * f, gconstpointer data)
 }
 
 static void
-on_sync_done (WpCore * core, GAsyncResult * res, TestFixture * f)
+on_sync_done (WpConnection * connection, GAsyncResult * res, TestFixture * f)
 {
   g_autoptr (GError) error = NULL;
-  g_assert_true (wp_core_sync_finish (core, res, &error));
+  g_assert_true (wp_connection_sync_finish (connection, res, &error));
   g_assert_no_error (error);
   g_main_loop_quit (f->base.loop);
 }
@@ -54,7 +55,8 @@ on_sync_done (WpCore * core, GAsyncResult * res, TestFixture * f)
 static void
 sync_core (TestFixture * f)
 {
-  wp_core_sync (f->base.core, NULL, (GAsyncReadyCallback) on_sync_done, f);
+  wp_connection_sync (wp_core_get_connection (f->base.core), NULL,
+      (GAsyncReadyCallback) on_sync_done, f);
   g_main_loop_run (f->base.loop);
 }
 
@@ -110,7 +112,8 @@ static void
 test_permission_manager_invalid_default (TestFixture * f, gconstpointer data)
 {
   guint32 client_id = wp_proxy_get_bound_id (WP_PROXY (f->client));
-  guint32 sm_id = wp_core_get_own_bound_id (f->base.core);
+  guint32 sm_id = wp_connection_get_own_bound_id (
+      wp_core_get_connection (f->base.core));
 
   attach_permission_manager (f, PW_PERM_INVALID);
 
@@ -123,7 +126,8 @@ static void
 test_permission_manager_default (TestFixture * f, gconstpointer data)
 {
   guint32 client_id = wp_proxy_get_bound_id (WP_PROXY (f->client));
-  guint32 sm_id = wp_core_get_own_bound_id (f->base.core);
+  guint32 sm_id = wp_connection_get_own_bound_id (
+      wp_core_get_connection (f->base.core));
 
   attach_permission_manager (f, PW_PERM_R | PW_PERM_X);
 

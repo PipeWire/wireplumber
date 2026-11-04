@@ -11,10 +11,10 @@
 
 #include "object.h"
 #include "context.h"
+#include "connection.h"
 
 G_BEGIN_DECLS
 
-struct pw_core;
 typedef struct _WpObjectManager WpObjectManager;
 
 /*!
@@ -36,6 +36,7 @@ typedef enum { /*< flags >*/
 WP_API
 G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, WpObject)
 
+
 /* Basic */
 
 WP_API
@@ -49,50 +50,8 @@ WP_API
 WpMainContext * wp_core_get_main_context (WpCore * self);
 
 WP_API
-struct pw_core * wp_core_get_pw_core (WpCore * self);
+WpConnection * wp_core_get_connection (WpCore * self);
 
-/* Properties */
-
-WP_API
-guint32 wp_core_get_own_bound_id (WpCore * self);
-
-WP_API
-guint32 wp_core_get_remote_cookie (WpCore * self);
-
-WP_API
-const gchar * wp_core_get_remote_name (WpCore * self);
-
-WP_API
-const gchar * wp_core_get_remote_user_name (WpCore * self);
-
-WP_API
-const gchar * wp_core_get_remote_host_name (WpCore * self);
-
-WP_API
-const gchar * wp_core_get_remote_version (WpCore * self);
-
-WP_API
-WpProperties * wp_core_get_remote_properties (WpCore * self);
-
-WP_API
-WpProperties * wp_core_get_properties (WpCore * self);
-
-WP_API
-void wp_core_update_properties (WpCore * self, WpProperties * updates);
-
-/* Callback */
-
-WP_API
-gboolean wp_core_sync (WpCore * self, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data);
-
-WP_API
-gboolean wp_core_sync_closure (WpCore * self, GCancellable * cancellable,
-    GClosure * closure);
-
-WP_API
-gboolean wp_core_sync_finish (WpCore * self, GAsyncResult * res,
-    GError ** error);
 
 /* Object Registry */
 
@@ -106,10 +65,12 @@ void wp_core_register_object (WpCore * self, gpointer obj);
 WP_API
 void wp_core_remove_object (WpCore * self, gpointer obj);
 
+
 /* Object Manager */
 
 WP_API
 void wp_core_install_object_manager (WpCore * self, WpObjectManager * om);
+
 
 /* Global Features */
 

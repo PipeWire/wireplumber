@@ -105,7 +105,7 @@ wp_pw_object_mixin_get_param_info (WpPipewireObject * obj)
 }
 
 static void
-enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
+enum_params_done (WpConnection * connection, GAsyncResult * res, gpointer data)
 {
   g_autoptr (GTask) task = G_TASK (data);
   GList *taskl = NULL;
@@ -115,7 +115,7 @@ enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
   WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
 
   /* finish the sync task */
-  wp_core_sync_finish (core, res, &error);
+  wp_connection_sync_finish (connection, res, &error);
 
   /* return if task was previously removed from the list */
   taskl = g_list_find (d->enum_params_tasks, task);
@@ -215,7 +215,8 @@ wp_pw_object_mixin_enum_params_unchecked (gpointer obj,
     d->enum_params_tasks = g_list_append (d->enum_params_tasks, task);
 
     /* call sync */
-    wp_core_sync (core, cancellable, (GAsyncReadyCallback) enum_params_done,
+    wp_connection_sync (wp_core_get_connection (core),
+        cancellable, (GAsyncReadyCallback) enum_params_done,
         g_object_ref (task));
   }
 }
@@ -629,7 +630,8 @@ enum_params_for_cache_done (GObject * object, GAsyncResult * res, gpointer data)
 G_DEFINE_QUARK (WpPwObjectMixinParamCacheActivatedFeatures, activated_features)
 
 static void
-param_cache_features_enabled (WpCore * core, GAsyncResult * res, gpointer data)
+param_cache_features_enabled (WpConnection * connection, GAsyncResult * res,
+    gpointer data)
 {
   WpObject *object = WP_OBJECT (data);
   WpObjectFeatures activated = GPOINTER_TO_UINT (
@@ -670,7 +672,8 @@ wp_pw_object_mixin_cache_params (WpObject * object, WpObjectFeatures missing)
 
   g_object_set_qdata (G_OBJECT (object),
       activated_features_quark (), GUINT_TO_POINTER (activated));
-  wp_core_sync_closure (core, NULL, g_cclosure_new_object (
+  wp_connection_sync_closure (wp_core_get_connection (core),
+      NULL, g_cclosure_new_object (
           G_CALLBACK (param_cache_features_enabled),
           G_OBJECT (object)));
 }

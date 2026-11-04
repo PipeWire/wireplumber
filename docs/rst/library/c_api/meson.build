@@ -6,6 +6,7 @@ sphinx_files += files(
   'conf_api.rst',
   'context_api.rst',
   'core_api.rst',
+  'connection_api.rst',
   'device_api.rst',
   'event_api.rst',
   'event_dispatcher_api.rst',

@@ -10,7 +10,7 @@ For some functionality, though, the following static functions are exposed.
 
 .. function:: Core.get_properties()
 
-   Binds :c:func:`wp_core_get_properties`
+   Binds :c:func:`wp_connection_get_properties`
 
    Returns a table with the properties of the core. These are the same
    properties that appear on WirePlumber's *client* object in the PipeWire
@@ -27,12 +27,12 @@ For some functionality, though, the following static functions are exposed.
    =========== ===========
    Field       Contains
    =========== ===========
-   cookie      The value of :c:func:`wp_core_get_remote_cookie`
-   name        The value of :c:func:`wp_core_get_remote_name`
-   user_name   The value of :c:func:`wp_core_get_remote_user_name`
-   host_name   The value of :c:func:`wp_core_get_remote_host_name`
-   version     The value of :c:func:`wp_core_get_remote_version`
-   properties  The value of :c:func:`wp_core_get_remote_properties`
+   cookie      The value of :c:func:`wp_connection_get_remote_cookie`
+   name        The value of :c:func:`wp_connection_get_remote_name`
+   user_name   The value of :c:func:`wp_connection_get_remote_user_name`
+   host_name   The value of :c:func:`wp_connection_get_remote_host_name`
+   version     The value of :c:func:`wp_connection_get_remote_version`
+   properties  The value of :c:func:`wp_connection_get_remote_properties`
    =========== ===========
 
    :returns: information about the core
@@ -40,7 +40,7 @@ For some functionality, though, the following static functions are exposed.
 
 .. function:: Core.update_properties(properties)
 
-   Binds :c:func:`wp_core_update_properties`
+   Binds :c:func:`wp_connection_update_properties`
 
    Updates the properties of the core, which are the properties that appear on
    WirePlumber's *client* object in the PipeWire global registry.
@@ -50,7 +50,7 @@ For some functionality, though, the following static functions are exposed.
 
 .. function:: Core.get_own_bound_id()
 
-   Binds :c:func:`wp_core_get_own_bound_id`
+   Binds :c:func:`wp_connection_get_own_bound_id`
 
    :returns: the global id of WirePlumber's own client object
    :rtype: integer
@@ -107,7 +107,7 @@ For some functionality, though, the following static functions are exposed.
 
 .. function:: Core.sync(callback)
 
-   Binds :c:func:`wp_core_sync`
+   Binds :c:func:`wp_connection_sync`
 
    Calls *callback* after synchronizing the transaction state with PipeWire
 
