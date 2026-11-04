@@ -12,7 +12,7 @@
 #include "log.h"
 #include "error.h"
 #include "wpenums.h"
-#include "private/client-context.h"
+#include "private/proxy.h"
 #include "private/pipewire-object-mixin.h"
 
 #include <errno.h>
@@ -430,33 +430,7 @@ struct _WpImplNode
 };
 
 /* the pw_impl_node lives in the client context when there is one, so it is
-   owned by another thread; see private/client-context.h */
-static inline void
-wp_impl_node_lock (WpImplNode * self)
-{
-  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
-  if (ctx)
-    wp_client_context_lock (ctx);
-}
-
-static inline void
-wp_impl_node_unlock (WpImplNode * self)
-{
-  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
-  if (ctx)
-    wp_client_context_unlock (ctx);
-}
-
-static void
-wp_impl_node_run_in_context (WpImplNode * self,
-    WpClientContextInvokeFunc func, gpointer data)
-{
-  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
-  if (ctx)
-    wp_client_context_invoke_sync (ctx, func, data);
-  else
-    func (data);
-}
+   owned by another thread; see WpClientContext */
 
 static void wp_impl_node_pw_object_mixin_priv_interface_init (
     WpPwObjectMixinPrivInterface * iface);
@@ -517,7 +491,9 @@ wp_impl_node_finalize (GObject * object)
 {
   WpImplNode *self = WP_IMPL_NODE (object);
 
-  wp_impl_node_run_in_context (self, wp_impl_node_destroy_node, self);
+  wp_client_context_run_in_thread (
+      wp_proxy_get_client_context (WP_PROXY (self)),
+      wp_impl_node_destroy_node, self);
 
   G_OBJECT_CLASS (wp_impl_node_parent_class)->finalize (object);
 }
@@ -580,25 +556,23 @@ wp_impl_node_activate_execute_step (WpObject * object,
   switch (step) {
   case STEP_EXPORT: {
     g_autoptr (WpCore) core = wp_object_get_core (object);
-    WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
     /* the node must be exported on the connection of the context it lives in;
        pw_core_export() binds the exported node's context and data loop to it */
-    struct pw_core *pw_core = ctx ?
-        wp_client_context_get_pw_core (ctx) :
-        wp_context_get_pw_core (WP_CONTEXT (wp_core_get_main_context (core)));
+    struct pw_core *pw_core =
+        wp_proxy_get_export_pw_core (WP_PROXY (self), core);
     struct pw_proxy *proxy;
     gint err;
     g_return_if_fail (pw_core);
 
     /* export and start listening in one locked section, so that the loop
        thread cannot deliver the "bound" event before we are listening */
-    wp_impl_node_lock (self);
+    wp_proxy_lock (WP_PROXY (self));
     proxy = pw_core_export (pw_core, PW_TYPE_INTERFACE_Node, NULL,
         self->pw_impl_node, 0);
     err = errno;
     if (proxy)
       wp_proxy_set_pw_proxy (WP_PROXY (self), proxy);
-    wp_impl_node_unlock (self);
+    wp_proxy_unlock (WP_PROXY (self));
 
     /* without a proxy, "bound" never comes and the transition would hang */
     if (!proxy)
@@ -679,11 +653,11 @@ wp_impl_node_enum_params_sync (gpointer instance, guint32 id,
 
   /* the params are collected in this call stack, so this stays synchronous
      even though the node runs on the client context's thread */
-  wp_impl_node_lock (self);
+  wp_proxy_lock (WP_PROXY (self));
   pw_impl_node_for_each_param (self->pw_impl_node, 1, id, start, num,
       filter ? wp_spa_pod_get_spa_pod (filter) : NULL,
       impl_node_collect_params, result);
-  wp_impl_node_unlock (self);
+  wp_proxy_unlock (WP_PROXY (self));
   return result;
 }
 
@@ -696,9 +670,9 @@ wp_impl_node_set_param (gpointer instance, guint32 id, guint32 flags,
   g_autoptr (WpSpaPod) p = param;
   gint res;
 
-  wp_impl_node_lock (self);
+  wp_proxy_lock (WP_PROXY (self));
   res = spa_node_set_param (d->iface, id, flags, wp_spa_pod_get_spa_pod (p));
-  wp_impl_node_unlock (self);
+  wp_proxy_unlock (WP_PROXY (self));
   return res;
 }
 

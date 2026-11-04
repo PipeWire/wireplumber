@@ -43,10 +43,10 @@ struct pw_core;
  *   blocking invoke on this context's loop, because that releases the lock
  *   while it waits. Anything that runs code which is not under our control,
  *   such as loading or destroying a PipeWire module, must therefore run on the
- *   loop thread itself, with wp_client_context_invoke_sync().
+ *   loop thread itself, with wp_client_context_run_in_thread().
  * - Callbacks that arrive on the loop thread and need to emit signals or touch
  *   WirePlumber state MUST be handed to the main thread with
- *   wp_client_context_invoke_main(), which preserves FIFO order.
+ *   wp_client_context_queue_in_main(), which preserves FIFO order.
  */
 #define WP_TYPE_CLIENT_CONTEXT (wp_client_context_get_type ())
 G_DECLARE_FINAL_TYPE (WpClientContext, wp_client_context,
@@ -68,26 +68,27 @@ WpClientContext * wp_client_context_find (WpCore * core);
 
 /*
  * The lock is recursive (pw_thread_loop uses a PTHREAD_MUTEX_RECURSIVE mutex),
- * so nesting these is safe.
+ * so nesting these is safe. Both do nothing when \a self is NULL.
  */
 void wp_client_context_lock (WpClientContext * self);
 void wp_client_context_unlock (WpClientContext * self);
 
-/* TRUE when called from the client context's loop thread */
+/* TRUE when called from the loop thread of \a self, which may be NULL */
 gboolean wp_client_context_in_thread (WpClientContext * self);
 
 struct pw_context * wp_client_context_get_pw_context (WpClientContext * self);
 struct pw_core * wp_client_context_get_pw_core (WpClientContext * self);
 
-typedef void (*WpClientContextInvokeFunc) (gpointer data);
+typedef void (*WpClientContextFunc) (gpointer data);
 
 /*
- * Runs \a func on the loop thread and waits for it to return. When called
- * from the loop thread, \a func runs immediately. Must not be called with the
- * lock held, as the loop thread needs it to run \a func.
+ * Runs \a callback on the loop thread and waits for it to return. When called
+ * from the loop thread, or when \a self is NULL, \a callback runs immediately.
+ * Must not be called with the lock held, as the loop thread needs it to run
+ * \a callback.
  */
-void wp_client_context_invoke_sync (WpClientContext * self,
-    WpClientContextInvokeFunc func, gpointer data);
+void wp_client_context_run_in_thread (WpClientContext * self,
+    WpClientContextFunc callback, gpointer data);
 
 /*
  * Queues \a callback for execution on the main thread. Calls are dispatched in
@@ -97,23 +98,8 @@ void wp_client_context_invoke_sync (WpClientContext * self,
  *
  * Safe to call from either thread.
  */
-void wp_client_context_invoke_main (WpClientContext * self,
-    GSourceFunc callback, gpointer data, GDestroyNotify destroy);
-
-/*
- * WpProxy integration (implemented in proxy.c)
- *
- * A WpProxy whose pw_proxy lives on the client context's connection must be
- * told about it, before wp_proxy_set_pw_proxy() is called. WpProxy then takes
- * the loop lock around every pw_proxy call it makes and hands the pw_proxy
- * events that arrive on the loop thread over to the main thread.
- *
- * Note that this also means the object that the proxy exports must have been
- * created in the same context: pw_core_export() ties the exported object's
- * own context and data loop to the connection it is exported on.
- */
-void wp_proxy_set_client_context (WpProxy * self, WpClientContext * ctx);
-WpClientContext * wp_proxy_get_client_context (WpProxy * self);
+void wp_client_context_queue_in_main (WpClientContext * self,
+    WpClientContextFunc callback, gpointer data, GDestroyNotify destroy);
 
 G_END_DECLS
 

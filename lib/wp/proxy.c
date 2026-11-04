@@ -9,7 +9,8 @@
 #include "proxy.h"
 #include "log.h"
 #include "error.h"
-#include "private/client-context.h"
+#include "core.h"
+#include "private/proxy.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>
@@ -103,8 +104,8 @@ struct _WpProxyPrivate
   struct spa_hook listener;
 
   /* set when pw_proxy lives on the client context's connection, in which case
-     it is owned by another thread; see private/client-context.h */
-  WpClientContext *ctx;
+     it is owned by another thread; see WpClientContext */
+  WpClientContext *client_ctx;
 };
 
 enum {
@@ -128,20 +129,18 @@ static guint signals[LAST_SIGNAL] = { 0 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpProxy, wp_proxy, WP_TYPE_OBJECT)
 
-static inline void
+void
 wp_proxy_lock (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  if (priv->ctx)
-    wp_client_context_lock (priv->ctx);
+  wp_client_context_lock (priv->client_ctx);
 }
 
-static inline void
+void
 wp_proxy_unlock (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  if (priv->ctx)
-    wp_client_context_unlock (priv->ctx);
+  wp_client_context_unlock (priv->client_ctx);
 }
 
 /*
@@ -223,38 +222,35 @@ static inline gboolean
 proxy_event_needs_marshalling (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  return priv->ctx && wp_client_context_in_thread (priv->ctx);
+  return wp_client_context_in_thread (priv->client_ctx);
 }
 
 static void
-proxy_event_queue (WpProxy * self, GSourceFunc func, ProxyEvent * e)
+proxy_event_queue (WpProxy * self, WpClientContextFunc func, ProxyEvent * e)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
   e->proxy = g_object_ref (self);
-  wp_client_context_invoke_main (priv->ctx, func, e, proxy_event_free);
+  wp_client_context_queue_in_main (priv->client_ctx, func, e, proxy_event_free);
 }
 
-static gboolean
+static void
 dispatch_destroyed (gpointer data)
 {
   on_proxy_destroyed (((ProxyEvent *) data)->proxy);
-  return G_SOURCE_REMOVE;
 }
 
-static gboolean
+static void
 dispatch_bound (gpointer data)
 {
   ProxyEvent *e = data;
   on_proxy_bound (e->proxy, e->global_id);
-  return G_SOURCE_REMOVE;
 }
 
-static gboolean
+static void
 dispatch_error (gpointer data)
 {
   ProxyEvent *e = data;
   on_proxy_error (e->proxy, e->seq, e->res, e->message);
-  return G_SOURCE_REMOVE;
 }
 
 static void
@@ -352,7 +348,7 @@ wp_proxy_finalize (GObject * object)
 
   /* released here rather than in dispose(), because subclasses destroy the
      object they exported in their own finalize() and need the lock for it */
-  g_clear_object (&priv->ctx);
+  g_clear_object (&priv->client_ctx);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
 }
@@ -550,7 +546,7 @@ wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy)
 
 /*
  * Declares that this proxy's pw_proxy lives on \a ctx's connection; see
- * private/client-context.h. Must be called before wp_proxy_set_pw_proxy().
+ * WpClientContext. Must be called before wp_proxy_set_pw_proxy().
  */
 void
 wp_proxy_set_client_context (WpProxy * self, WpClientContext * ctx)
@@ -560,7 +556,7 @@ wp_proxy_set_client_context (WpProxy * self, WpClientContext * ctx)
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
   g_return_if_fail (priv->pw_proxy == NULL);
-  g_set_object (&priv->ctx, ctx);
+  g_set_object (&priv->client_ctx, ctx);
 }
 
 /*
@@ -572,5 +568,18 @@ wp_proxy_get_client_context (WpProxy * self)
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
 
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  return priv->ctx;
+  return priv->client_ctx;
+}
+
+/*
+ * Returns the connection to export an object on: the one of the client context
+ * this proxy belongs to, or else the one of \a core. (transfer none)
+ */
+struct pw_core *
+wp_proxy_get_export_pw_core (WpProxy * self, WpCore * core)
+{
+  WpClientContext *ctx = wp_proxy_get_client_context (self);
+
+  return ctx ? wp_client_context_get_pw_core (ctx) :
+      wp_connection_get_pw_core (wp_core_get_connection (core));
 }
