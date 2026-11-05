@@ -58,9 +58,10 @@ Core.update_properties {
   ["pipewire.access.portal.gate-supported"] = "true"
 }
 
--- The portal permission manager
+-- The portal permission manager. It leaves PW_ID_ANY untouched because the
+-- portal restricts it on the remotes it hands to apps (e.g. screencast).
 portal_pm = PermissionManager ()
-portal_pm:set_default_permissions (DEFAULT_PERMISSIONS)
+portal_pm:set_default_permissions (Perm.INVALID)
 
 -- Add interest in camera video source nodes
 portal_pm:add_interest_match (
@@ -71,24 +72,18 @@ portal_pm:add_interest_match (
     local media_roles = nil
     local allowed = false
 
-    -- Give all permissions if portal-permissionstore plugin is not loaded
-    if pps_plugin == nil then
-      log:info (client, "Portal permission store plugin not loaded")
-      return DEFAULT_PERMISSIONS
-    end
-
-    -- Give all permissions to the portal itself
+    -- Leave camera permissions untouched for the portal itself
     str_prop = client:get_property ("pipewire.access.portal.is_portal")
     if str_prop == "yes" then
       log:info (client, "client is the portal itself")
-      return DEFAULT_PERMISSIONS
+      return Perm.INVALID
     end
 
-    -- Give all permissions to clients without portal App ID
+    -- Leave camera permissions untouched for clients without portal App ID
     str_prop = client:get_property ("pipewire.access.portal.app_id")
     if str_prop == nil then
       log:info (client, "Portal managed client did not set app_id")
-      return DEFAULT_PERMISSIONS
+      return Perm.INVALID
     end
 
     -- Ignore portal check for non-sandboxed client
@@ -98,17 +93,23 @@ portal_pm:add_interest_match (
     end
     app_id = str_prop
 
-    -- Make sure the client has portal media roles
+    -- Leave camera permissions untouched for clients without media roles
     str_prop = client:get_property ("pipewire.access.portal.media_roles")
     if str_prop == nil then
       log:info (client, "Portal managed client did not set media_roles")
-      return DEFAULT_PERMISSIONS
+      return Perm.INVALID
     end
 
-    -- Give all permissions to clients without camera role
+    -- Leave camera permissions untouched for clients without camera role
     media_roles = parseMediaRoles (str_prop)
     if (media_roles & MEDIA_ROLE_CAMERA) == 0 then
       log:info (client, "Ignoring portal check for clients without camera role")
+      return Perm.INVALID
+    end
+
+    -- Give all permissions if portal-permissionstore plugin is not loaded
+    if pps_plugin == nil then
+      log:info (client, "Portal permission store plugin not loaded")
       return DEFAULT_PERMISSIONS
     end
 
