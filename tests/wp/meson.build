@@ -32,6 +32,13 @@ test(
 )
 
 test(
+  'wp/permission-manager',
+  executable('test-permission-manager', 'permission-manager.c',
+      dependencies: common_deps),
+  env: common_env,
+)
+
+test(
   'wp/metadata',
   executable('test-metadata', 'metadata.c',
       dependencies: common_deps),

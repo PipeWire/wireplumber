@@ -204,6 +204,7 @@ local Perm = {
   RWXM = (PERM_R_VAL | PERM_W_VAL | PERM_X_VAL | PERM_M_VAL),
   RWXML = (PERM_R_VAL | PERM_W_VAL | PERM_X_VAL | PERM_M_VAL | PERM_L_VAL),
   ALL = (PERM_R_VAL | PERM_W_VAL | PERM_X_VAL | PERM_M_VAL),
+  INVALID = 0xffffffff,
 }
 
 -- Allow calling Conf() to instantiate a new WpConf
