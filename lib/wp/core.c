@@ -767,7 +767,8 @@ wp_core_get_pw_core (WpCore * self)
  * \param self the core
  * \returns (transfer full) (nullable): a comma separated string with all the
  *   virtual machine types that this core matches, or NULL if the core is not
- *   running in a virtual machine.
+ *   running in a virtual machine. VM types that are not known to WirePlumber
+ *   are reported as "unknown".
  *
  * \since 0.4.11
  */
@@ -778,6 +779,7 @@ wp_core_get_vm_type (WpCore *self)
   uint32_t n_support;
   struct spa_cpu *spa_cpu;
   uint32_t vm_type;
+  uint32_t matched = 0;
   gchar *res;
   gboolean first = TRUE;
 
@@ -822,12 +824,20 @@ wp_core_get_vm_type (WpCore *self)
   res = g_strdup ("");
   for (guint i = 0; vm_types[i].name; i++) {
     if (vm_type & vm_types[i].type) {
+      matched |= vm_types[i].type;
       gchar *tmp = g_strdup_printf ("%s%s%s", res, first ? "": ",",
           vm_types[i].name);
       g_free (res);
       res = tmp;
       first = FALSE;
     }
+  }
+
+  /* Some VM types were not in the table above */
+  if (matched != vm_type) {
+    gchar *tmp = g_strdup_printf ("%s%sunknown", res, first ? "": ",");
+    g_free (res);
+    res = tmp;
   }
 
   return res;
