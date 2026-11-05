@@ -31,6 +31,7 @@ sphinx_files += files(
   'proc_utils_api.rst',
   'properties_api.rst',
   'proxy_api.rst',
+  'registry_api.rst',
   'settings_api.rst',
   'spa_device_api.rst',
   'spa_json_api.rst',

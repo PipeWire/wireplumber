@@ -12,10 +12,9 @@
 #include "object.h"
 #include "context.h"
 #include "connection.h"
+#include "registry.h"
 
 G_BEGIN_DECLS
-
-typedef struct _WpObjectManager WpObjectManager;
 
 /*!
  * \brief Flags to be used as WpObjectFeatures on WpCore
@@ -52,30 +51,8 @@ WpMainContext * wp_core_get_main_context (WpCore * self);
 WP_API
 WpConnection * wp_core_get_connection (WpCore * self);
 
-
-/* Object Registry */
-
 WP_API
-gpointer wp_core_find_object (WpCore * self, GEqualFunc func,
-    gconstpointer data);
-
-WP_API
-void wp_core_register_object (WpCore * self, gpointer obj);
-
-WP_API
-void wp_core_remove_object (WpCore * self, gpointer obj);
-
-
-/* Object Manager */
-
-WP_API
-void wp_core_install_object_manager (WpCore * self, WpObjectManager * om);
-
-
-/* Global Features */
-
-WP_API
-gboolean wp_core_test_feature (WpCore * self, const gchar * feature);
+WpRegistry * wp_core_get_registry (WpCore * self);
 
 G_END_DECLS
 

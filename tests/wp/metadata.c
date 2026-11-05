@@ -143,7 +143,8 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
       NULL);
   wp_object_manager_request_object_features (fixture->export_om,
       WP_TYPE_IMPL_METADATA, WP_OBJECT_FEATURES_ALL);
-  wp_core_install_object_manager (fixture->base.core, fixture->export_om);
+  wp_registry_install_object_manager (wp_core_get_registry (fixture->base.core),
+      fixture->export_om);
 
   /* set up the proxy side */
   g_signal_connect (fixture->proxy_om, "object_added",
@@ -155,7 +156,8 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
       NULL);
   wp_object_manager_request_object_features (fixture->proxy_om,
       WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
-  wp_core_install_object_manager (fixture->base.client_core, fixture->proxy_om);
+  wp_registry_install_object_manager (
+      wp_core_get_registry (fixture->base.client_core), fixture->proxy_om);
 
   /* create metadata */
   metadata = WP_METADATA (wp_impl_metadata_new (fixture->base.core));

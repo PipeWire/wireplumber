@@ -71,7 +71,7 @@ Methods
 .. function:: ObjectManager.activate(self)
 
    Activates the object manager.
-   Binds :c:func:`wp_core_install_object_manager`.
+   Binds :c:func:`wp_registry_install_object_manager`.
 
    :param self: the object manager
 

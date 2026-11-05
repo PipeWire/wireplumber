@@ -314,7 +314,8 @@ core_test_feature (lua_State *L)
 {
   WpCore *core = get_wp_core(L);
   const char *f = luaL_checkstring (L, 1);
-  lua_pushboolean (L, wp_core_test_feature (core, f));
+  lua_pushboolean (L,
+      wp_registry_test_feature (wp_core_get_registry (core), f));
   return 1;
 }
 
@@ -1179,7 +1180,8 @@ static int
 object_manager_activate (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
-  wp_core_install_object_manager (get_wp_core (L), om);
+  wp_registry_install_object_manager (wp_core_get_registry (get_wp_core (L)),
+      om);
   return 0;
 }
 

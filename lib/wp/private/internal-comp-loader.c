@@ -628,7 +628,7 @@ wp_component_array_load_task_execute_step (WpTransition * transition, guint step
     for (guint i = 0; i < self->curr_component->requires->len; i++) {
       const gchar *dependency =
           g_ptr_array_index (self->curr_component->requires, i);
-      if (!wp_core_test_feature (core, dependency)) {
+      if (!wp_registry_test_feature (wp_core_get_registry (core), dependency)) {
         dependencies_ok = FALSE;
         break;
       }
@@ -744,7 +744,7 @@ ensure_no_media_session (GTask * task, WpCore * core, WpSpaJson * args)
       "application.name", "=s", "pipewire-media-session", NULL);
   g_signal_connect_object (om, "installed",
       G_CALLBACK (ensure_no_media_session_om_installed), task, 0);
-  wp_core_install_object_manager (core, om);
+  wp_registry_install_object_manager (wp_core_get_registry (core), om);
 }
 
 /* Builds the properties of a client context from those of the main core's

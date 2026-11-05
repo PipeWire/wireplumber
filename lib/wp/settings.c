@@ -690,7 +690,8 @@ wp_settings_activate_execute_step (WpObject * object,
         WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
     g_signal_connect_object (self->metadata_om, "object-added",
         G_CALLBACK (on_metadata_added), transition, 0);
-    wp_core_install_object_manager (core, self->metadata_om);
+    wp_registry_install_object_manager (wp_core_get_registry (core),
+        self->metadata_om);
 
     wp_info_object (self, "looking for metadata object named %s",
         self->metadata_name);
@@ -802,8 +803,8 @@ wp_settings_find (WpCore * core, const gchar * metadata_name)
 {
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-  GObject *s = wp_core_find_object (core, (GEqualFunc) find_settings_func,
-      metadata_name);
+  GObject *s = wp_registry_find_object (wp_core_get_registry (core),
+      (GEqualFunc) find_settings_func, metadata_name);
   return s ? WP_SETTINGS (s) : NULL;
 }
 

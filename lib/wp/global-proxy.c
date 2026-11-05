@@ -351,11 +351,8 @@ wp_global_proxy_request_destroy (WpGlobalProxy * self)
       wp_global_proxy_get_instance_private (self);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
-  if (priv->global && core) {
-    WpRegistry *reg = wp_core_get_registry (core);
-    if (reg->pw_registry)
-      pw_registry_destroy (reg->pw_registry, priv->global->id);
-  }
+  if (priv->global && core)
+    wp_registry_destroy_global (wp_core_get_registry (core), priv->global->id);
 }
 
 /*!

@@ -147,7 +147,8 @@ on_core_activated (WpObject * core, GAsyncResult * res, Data * data)
   wp_object_manager_request_object_features (data->om, WP_TYPE_NODE,
       WP_PIPEWIRE_OBJECT_FEATURES_ALL);
   g_signal_connect (data->om, "installed", G_CALLBACK (on_om_installed), data);
-  wp_core_install_object_manager (data->core, data->om);
+  wp_registry_install_object_manager (wp_core_get_registry (data->core),
+      data->om);
 }
 
 int

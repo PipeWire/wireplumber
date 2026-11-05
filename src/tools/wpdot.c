@@ -625,10 +625,12 @@ on_singleton_activated (WpObject *o, GAsyncResult *res, WpDot *dot)
     return;
   }
 
-  wp_core_register_object (dot->core, g_object_ref (o));
+  wp_registry_register_object (wp_core_get_registry (dot->core),
+      g_object_ref (o));
 
   if (--dot->pending_plugins == 0)
-    wp_core_install_object_manager (dot->core, dot->om);
+    wp_registry_install_object_manager (wp_core_get_registry (dot->core),
+        dot->om);
 }
 
 static void
@@ -644,7 +646,8 @@ on_stream_manager_activated (WpObject *o, GAsyncResult *res, WpDot *dot)
     return;
   }
 
-  wp_core_register_object (dot->core, g_object_ref (o));
+  wp_registry_register_object (wp_core_get_registry (dot->core),
+      g_object_ref (o));
 
   --dot->pending_plugins;
 

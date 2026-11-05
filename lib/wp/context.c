@@ -1331,7 +1331,7 @@ wp_client_context_find (WpCore * core)
 
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-  ctx = wp_core_find_object (core, (GEqualFunc) find_client_context_func,
-      NULL);
+  ctx = wp_registry_find_object (wp_core_get_registry (core),
+      (GEqualFunc) find_client_context_func, NULL);
   return ctx ? WP_CLIENT_CONTEXT (ctx) : NULL;
 }

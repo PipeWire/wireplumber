@@ -32,6 +32,7 @@ wp_lib_sources = files(
   'properties.c',
   'proxy.c',
   'proxy-interfaces.c',
+  'registry.c',
   'spa-json.c',
   'spa-pod.c',
   'spa-type.c',
@@ -47,7 +48,6 @@ wp_lib_sources = files(
 wp_lib_priv_sources = files(
   'private/pipewire-object-mixin.c',
   'private/internal-comp-loader.c',
-  'private/registry.c',
 )
 
 wp_lib_headers = files(
@@ -84,6 +84,7 @@ wp_lib_headers = files(
   'properties.h',
   'proxy.h',
   'proxy-interfaces.h',
+  'registry.h',
   'spa-json.h',
   'spa-pod.h',
   'spa-type.h',

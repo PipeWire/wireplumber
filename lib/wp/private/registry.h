@@ -6,8 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef __WIREPLUMBER_REGISTRY_H__
-#define __WIREPLUMBER_REGISTRY_H__
+#ifndef __WIREPLUMBER_PRIVATE_REGISTRY_H__
+#define __WIREPLUMBER_PRIVATE_REGISTRY_H__
 
 #include "core.h"
 #include "global-proxy.h"
@@ -20,31 +20,13 @@ typedef struct _WpGlobal WpGlobal;
 
 /* registry */
 
-#define WP_TYPE_REGISTRY (wp_registry_get_type ())
-G_DECLARE_FINAL_TYPE (WpRegistry, wp_registry, WP, REGISTRY, GObject)
-
-struct _WpRegistry
-{
-  GObject parent;
-
-  /* the core owns the registry */
-  GWeakRef core;
-
-  struct pw_registry *pw_registry;
-  struct spa_hook listener;
-
-  GPtrArray *globals; // element-type: WpGlobal*
-  GPtrArray *tmp_globals; // element-type: WpGlobal*
-  GPtrArray *objects; // element-type: GObject*
-  GPtrArray *object_managers; // element-type: WpObjectManager*
-  GPtrArray *features; // element-type: gchar*
-};
-
 WpRegistry * wp_registry_new (WpCore * core);
-void wp_registry_clear (WpRegistry *self);
-void wp_registry_attach (WpRegistry *self, struct pw_core *pw_core);
-void wp_registry_detach (WpRegistry *self);
 
+void wp_registry_clear (WpRegistry *self);
+
+void wp_registry_attach (WpRegistry *self, struct pw_core *pw_core);
+
+void wp_registry_detach (WpRegistry *self);
 
 void wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     guint32 permissions, guint32 flag, GType type,
@@ -54,20 +36,15 @@ void wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 void wp_registry_notify_add_object (WpRegistry * self, gpointer object);
 void wp_registry_notify_rm_object (WpRegistry * self, gpointer object);
 
-void wp_registry_install_object_manager (WpRegistry * self,
+void wp_registry_add_object_manager (WpRegistry * self,
     WpObjectManager * om);
 
-static inline void
-wp_registry_mark_feature_provided (WpRegistry * reg, const gchar * feature)
-{
-  g_ptr_array_add (reg->features, g_strdup (feature));
-}
+void wp_registry_mark_feature_provided (WpRegistry * self,
+    const gchar * feature);
 
-WpCore * wp_registry_get_core (WpRegistry * self);
+gboolean wp_registry_has_pending_globals (WpRegistry * self);
+void wp_registry_destroy_global (WpRegistry * self, guint32 id);
 
-/* core */
-
-WpRegistry * wp_core_get_registry (WpCore * self);
 
 /* global */
 

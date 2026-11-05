@@ -373,8 +373,8 @@ wp_event_dispatcher_class_init (WpEventDispatcherClass * klass)
 WpEventDispatcher *
 wp_event_dispatcher_get_instance (WpCore * core)
 {
-  WpEventDispatcher *dispatcher = wp_core_find_object (core,
-      (GEqualFunc) WP_IS_EVENT_DISPATCHER, NULL);
+  WpEventDispatcher *dispatcher = wp_registry_find_object (
+      wp_core_get_registry (core), (GEqualFunc) WP_IS_EVENT_DISPATCHER, NULL);
 
   if (G_UNLIKELY (!dispatcher)) {
     dispatcher = g_object_new (WP_TYPE_EVENT_DISPATCHER, NULL);
@@ -395,7 +395,8 @@ wp_event_dispatcher_get_instance (WpCore * core)
 
     g_source_attach (dispatcher->source,
         wp_context_get_g_main_context (WP_CONTEXT (wp_ctx)));
-    wp_core_register_object (core, g_object_ref (dispatcher));
+    wp_registry_register_object (wp_core_get_registry (core),
+        g_object_ref (dispatcher));
 
     wp_info_object (dispatcher, "event-dispatcher inited");
   }

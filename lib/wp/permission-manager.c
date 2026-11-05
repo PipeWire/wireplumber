@@ -466,7 +466,8 @@ wp_permission_manager_activate_execute_step (WpObject * object,
           G_CALLBACK (on_objects_changed), self, 0);
       g_signal_connect_object (self->om, "installed",
           G_CALLBACK (on_object_manager_installed), transition, 0);
-      wp_core_install_object_manager (core, self->om);
+      wp_registry_install_object_manager (wp_core_get_registry (core),
+          self->om);
       break;
     }
 

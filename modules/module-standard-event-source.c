@@ -461,7 +461,8 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
         G_CALLBACK (on_object_removed), self, 0);
     g_signal_connect_object (self->oms[i], "installed",
         G_CALLBACK (on_om_installed), self, 0);
-    wp_core_install_object_manager (core, self->oms[i]);
+    wp_registry_install_object_manager (wp_core_get_registry (core),
+        self->oms[i]);
   }
 
   /* install hook to restore the rescan_scheduled state just before rescanning */

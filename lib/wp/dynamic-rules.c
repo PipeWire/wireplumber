@@ -542,7 +542,8 @@ wp_dynamic_rules_activate_execute_step (WpObject *object,
           G_CALLBACK (on_conditions_changed), self, 0);
       g_signal_connect_object (self->condition_om, "installed",
           G_CALLBACK (on_condition_om_installed), transition, 0);
-      wp_core_install_object_manager (core, self->condition_om);
+      wp_registry_install_object_manager (wp_core_get_registry (core),
+          self->condition_om);
       break;
     }
 

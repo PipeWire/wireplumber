@@ -40,9 +40,9 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-object-manager")
  *
  * To start an object manager, you first need to declare interest in a certain
  * kind of object by calling wp_object_manager_add_interest() and then install
- * it on the WpCore with wp_core_install_object_manager().
+ * it on the WpRegistry of the core with wp_registry_install_object_manager().
  *
- * Upon installing a WpObjectManager on a WpCore, any pre-existing objects
+ * Upon installing a WpObjectManager on a WpRegistry, any pre-existing objects
  * that match the interests of this WpObjectManager will immediately become
  * available to get through wp_object_manager_new_iterator() and the
  * WpObjectManager \c object-added signal will be emitted for all of them.
@@ -67,7 +67,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-object-manager")
  * \endcode
  *
  * This is emitted once after the object manager is installed with
- * wp_core_install_object_manager(). If there are objects that need to be
+ * wp_registry_install_object_manager(). If there are objects that need to be
  * prepared asynchronously internally, emission of this signal is delayed
  * until all objects are ready.
  *
@@ -723,8 +723,7 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
   else if (!self->installed) {
     g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
     if (core) {
-      WpRegistry *reg = wp_core_get_registry (core);
-      if (reg->tmp_globals->len == 0 && reg->globals->len != 0) {
+      if (!wp_registry_has_pending_globals (wp_core_get_registry (core))) {
         wp_trace_object (self, "installed");
         self->installed = TRUE;
         g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
@@ -826,26 +825,23 @@ wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
 }
 
 /*!
- * \brief Installs the object manager on this core, activating its internal
+ * \brief Installs the object manager on this registry, activating its internal
  * management engine.
  *
  * This will immediately emit signals about objects added on \a om
  * if objects that the \a om is interested in were in existence already.
  *
- * \ingroup wpobjectmanager
- * \param self the core
+ * \ingroup wpregistry
+ * \param self the registry
  * \param om (transfer none): a WpObjectManager
  */
 void
-wp_core_install_object_manager (WpCore * self, WpObjectManager * om)
+wp_registry_install_object_manager (WpRegistry * self, WpObjectManager * om)
 {
-  WpRegistry *reg;
-
-  g_return_if_fail (WP_IS_CORE (self));
+  g_return_if_fail (WP_IS_REGISTRY (self));
   g_return_if_fail (WP_IS_OBJECT_MANAGER (om));
 
-  g_weak_ref_set (&om->core, self);
-
-  reg = wp_core_get_registry (self);
-  wp_registry_install_object_manager (reg, om);
+  g_autoptr (WpCore) core = wp_registry_get_core (self);
+  g_weak_ref_set (&om->core, core);
+  wp_registry_add_object_manager (self, om);
 }

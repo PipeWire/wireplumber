@@ -89,7 +89,8 @@ test_core_server_disconnected (TestFixture *f, gconstpointer data)
       G_CALLBACK (expect_object_added), f);
 
   wp_object_manager_add_interest (f->om, WP_TYPE_CLIENT, NULL);
-  wp_core_install_object_manager (f->base.core, f->om);
+  wp_registry_install_object_manager (wp_core_get_registry (f->base.core),
+      f->om);
 
   /* connect */
   connect_core (f->base.core, f);
@@ -122,7 +123,8 @@ test_core_client_disconnected (TestFixture *f, gconstpointer data)
       G_CALLBACK (expect_object_added), f);
 
   wp_object_manager_add_interest (f->om, WP_TYPE_CLIENT, NULL);
-  wp_core_install_object_manager (f->base.core, f->om);
+  wp_registry_install_object_manager (wp_core_get_registry (f->base.core),
+      f->om);
 
   /* connect */
   connect_core (f->base.core, f);

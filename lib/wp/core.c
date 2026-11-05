@@ -29,11 +29,8 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-core")
  *  * it owns the connection to the PipeWire server, and through it the
  *    WpMainContext that wraps the `pw_context` and glues the PipeWire library's
  *    event loop system with GMainLoop
- *  * it maintains a list of registered objects, which other classes use
- *    to keep objects loaded permanently into memory
- *  * it watches the PipeWire registry and keeps track of remote and local
- *    objects that appear in the registry, making them accessible through
- *    the WpObjectManager API.
+ *  * it owns the WpRegistry, which keeps track of registered objects and
+ *    of the objects that appear on the PipeWire registry
  *
  * The core is also responsible for loading components, which are defined in
  * the main configuration file. WP_CORE_FEATURE_COMPONENTS loads the components
@@ -129,8 +126,8 @@ wp_core_init (WpCore * self)
   self->main_socket_fd = -1;
   self->registry = wp_registry_new (self);
 
-  wp_core_register_object (self, g_object_new (WP_TYPE_INTERNAL_COMP_LOADER,
-      NULL));
+  wp_registry_register_object (self->registry,
+      g_object_new (WP_TYPE_INTERNAL_COMP_LOADER, NULL));
 }
 
 static void
@@ -348,9 +345,8 @@ wp_core_activate_execute_step (WpObject * object,
         break;
       }
       /* bind the registry together with the connection request */
-      if (!self->registry->pw_registry)
-        wp_registry_attach (self->registry,
-            wp_connection_get_pw_core (connection));
+      wp_registry_attach (self->registry,
+          wp_connection_get_pw_core (connection));
       break;
 
     case STEP_LOAD_COMPONENTS: {
@@ -510,99 +506,15 @@ wp_core_get_connection (WpCore * self)
 }
 
 /*!
- * \brief Finds a registered object
+ * \brief Gets the registry of the core
  *
  * \ingroup wpcore
  * \param self the core
- * \param func (scope call): a function that takes the object being searched
- *   as the first argument and \a data as the second. it should return TRUE if
- *   the object is found or FALSE otherwise
- * \param data the second argument to \a func
- * \returns (transfer full) (type GObject*) (nullable): the registered object
- *   or NULL if not found
+ * \returns (transfer none): the registry of \a self
  */
-gpointer
-wp_core_find_object (WpCore * self, GEqualFunc func, gconstpointer data)
-{
-  GObject *object;
-  guint i;
-
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-
-  for (i = 0; i < self->registry->objects->len; i++) {
-    object = g_ptr_array_index (self->registry->objects, i);
-    if (func (object, data))
-      return g_object_ref (object);
-  }
-
-  return NULL;
-}
-
-/*!
- * \brief Registers \a obj with the core, making it appear on WpObjectManager
- * instances as well.
- *
- * The core will also maintain a ref to that object until it
- * is removed.
- *
- * \ingroup wpcore
- * \param self the core
- * \param obj (transfer full) (type GObject*): the object to register
- */
-void
-wp_core_register_object (WpCore * self, gpointer obj)
-{
-  g_return_if_fail (WP_IS_CORE (self));
-  g_return_if_fail (G_IS_OBJECT (obj));
-
-  /* ensure the registered object is associated with this core */
-  if (WP_IS_OBJECT (obj)) {
-    g_autoptr (WpCore) obj_core = wp_object_get_core (WP_OBJECT (obj));
-    g_return_if_fail (obj_core == self);
-  }
-
-  g_ptr_array_add (self->registry->objects, obj);
-
-  /* notify object managers */
-  wp_registry_notify_add_object (self->registry, obj);
-}
-
-/*!
- * \brief Detaches and unrefs the specified object from this core.
- *
- * \ingroup wpcore
- * \param self the core
- * \param obj (transfer none) (type GObject*): a pointer to the object to remove
- */
-void
-wp_core_remove_object (WpCore * self, gpointer obj)
-{
-  g_return_if_fail (WP_IS_CORE (self));
-  g_return_if_fail (G_IS_OBJECT (obj));
-
-  /* notify object managers */
-  wp_registry_notify_rm_object (self->registry, obj);
-
-  g_ptr_array_remove_fast (self->registry->objects, obj);
-}
-
-/*!
- * \brief Test if a global feature is provided
- *
- * \ingroup wpcore
- * \param self the core
- * \param feature the feature name
- * \returns TRUE if the feature is provided, FALSE otherwise
- */
-gboolean
-wp_core_test_feature (WpCore * self, const gchar * feature)
-{
-  return g_ptr_array_find_with_equal_func (self->registry->features, feature,
-      g_str_equal, NULL);
-}
-
 WpRegistry *
 wp_core_get_registry (WpCore * self)
 {
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
   return self->registry;
 }

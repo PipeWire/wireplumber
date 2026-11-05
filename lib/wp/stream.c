@@ -375,7 +375,8 @@ wp_stream_activate_execute_step (WpObject * object,
         G_CALLBACK (on_ports_om_installed), transition, 0);
 
     /* Install ports object manager */
-    wp_core_install_object_manager (core, priv->ports_om);
+    wp_registry_install_object_manager (wp_core_get_registry (core),
+        priv->ports_om);
     break;
   }
   case WP_TRANSITION_STEP_ERROR:

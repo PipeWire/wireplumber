@@ -72,7 +72,8 @@ wp_log_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
       WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
   g_signal_connect_object (self->metadata_om, "object-added",
       G_CALLBACK (on_metadata_added), self, 0);
-  wp_core_install_object_manager (core, self->metadata_om);
+  wp_registry_install_object_manager (wp_core_get_registry (core),
+      self->metadata_om);
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }

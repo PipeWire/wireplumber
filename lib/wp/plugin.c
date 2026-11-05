@@ -192,7 +192,7 @@ wp_plugin_find (WpCore * core, const gchar * plugin_name)
   GQuark q = g_quark_try_string (plugin_name);
   if (q == 0)
     return NULL;
-  GObject *p = wp_core_find_object (core,
+  GObject *p = wp_registry_find_object (wp_core_get_registry (core),
       (GEqualFunc) find_plugin_func, GUINT_TO_POINTER (q));
   return p ? WP_PLUGIN (p) : NULL;
 }

@@ -215,7 +215,7 @@ remove_all_node_streams (WpStreamManager * self, WpNode *node)
   if (streams) {
     for (guint i = 0; i < streams->len; i++) {
       WpStream *s = g_ptr_array_index (streams, i);
-      wp_core_remove_object (core, s);
+      wp_registry_remove_object (wp_core_get_registry (core), s);
     }
   }
 
@@ -269,7 +269,8 @@ on_stream_activated (WpObject * s, GAsyncResult * res, WpStreamManager * self)
       g_ptr_array_add (streams, g_object_ref (stream));
 
       /* Register the stream */
-      wp_core_register_object (core, g_object_ref (stream));
+      wp_registry_register_object (wp_core_get_registry (core),
+          g_object_ref (stream));
     }
   }
 
@@ -543,7 +544,8 @@ wp_stream_manager_activate_execute_step (WpObject * object,
     g_signal_connect_object (self->nodes_om, "installed",
         G_CALLBACK (on_nodes_om_installed), transition, 0);
 
-    wp_core_install_object_manager (core, self->nodes_om);
+    wp_registry_install_object_manager (wp_core_get_registry (core),
+        self->nodes_om);
     break;
   }
   case WP_TRANSITION_STEP_ERROR:

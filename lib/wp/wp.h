@@ -38,6 +38,7 @@
 #include "properties.h"
 #include "proxy.h"
 #include "proxy-interfaces.h"
+#include "registry.h"
 #include "spa-json.h"
 #include "spa-pod.h"
 #include "spa-type.h"

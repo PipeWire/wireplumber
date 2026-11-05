@@ -6,11 +6,33 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "registry.h"
+#include "private/registry.h"
 #include "object-manager.h"
 #include "log.h"
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-registry")
+
+/*! \defgroup wpregistry WpRegistry */
+/*!
+ * \struct WpRegistry
+ *
+ * The registry keeps track of the objects of a WpCore. It is owned by the
+ * core and can be retrieved with wp_core_get_registry().
+ *
+ * The registry has the following responsibilities:
+ *  * it maintains a list of registered objects, which other classes use
+ *    to keep objects loaded permanently into memory
+ *  * it watches the PipeWire registry and keeps track of remote and local
+ *    objects that appear in it, making them accessible through
+ *    the WpObjectManager API
+ *  * it keeps track of the features that are provided by the loaded
+ *    components
+ *
+ * \gproperties
+ *
+ * \gproperty{core, WpCore *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
+ *   The core of the registry}
+ */
 
 /*
  * WpRegistry:
@@ -69,6 +91,23 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-registry")
  *    always owns a reference on them, so that they are kept alive for as long
  *    as the WpCore is alive.
  */
+
+struct _WpRegistry
+{
+  GObject parent;
+
+  /* the core owns the registry */
+  GWeakRef core;
+
+  struct pw_registry *pw_registry;
+  struct spa_hook listener;
+
+  GPtrArray *globals; // element-type: WpGlobal*
+  GPtrArray *tmp_globals; // element-type: WpGlobal*
+  GPtrArray *objects; // element-type: GObject*
+  GPtrArray *object_managers; // element-type: WpObjectManager*
+  GPtrArray *features; // element-type: gchar*
+};
 
 static void
 object_manager_destroyed (gpointer data, GObject * om)
@@ -259,7 +298,14 @@ wp_registry_new (WpCore * core)
   return g_object_new (WP_TYPE_REGISTRY, "core", core, NULL);
 }
 
-/* (transfer full) (nullable): the core, or NULL if it is gone */
+/*!
+ * \brief Gets the core of the registry
+ *
+ * \ingroup wpregistry
+ * \param self the registry
+ * \returns (transfer full) (nullable): the core of \a self, or NULL if that
+ *   core is gone
+ */
 WpCore *
 wp_registry_get_core (WpRegistry * self)
 {
@@ -303,8 +349,32 @@ wp_registry_clear (WpRegistry *self)
 }
 
 void
+wp_registry_mark_feature_provided (WpRegistry * self, const gchar * feature)
+{
+  g_ptr_array_add (self->features, g_strdup (feature));
+}
+
+/* TRUE if there are globals that have not been exposed yet, or if no globals
+   have appeared at all yet (early startup) */
+gboolean
+wp_registry_has_pending_globals (WpRegistry * self)
+{
+  return self->tmp_globals->len != 0 || self->globals->len == 0;
+}
+
+void
+wp_registry_destroy_global (WpRegistry * self, guint32 id)
+{
+  if (self->pw_registry)
+    pw_registry_destroy (self->pw_registry, id);
+}
+
+void
 wp_registry_attach (WpRegistry *self, struct pw_core *pw_core)
 {
+  if (self->pw_registry)
+    return;
+
   self->pw_registry = pw_core_get_registry (pw_core,
       PW_VERSION_REGISTRY, 0);
   pw_registry_add_listener (self->pw_registry, &self->listener,
@@ -517,7 +587,7 @@ wp_registry_notify_rm_object (WpRegistry *self, gpointer object)
 }
 
 void
-wp_registry_install_object_manager (WpRegistry * self, WpObjectManager * om)
+wp_registry_add_object_manager (WpRegistry * self, WpObjectManager * om)
 {
   guint i;
 
@@ -538,6 +608,102 @@ wp_registry_install_object_manager (WpRegistry * self, WpObjectManager * om)
   }
 
   wp_object_manager_maybe_objects_changed (om);
+}
+
+/*!
+ * \brief Finds a registered object
+ *
+ * \ingroup wpregistry
+ * \param self the registry
+ * \param func (scope call): a function that takes the object being searched
+ *   as the first argument and \a data as the second. it should return TRUE if
+ *   the object is found or FALSE otherwise
+ * \param data the second argument to \a func
+ * \returns (transfer full) (type GObject*) (nullable): the registered object
+ *   or NULL if not found
+ */
+gpointer
+wp_registry_find_object (WpRegistry * self, GEqualFunc func,
+    gconstpointer data)
+{
+  GObject *object;
+  guint i;
+
+  g_return_val_if_fail (WP_IS_REGISTRY (self), NULL);
+
+  for (i = 0; i < self->objects->len; i++) {
+    object = g_ptr_array_index (self->objects, i);
+    if (func (object, data))
+      return g_object_ref (object);
+  }
+
+  return NULL;
+}
+
+/*!
+ * \brief Registers \a obj with the registry, making it appear on
+ * WpObjectManager instances as well.
+ *
+ * The registry will also maintain a ref to that object until it
+ * is removed.
+ *
+ * \ingroup wpregistry
+ * \param self the registry
+ * \param obj (transfer full) (type GObject*): the object to register
+ */
+void
+wp_registry_register_object (WpRegistry * self, gpointer obj)
+{
+  g_return_if_fail (WP_IS_REGISTRY (self));
+  g_return_if_fail (G_IS_OBJECT (obj));
+
+  /* ensure the registered object is associated with our core */
+  if (WP_IS_OBJECT (obj)) {
+    g_autoptr (WpCore) obj_core = wp_object_get_core (WP_OBJECT (obj));
+    g_autoptr (WpCore) core = wp_registry_get_core (self);
+    g_return_if_fail (obj_core == core);
+  }
+
+  g_ptr_array_add (self->objects, obj);
+
+  /* notify object managers */
+  wp_registry_notify_add_object (self, obj);
+}
+
+/*!
+ * \brief Detaches and unrefs the specified object from this registry.
+ *
+ * \ingroup wpregistry
+ * \param self the registry
+ * \param obj (transfer none) (type GObject*): a pointer to the object to remove
+ */
+void
+wp_registry_remove_object (WpRegistry * self, gpointer obj)
+{
+  g_return_if_fail (WP_IS_REGISTRY (self));
+  g_return_if_fail (G_IS_OBJECT (obj));
+
+  /* notify object managers */
+  wp_registry_notify_rm_object (self, obj);
+
+  g_ptr_array_remove_fast (self->objects, obj);
+}
+
+/*!
+ * \brief Test if a global feature is provided
+ *
+ * \ingroup wpregistry
+ * \param self the registry
+ * \param feature the feature name
+ * \returns TRUE if the feature is provided, FALSE otherwise
+ */
+gboolean
+wp_registry_test_feature (WpRegistry * self, const gchar * feature)
+{
+  g_return_val_if_fail (WP_IS_REGISTRY (self), FALSE);
+
+  return g_ptr_array_find_with_equal_func (self->features, feature,
+      g_str_equal, NULL);
 }
 
 /* WpGlobal */

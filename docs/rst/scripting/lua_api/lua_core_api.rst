@@ -166,7 +166,7 @@ For some functionality, though, the following static functions are exposed.
 
 .. function:: Core.test_feature()
 
-   Binds :c:func:`wp_core_test_feature`
+   Binds :c:func:`wp_registry_test_feature`
 
    Tests if the specified feature is provided in the current WirePlumber
    configuration.

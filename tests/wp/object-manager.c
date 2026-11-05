@@ -84,7 +84,7 @@ test_dummy_class_init (TestDummyClass * klass)
 static void
 test_register_dummy (WpCore * core, const gchar * name)
 {
-  wp_core_register_object (core,
+  wp_registry_register_object (wp_core_get_registry (core),
       g_object_new (test_dummy_get_type (), "name", name, NULL));
 }
 
@@ -192,7 +192,7 @@ test_om_iterate_remove (TestFixture *f, gconstpointer user_data)
       TestDummy *dummy = g_value_get_object (&value);
       g_assert_true (TEST_IS_DUMMY (dummy));
       if (!g_strcmp0 (dummy->name, "1234"))
-        wp_core_remove_object (f->base.core, dummy);
+        wp_registry_remove_object (wp_core_get_registry (f->base.core), dummy);
       g_value_unset (&value);
     }
   }

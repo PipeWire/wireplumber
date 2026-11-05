@@ -197,7 +197,7 @@ remove_links (WpStreamLinkManager *self, GPtrArray *links)
     WpStreamLink *link = g_ptr_array_index (links, i);
     wp_object_deactivate (WP_OBJECT (link), WP_OBJECT_FEATURES_ALL);
     g_ptr_array_remove_fast (self->stream_links, link);
-    wp_core_remove_object (core, link);
+    wp_registry_remove_object (wp_core_get_registry (core), link);
   }
 }
 
@@ -386,7 +386,7 @@ wp_stream_link_manager_activate_execute_step (WpObject * object,
     g_signal_connect_object (self->om, "installed",
       G_CALLBACK (on_om_installed), transition, 0);
 
-    wp_core_install_object_manager (core, self->om);
+    wp_registry_install_object_manager (wp_core_get_registry (core), self->om);
     break;
   }
   case WP_TRANSITION_STEP_ERROR:
@@ -407,7 +407,7 @@ wp_stream_link_manager_deactivate (WpObject * object, WpObjectFeatures features)
     for (guint i = 0; i < self->stream_links->len; i++) {
       WpStreamLink *link = g_ptr_array_index (self->stream_links, i);
       wp_object_deactivate (WP_OBJECT (link), WP_OBJECT_FEATURES_ALL);
-      wp_core_remove_object (core, link);
+      wp_registry_remove_object (wp_core_get_registry (core), link);
     }
   }
 
@@ -505,8 +505,8 @@ wp_stream_link_manager_find (WpCore * core, const gchar * name)
 
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-  slm = wp_core_find_object (core, (GEqualFunc) find_stream_link_manager_func,
-      name);
+  slm = wp_registry_find_object (wp_core_get_registry (core),
+      (GEqualFunc) find_stream_link_manager_func, name);
   return slm ? WP_STREAM_LINK_MANAGER (slm) : NULL;
 }
 
@@ -564,7 +564,7 @@ on_stream_link_link_removed (WpStreamLink *stream_link, WpLink *link,
     /* Remove */
     wp_object_deactivate (WP_OBJECT (stream_link), WP_OBJECT_FEATURES_ALL);
     g_ptr_array_remove_fast (self->stream_links, stream_link);
-    wp_core_remove_object (core, stream_link);
+    wp_registry_remove_object (wp_core_get_registry (core), stream_link);
   }
 }
 
@@ -605,7 +605,8 @@ create_link (WpStreamLinkManager *self, WpStream *output, WpStream *input,
   g_ptr_array_add (self->stream_links, g_object_ref (link));
 
   /* Register the link so that it appears on object managers */
-  wp_core_register_object (core, g_object_ref (link));
+  wp_registry_register_object (wp_core_get_registry (core),
+      g_object_ref (link));
 
   return g_steal_pointer (&link);
 }
@@ -719,7 +720,7 @@ wp_stream_link_manager_remove_link (WpStreamLinkManager *self,
   if (!g_ptr_array_remove_fast (self->stream_links, link))
     return;
 
-  wp_core_remove_object (core, link);
+  wp_registry_remove_object (wp_core_get_registry (core), link);
 }
 
 /*!

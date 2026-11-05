@@ -48,7 +48,8 @@ test_factory_enumeration (TestFixture *self, gconstpointer user_data)
       (GCallback) test_factory_enumeration_object_added, self);
 
   wp_object_manager_add_interest(self->om, WP_TYPE_FACTORY, NULL);
-  wp_core_install_object_manager(self->base.core, self->om);
+  wp_registry_install_object_manager(wp_core_get_registry (self->base.core),
+      self->om);
   g_main_loop_run(self->base.loop);
 }
 

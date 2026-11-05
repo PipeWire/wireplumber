@@ -518,7 +518,8 @@ script_tests_setup (ScriptRunnerFixture *f, gconstpointer data)
       "test-fixture", f,
       NULL);
 
-  wp_core_register_object (f->base.core, (WpPlugin *)f->plugin);
+  wp_registry_register_object (wp_core_get_registry (f->base.core),
+      (WpPlugin *)f->plugin);
 }
 
 static void

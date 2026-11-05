@@ -750,7 +750,8 @@ wp_stream_link_activate (WpStreamLink *self, WpTransition *transition)
       WP_TYPE_LINK, WP_OBJECT_FEATURES_ALL);
   g_signal_connect_object (priv->links_om, "installed",
       G_CALLBACK (on_links_om_installed), transition, 0);
-  wp_core_install_object_manager (core, priv->links_om);
+  wp_registry_install_object_manager (wp_core_get_registry (core),
+      priv->links_om);
 }
 
 /* Undoes everything the activation set up */

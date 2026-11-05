@@ -387,7 +387,8 @@ on_manager_activated (WpObject * o, GAsyncResult * res, WpCtl * ctl)
     return;
   }
 
-  wp_core_register_object (ctl->core, g_object_ref (o));
+  wp_registry_register_object (wp_core_get_registry (ctl->core),
+      g_object_ref (o));
   on_plugin_ready (ctl);
 }
 
@@ -404,7 +405,8 @@ on_stream_manager_activated (WpObject * o, GAsyncResult * res, WpCtl * ctl)
     return;
   }
 
-  wp_core_register_object (ctl->core, g_object_ref (o));
+  wp_registry_register_object (wp_core_get_registry (ctl->core),
+      g_object_ref (o));
   on_plugin_ready (ctl);
 
   /* the stream links are made from the streams, so they need to exist */
@@ -3424,7 +3426,8 @@ on_settings_activated (WpSettings *s, GAsyncResult *res, WpCtl *ctl)
     return;
   }
 
-  wp_core_register_object (ctl->core, g_object_ref (s));
+  wp_registry_register_object (wp_core_get_registry (ctl->core),
+      g_object_ref (s));
 }
 
 static void
@@ -3448,7 +3451,8 @@ on_plugin_ready (WpCtl * ctl)
   if (--ctl->pending_plugins == 0) {
     g_autoptr (WpPlugin) mixer_api = wp_plugin_find (ctl->core, "mixer-api");
     g_object_set (mixer_api, "scale", 1 /* cubic */, NULL);
-    wp_core_install_object_manager (ctl->core, ctl->om);
+    wp_registry_install_object_manager (wp_core_get_registry (ctl->core),
+        ctl->om);
   }
 }
 

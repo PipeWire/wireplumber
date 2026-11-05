@@ -83,7 +83,8 @@ test_proxy_basic (TestFixture *fixture, gconstpointer data)
       (GCallback) test_proxy_basic_object_added, fixture);
 
   wp_object_manager_add_interest (fixture->om, WP_TYPE_CLIENT, NULL);
-  wp_core_install_object_manager (fixture->base.core, fixture->om);
+  wp_registry_install_object_manager (wp_core_get_registry (fixture->base.core),
+      fixture->om);
 
   g_main_loop_run (fixture->base.loop);
 }

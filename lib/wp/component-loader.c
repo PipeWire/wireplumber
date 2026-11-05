@@ -52,7 +52,7 @@ static WpComponentLoader *
 wp_component_loader_find (WpCore * core, const gchar * type)
 {
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
-  GObject *c = wp_core_find_object (core,
+  GObject *c = wp_registry_find_object (wp_core_get_registry (core),
       (GEqualFunc) find_component_loader_func, type);
   return c ? WP_COMPONENT_LOADER (c) : NULL;
 }
@@ -82,7 +82,7 @@ wp_component_loader_load_task_return (GTask * task, gpointer object)
 
   /* store object in the registry */
   if (object)
-    wp_core_register_object (core, g_object_ref (object));
+    wp_registry_register_object (reg, g_object_ref (object));
 
   if (provides)
     wp_registry_mark_feature_provided (reg, provides);
@@ -151,7 +151,7 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
  *   expected to be a JSON object
  * \param provides (nullable): the name of the feature that this component will
  *   provide if it loads successfully; this can be queried later with
- *   wp_core_test_feature()
+ *   wp_registry_test_feature()
  * \param cancellable (nullable): optional GCancellable
  * \param callback (scope async)(closure data): the callback to call when the operation is done
  * \param data data to pass to \a callback

@@ -205,7 +205,8 @@ on_settings_ready (WpSettings *s, GAsyncResult *res, gpointer data)
 
   g_assert_true (wp_object_activate_finish (WP_OBJECT (s), res, NULL));
 
-  wp_core_register_object (self->base.core, g_object_ref (s));
+  wp_registry_register_object (wp_core_get_registry (self->base.core),
+      g_object_ref (s));
 
   g_main_loop_quit (self->base.loop);
 }

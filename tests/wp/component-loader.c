@@ -125,7 +125,8 @@ test_setup (TestFixture *self, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&self->base, 0);
   self->loader = g_object_new (WP_TYPE_TEST_COMP_LOADER, NULL);
-  wp_core_register_object (self->base.core, self->loader);
+  wp_registry_register_object (wp_core_get_registry (self->base.core),
+      self->loader);
 }
 
 static void
@@ -158,7 +159,8 @@ test_load (TestFixture *f, gconstpointer data)
   g_assert_nonnull (plugin);
   g_assert_true (WP_IS_TEST_PLUGIN (plugin));
   g_assert_true (WP_TEST_PLUGIN (plugin)->enabled);
-  g_assert_true (wp_core_test_feature (f->base.core, "feature.name123"));
+  g_assert_true (wp_registry_test_feature (wp_core_get_registry (f->base.core),
+      "feature.name123"));
 }
 
 static void
@@ -186,7 +188,8 @@ test_load_failure (TestFixture *f, gconstpointer data)
 
   g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, "fail");
   g_assert_null (plugin);
-  g_assert_false (wp_core_test_feature (f->base.core, "feature.fail"));
+  g_assert_false (wp_registry_test_feature (wp_core_get_registry (f->base.core),
+      "feature.fail"));
 }
 
 static void
@@ -212,18 +215,19 @@ test_dependencies (TestFixture *f, gconstpointer data)
     "five", "one", "seven", "ten", "eleven", "six", "two", "three", "four", "nine", NULL };
   g_assert_cmpstrv (f->loader->history->pdata, expected);
 
-  g_assert_true (wp_core_test_feature (f->base.core, "support.one"));
-  g_assert_true (wp_core_test_feature (f->base.core, "support.two"));
-  g_assert_true (wp_core_test_feature (f->base.core, "support.three"));
-  g_assert_true (wp_core_test_feature (f->base.core, "support.four"));
-  g_assert_true (wp_core_test_feature (f->base.core, "virtual.four"));
-  g_assert_true (wp_core_test_feature (f->base.core, "support.five"));
-  g_assert_true (wp_core_test_feature (f->base.core, "support.six"));
-  g_assert_false (wp_core_test_feature (f->base.core, "support.seven"));
-  g_assert_false (wp_core_test_feature (f->base.core, "support.eight"));
-  g_assert_true (wp_core_test_feature (f->base.core, "support.nine"));
-  g_assert_true (wp_core_test_feature (f->base.core, "support.ten"));
-  g_assert_true (wp_core_test_feature (f->base.core, "support.eleven"));
+  WpRegistry *reg = wp_core_get_registry (f->base.core);
+  g_assert_true (wp_registry_test_feature (reg, "support.one"));
+  g_assert_true (wp_registry_test_feature (reg, "support.two"));
+  g_assert_true (wp_registry_test_feature (reg, "support.three"));
+  g_assert_true (wp_registry_test_feature (reg, "support.four"));
+  g_assert_true (wp_registry_test_feature (reg, "virtual.four"));
+  g_assert_true (wp_registry_test_feature (reg, "support.five"));
+  g_assert_true (wp_registry_test_feature (reg, "support.six"));
+  g_assert_false (wp_registry_test_feature (reg, "support.seven"));
+  g_assert_false (wp_registry_test_feature (reg, "support.eight"));
+  g_assert_true (wp_registry_test_feature (reg, "support.nine"));
+  g_assert_true (wp_registry_test_feature (reg, "support.ten"));
+  g_assert_true (wp_registry_test_feature (reg, "support.eleven"));
 }
 
 static void
@@ -248,7 +252,8 @@ activate_components (TestFixture *f)
 
   g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, "one");
   g_assert_nonnull (plugin);
-  g_assert_true (wp_core_test_feature (f->base.core, "support.one"));
+  g_assert_true (wp_registry_test_feature (wp_core_get_registry (f->base.core),
+      "support.one"));
   g_assert_true (wp_object_test_active_features (WP_OBJECT (f->base.core),
       WP_CORE_FEATURE_CONNECTED | WP_CORE_FEATURE_COMPONENTS));
 }
@@ -261,7 +266,8 @@ assert_components_cleared (TestFixture *f)
 
   g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, "one");
   g_assert_null (plugin);
-  g_assert_false (wp_core_test_feature (f->base.core, "support.one"));
+  g_assert_false (wp_registry_test_feature (wp_core_get_registry (f->base.core),
+      "support.one"));
   g_assert_false (wp_object_test_active_features (WP_OBJECT (f->base.core),
       WP_CORE_FEATURE_COMPONENTS));
 }
@@ -281,7 +287,7 @@ test_deactivate_components (TestFixture *f, gconstpointer data)
   wp_object_manager_add_interest (om, WP_TYPE_CLIENT, NULL);
   g_signal_connect_swapped (om, "installed",
       G_CALLBACK (g_main_loop_quit), f->base.loop);
-  wp_core_install_object_manager (f->base.core, om);
+  wp_registry_install_object_manager (wp_core_get_registry (f->base.core), om);
   g_main_loop_run (f->base.loop);
   g_assert_cmpuint (wp_object_manager_get_n_objects (om), >, 0);
 }
@@ -306,7 +312,7 @@ test_components_only_setup (TestFixture *f, gconstpointer data)
     g_strdup_printf ("%s/component-loader.conf", g_getenv ("G_TEST_SRCDIR"));
   wp_base_test_fixture_setup (&f->base, WP_BASE_TEST_FLAG_DONT_CONNECT);
   f->loader = g_object_new (WP_TYPE_TEST_COMP_LOADER, NULL);
-  wp_core_register_object (f->base.core, f->loader);
+  wp_registry_register_object (wp_core_get_registry (f->base.core), f->loader);
 }
 
 static void

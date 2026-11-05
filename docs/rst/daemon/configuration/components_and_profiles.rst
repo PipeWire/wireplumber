@@ -111,7 +111,7 @@ when defining dependencies between components and also when defining profiles.
 When a component loads successfully, its feature is marked as provided,
 otherwise it is not. Whether a feature is provided or not can be checked at
 runtime in Lua scripts using the :func:`Core.test_feature` function and in C code
-using the :c:func:`wp_core_test_feature` function.
+using the :c:func:`wp_registry_test_feature` function.
 
 For a list of well-known features, see :ref:`config_features`.
 
