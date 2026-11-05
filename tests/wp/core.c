@@ -143,6 +143,39 @@ test_core_client_disconnected (TestFixture *f, gconstpointer data)
 }
 
 static void
+test_core_connection_dropped (TestFixture *f, gconstpointer data)
+{
+  WpConnection *connection = wp_core_get_connection (f->base.core);
+
+  g_signal_connect (f->om, "object-added",
+      G_CALLBACK (expect_object_added), f);
+
+  wp_object_manager_add_interest (f->om, WP_TYPE_CLIENT, NULL);
+  wp_registry_install_object_manager (wp_core_get_registry (f->base.core),
+      f->om);
+
+  /* connect */
+  connect_core (f->base.core, f);
+  g_assert_true (is_connected (f->base.core));
+
+  /* wait for the object manager to collect the client proxy */
+  while (!f->object_added)
+    g_main_context_iteration (f->base.context, TRUE);
+  g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 1);
+
+  /* destroy the pw_core, and with it the pw_registry proxy, before the
+     core is deactivated */
+  pw_core_disconnect (wp_connection_get_pw_core (connection));
+  g_assert_null (wp_connection_get_pw_core (connection));
+
+  /* deactivating the core detaches from the destroyed registry proxy */
+  disconnect_core (f->base.core);
+
+  g_assert_false (is_connected (f->base.core));
+  g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 0);
+}
+
+static void
 test_connection (TestFixture *f, gconstpointer data)
 {
   WpConnection *connection = wp_core_get_connection (f->base.core);
@@ -246,6 +279,8 @@ main (gint argc, gchar *argv[])
       test_core_setup, test_core_server_disconnected, test_core_teardown);
   g_test_add ("/wp/core/client-disconnected", TestFixture, NULL,
       test_core_setup, test_core_client_disconnected, test_core_teardown);
+  g_test_add ("/wp/core/connection-dropped", TestFixture, NULL,
+      test_core_setup, test_core_connection_dropped, test_core_teardown);
   g_test_add ("/wp/core/connection", TestFixture, NULL,
       test_core_setup, test_connection, test_core_teardown);
   g_test_add ("/wp/core/sync-seq", TestFixture, NULL,

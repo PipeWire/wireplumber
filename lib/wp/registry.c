@@ -101,6 +101,7 @@ struct _WpRegistry
 
   struct pw_registry *pw_registry;
   struct spa_hook listener;
+  struct spa_hook proxy_listener;
 
   GPtrArray *globals; // element-type: WpGlobal*
   GPtrArray *tmp_globals; // element-type: WpGlobal*
@@ -365,25 +366,65 @@ wp_registry_destroy_global (WpRegistry * self, guint32 id)
     pw_registry_destroy (self->pw_registry, id);
 }
 
+/* removes our hooks from the pw_registry proxy and forgets about it; the
+   hooks are zeroed, so that removing them again is a no-op */
+static void
+forget_pw_registry (WpRegistry *self)
+{
+  spa_hook_remove (&self->listener);
+  spa_hook_remove (&self->proxy_listener);
+  spa_zero (self->listener);
+  spa_zero (self->proxy_listener);
+  self->pw_registry = NULL;
+}
+
+/* the proxy is removed when the pw_core is disconnected; it is ours to
+   destroy, and not doing so would leave us attached to a dead pw_core */
+static void
+registry_proxy_removed (void *data)
+{
+  WpRegistry *self = data;
+  struct pw_proxy *proxy = (struct pw_proxy *) self->pw_registry;
+
+  forget_pw_registry (self);
+  pw_proxy_destroy (proxy);
+}
+
+static const struct pw_proxy_events registry_proxy_events = {
+  PW_VERSION_PROXY_EVENTS,
+  .removed = registry_proxy_removed,
+};
+
+/* starts watching the pipewire registry of pw_core; does nothing if already
+   attached, which can only be to pw_core, as the proxy is destroyed when the
+   pw_core it belongs to is disconnected */
 void
 wp_registry_attach (WpRegistry *self, struct pw_core *pw_core)
 {
+  g_return_if_fail (pw_core);
+
   if (self->pw_registry)
     return;
 
-  self->pw_registry = pw_core_get_registry (pw_core,
-      PW_VERSION_REGISTRY, 0);
+  /* drop any globals left from a previous connection */
+  wp_registry_detach (self);
+
+  self->pw_registry = pw_core_get_registry (pw_core, PW_VERSION_REGISTRY, 0);
+  pw_proxy_add_listener ((struct pw_proxy *) self->pw_registry,
+      &self->proxy_listener, &registry_proxy_events, self);
   pw_registry_add_listener (self->pw_registry, &self->listener,
       &registry_events, self);
 }
 
+/* stops watching the pipewire registry and drops all pipewire globals;
+   can be called any number of times, also after the proxy was removed */
 void
 wp_registry_detach (WpRegistry *self)
 {
   if (self->pw_registry) {
-    spa_hook_remove (&self->listener);
-    pw_proxy_destroy ((struct pw_proxy *) self->pw_registry);
-    self->pw_registry = NULL;
+    struct pw_proxy *proxy = (struct pw_proxy *) self->pw_registry;
+    forget_pw_registry (self);
+    pw_proxy_destroy (proxy);
   }
 
   /* remove pipewire globals */
