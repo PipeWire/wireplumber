@@ -86,7 +86,7 @@ struct _WpCore
   gboolean connection_lost;
 
   /* Registry info */
-  WpRegistry registry;
+  WpRegistry *registry;
 };
 
 enum {
@@ -104,13 +104,8 @@ G_DEFINE_TYPE (WpCore, wp_core, WP_TYPE_OBJECT)
 static void
 wp_core_clear_registry (WpCore *self)
 {
-  /* prevent bad things when called from within wp_registry_clear() */
-  if (!self->registry.objects)
-    return;
-
   /* this unloads the components, which are registered objects */
-  wp_registry_clear (&self->registry);
-  wp_registry_init (&self->registry);
+  wp_registry_clear (self->registry);
   wp_object_update_features (WP_OBJECT (self), 0, WP_CORE_FEATURE_COMPONENTS);
 }
 
@@ -132,7 +127,7 @@ static void
 wp_core_init (WpCore * self)
 {
   self->main_socket_fd = -1;
-  wp_registry_init (&self->registry);
+  self->registry = wp_registry_new (self);
 
   wp_core_register_object (self, g_object_new (WP_TYPE_INTERNAL_COMP_LOADER,
       NULL));
@@ -216,8 +211,9 @@ wp_core_finalize (GObject * obj)
   WpCore *self = WP_CORE (obj);
   WpConnection *conn;
 
-  /* Registry */
-  wp_registry_clear (&self->registry);
+  /* Registry; clear it explicitly, in case something else holds a ref */
+  wp_registry_clear (self->registry);
+  g_clear_object (&self->registry);
 
   /* Make sure we disconnect as the main context may outlive the core */
   conn = wp_main_context_get_connection (self->main_context);
@@ -352,8 +348,8 @@ wp_core_activate_execute_step (WpObject * object,
         break;
       }
       /* bind the registry together with the connection request */
-      if (!self->registry.pw_registry)
-        wp_registry_attach (&self->registry,
+      if (!self->registry->pw_registry)
+        wp_registry_attach (self->registry,
             wp_connection_get_pw_core (connection));
       break;
 
@@ -407,8 +403,9 @@ wp_core_deactivate (WpObject * object, WpObjectFeatures features)
     wp_core_clear_registry (self);
 
     /* stay connected; watch the pipewire registry again */
-    if (wp_connection_get_pw_core (connection) && self->registry.objects)
-      wp_registry_attach (&self->registry, wp_connection_get_pw_core (connection));
+    if (wp_connection_get_pw_core (connection))
+      wp_registry_attach (self->registry,
+          wp_connection_get_pw_core (connection));
   }
 }
 
@@ -532,12 +529,8 @@ wp_core_find_object (WpCore * self, GEqualFunc func, gconstpointer data)
 
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
 
-  /* prevent bad things when called from within wp_registry_clear() */
-  if (G_UNLIKELY (!self->registry.objects))
-    return NULL;
-
-  for (i = 0; i < self->registry.objects->len; i++) {
-    object = g_ptr_array_index (self->registry.objects, i);
+  for (i = 0; i < self->registry->objects->len; i++) {
+    object = g_ptr_array_index (self->registry->objects, i);
     if (func (object, data))
       return g_object_ref (object);
   }
@@ -562,22 +555,16 @@ wp_core_register_object (WpCore * self, gpointer obj)
   g_return_if_fail (WP_IS_CORE (self));
   g_return_if_fail (G_IS_OBJECT (obj));
 
-  /* prevent bad things when called from within wp_registry_clear() */
-  if (G_UNLIKELY (!self->registry.objects)) {
-    g_object_unref (obj);
-    return;
-  }
-
   /* ensure the registered object is associated with this core */
   if (WP_IS_OBJECT (obj)) {
     g_autoptr (WpCore) obj_core = wp_object_get_core (WP_OBJECT (obj));
     g_return_if_fail (obj_core == self);
   }
 
-  g_ptr_array_add (self->registry.objects, obj);
+  g_ptr_array_add (self->registry->objects, obj);
 
   /* notify object managers */
-  wp_registry_notify_add_object (&self->registry, obj);
+  wp_registry_notify_add_object (self->registry, obj);
 }
 
 /*!
@@ -593,14 +580,10 @@ wp_core_remove_object (WpCore * self, gpointer obj)
   g_return_if_fail (WP_IS_CORE (self));
   g_return_if_fail (G_IS_OBJECT (obj));
 
-  /* prevent bad things when called from within wp_registry_clear() */
-  if (G_UNLIKELY (!self->registry.objects))
-    return;
-
   /* notify object managers */
-  wp_registry_notify_rm_object (&self->registry, obj);
+  wp_registry_notify_rm_object (self->registry, obj);
 
-  g_ptr_array_remove_fast (self->registry.objects, obj);
+  g_ptr_array_remove_fast (self->registry->objects, obj);
 }
 
 /*!
@@ -614,18 +597,12 @@ wp_core_remove_object (WpCore * self, gpointer obj)
 gboolean
 wp_core_test_feature (WpCore * self, const gchar * feature)
 {
-  return g_ptr_array_find_with_equal_func (self->registry.features, feature,
+  return g_ptr_array_find_with_equal_func (self->registry->features, feature,
       g_str_equal, NULL);
 }
 
 WpRegistry *
 wp_core_get_registry (WpCore * self)
 {
-  return &self->registry;
-}
-
-WpCore *
-wp_registry_get_core (WpRegistry * self)
-{
-  return SPA_CONTAINER_OF (self, WpCore, registry);
+  return self->registry;
 }

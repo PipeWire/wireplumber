@@ -121,8 +121,9 @@ registry_global (void *data, uint32_t id, uint32_t permissions,
 {
   WpRegistry *self = data;
   GType gtype = find_proxy_instance_type (type, version);
+  g_autoptr (WpCore) core = wp_registry_get_core (self);
 
-  wp_debug_object (wp_registry_get_core (self),
+  wp_debug_object (core,
       "global:%u perm:0x%x type:%s/%u -> %s",
       id, permissions, type, version, g_type_name (gtype));
 
@@ -154,7 +155,8 @@ registry_global_remove (void *data, uint32_t id)
   g_return_if_fail (global &&
       global->flags & WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
 
-  wp_debug_object (wp_registry_get_core (self),
+  g_autoptr (WpCore) core = wp_registry_get_core (self);
+  wp_debug_object (core,
       "global removed:%u type:%s", id, g_type_name (global->type));
 
   wp_global_rm_flag (global, WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
@@ -166,9 +168,18 @@ static const struct pw_registry_events registry_events = {
   .global_remove = registry_global_remove,
 };
 
-void
+enum {
+  PROP_0,
+  PROP_CORE,
+};
+
+G_DEFINE_TYPE (WpRegistry, wp_registry, G_TYPE_OBJECT)
+
+static void
 wp_registry_init (WpRegistry *self)
 {
+  g_weak_ref_init (&self->core, NULL);
+
   self->globals =
       g_ptr_array_new_with_free_func ((GDestroyNotify) wp_global_unref);
   self->tmp_globals =
@@ -178,6 +189,85 @@ wp_registry_init (WpRegistry *self)
   self->features = g_ptr_array_new_with_free_func (g_free);
 }
 
+static void
+wp_registry_finalize (GObject * object)
+{
+  WpRegistry *self = WP_REGISTRY (object);
+
+  wp_registry_clear (self);
+
+  g_clear_pointer (&self->globals, g_ptr_array_unref);
+  g_clear_pointer (&self->tmp_globals, g_ptr_array_unref);
+  g_clear_pointer (&self->objects, g_ptr_array_unref);
+  g_clear_pointer (&self->object_managers, g_ptr_array_unref);
+  g_clear_pointer (&self->features, g_ptr_array_unref);
+  g_weak_ref_clear (&self->core);
+
+  G_OBJECT_CLASS (wp_registry_parent_class)->finalize (object);
+}
+
+static void
+wp_registry_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpRegistry *self = WP_REGISTRY (object);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_value_take_object (value, g_weak_ref_get (&self->core));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_registry_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpRegistry *self = WP_REGISTRY (object);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_weak_ref_set (&self->core, g_value_get_object (value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_registry_class_init (WpRegistryClass * klass)
+{
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+  object_class->finalize = wp_registry_finalize;
+  object_class->get_property = wp_registry_get_property;
+  object_class->set_property = wp_registry_set_property;
+
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "core", "The core of the registry",
+          WP_TYPE_CORE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+}
+
+WpRegistry *
+wp_registry_new (WpCore * core)
+{
+  return g_object_new (WP_TYPE_REGISTRY, "core", core, NULL);
+}
+
+/* (transfer full) (nullable): the core, or NULL if it is gone */
+WpCore *
+wp_registry_get_core (WpRegistry * self)
+{
+  g_return_val_if_fail (WP_IS_REGISTRY (self), NULL);
+  return g_weak_ref_get (&self->core);
+}
+
+/* removes all registered objects, pipewire globals and provided features */
 void
 wp_registry_clear (WpRegistry *self)
 {
@@ -195,35 +285,21 @@ wp_registry_clear (WpRegistry *self)
   /* remove all the registered objects
      this will normally also destroy the object managers, eventually, since
      they are normally ref'ed by modules, which are registered objects */
-  {
-    g_autoptr (GPtrArray) objlist = g_steal_pointer (&self->objects);
-
-    while (objlist->len > 0) {
-      g_autoptr (GObject) object = g_ptr_array_steal_index_fast (objlist,
-          objlist->len - 1);
-      wp_registry_notify_rm_object (self, object);
-    }
+  while (self->objects->len > 0) {
+    g_autoptr (GObject) object = g_ptr_array_steal_index_fast (self->objects,
+        self->objects->len - 1);
+    wp_registry_notify_rm_object (self, object);
   }
 
   /* in case there are any object managers left,
      remove the weak ref on them and let them be... */
-  {
-    g_autoptr (GPtrArray) object_mgrs;
-    GObject *om;
-
-    object_mgrs = g_steal_pointer (&self->object_managers);
-
-    while (object_mgrs->len > 0) {
-      om = g_ptr_array_steal_index_fast (object_mgrs, object_mgrs->len - 1);
-      g_object_weak_unref (om, object_manager_destroyed, self);
-    }
+  while (self->object_managers->len > 0) {
+    GObject *om = g_ptr_array_steal_index_fast (self->object_managers,
+        self->object_managers->len - 1);
+    g_object_weak_unref (om, object_manager_destroyed, self);
   }
 
-  /* free these last; the core may still be alive while the objects above
-     are removed, and object managers look at the globals when notified */
-  g_clear_pointer (&self->globals, g_ptr_array_unref);
-  g_clear_pointer (&self->tmp_globals, g_ptr_array_unref);
-  g_clear_pointer (&self->features, g_ptr_array_unref);
+  g_ptr_array_set_size (self->features, 0);
 }
 
 void
@@ -245,10 +321,9 @@ wp_registry_detach (WpRegistry *self)
   }
 
   /* remove pipewire globals */
-  GPtrArray *objlist = self->globals;
-  while (objlist && objlist->len > 0) {
-    g_autoptr (WpGlobal) global = g_ptr_array_steal_index_fast (objlist,
-        objlist->len - 1);
+  while (self->globals->len > 0) {
+    g_autoptr (WpGlobal) global = g_ptr_array_steal_index_fast (self->globals,
+        self->globals->len - 1);
 
     if (!global)
       continue;
@@ -267,10 +342,9 @@ wp_registry_detach (WpRegistry *self)
   }
 
   /* drop tmp globals as well */
-  objlist = self->tmp_globals;
-  while (objlist && objlist->len > 0) {
-    g_autoptr (WpGlobal) global = g_ptr_array_steal_index_fast (objlist,
-        objlist->len - 1);
+  while (self->tmp_globals->len > 0) {
+    g_autoptr (WpGlobal) global = g_ptr_array_steal_index_fast (
+        self->tmp_globals, self->tmp_globals->len - 1);
     wp_global_rm_flag (global, WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
   }
 }
@@ -281,10 +355,6 @@ expose_tmp_globals (WpCore *core)
   WpRegistry *self = wp_core_get_registry (core);
   g_autoptr (GPtrArray) tmp_globals = NULL;
   g_autoptr (GPtrArray) object_managers = NULL;
-
-  /* in case the registry was cleared in the meantime... */
-  if (G_UNLIKELY (!self->tmp_globals))
-    return G_SOURCE_REMOVE;
 
   /* steal the tmp_globals list and replace it with an empty one */
   tmp_globals = self->tmp_globals;
@@ -357,9 +427,10 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     WpGlobal ** new_global)
 {
   g_autoptr (WpGlobal) global = NULL;
-  WpCore *core = wp_registry_get_core (self);
+  g_autoptr (WpCore) core = wp_registry_get_core (self);
 
   g_return_if_fail (flag != 0);
+  g_return_if_fail (core);
 
   for (guint i = 0; i < self->tmp_globals->len; i++) {
     WpGlobal *g = g_ptr_array_index (self->tmp_globals, i);

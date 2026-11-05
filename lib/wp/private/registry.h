@@ -16,13 +16,20 @@
 
 G_BEGIN_DECLS
 
-typedef struct _WpRegistry WpRegistry;
 typedef struct _WpGlobal WpGlobal;
 
 /* registry */
 
+#define WP_TYPE_REGISTRY (wp_registry_get_type ())
+G_DECLARE_FINAL_TYPE (WpRegistry, wp_registry, WP, REGISTRY, GObject)
+
 struct _WpRegistry
 {
+  GObject parent;
+
+  /* the core owns the registry */
+  GWeakRef core;
+
   struct pw_registry *pw_registry;
   struct spa_hook listener;
 
@@ -33,7 +40,7 @@ struct _WpRegistry
   GPtrArray *features; // element-type: gchar*
 };
 
-void wp_registry_init (WpRegistry *self);
+WpRegistry * wp_registry_new (WpCore * core);
 void wp_registry_clear (WpRegistry *self);
 void wp_registry_attach (WpRegistry *self, struct pw_core *pw_core);
 void wp_registry_detach (WpRegistry *self);
@@ -56,11 +63,11 @@ wp_registry_mark_feature_provided (WpRegistry * reg, const gchar * feature)
   g_ptr_array_add (reg->features, g_strdup (feature));
 }
 
-WpCore * wp_registry_get_core (WpRegistry * self) G_GNUC_CONST;
+WpCore * wp_registry_get_core (WpRegistry * self);
 
 /* core */
 
-WpRegistry * wp_core_get_registry (WpCore * self) G_GNUC_CONST;
+WpRegistry * wp_core_get_registry (WpCore * self);
 
 /* global */
 
