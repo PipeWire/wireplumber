@@ -889,7 +889,7 @@ wp_core_get_vm_type (WpCore *self)
     {SPA_CPU_VM_KVM, "kvm"},
     {SPA_CPU_VM_QEMU, "qemu"},
     {SPA_CPU_VM_BOCHS, "bochs"},
-    {SPA_CPU_VM_XEN, "zen"},
+    {SPA_CPU_VM_XEN, "xen"},
     {SPA_CPU_VM_UML, "uml"},
     {SPA_CPU_VM_VMWARE, "vmware"},
     {SPA_CPU_VM_ORACLE, "oracle"},
