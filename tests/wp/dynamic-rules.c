@@ -108,9 +108,9 @@ test_dynamic_rules_setup (TestFixture *self, gconstpointer user_data)
 static void
 test_dynamic_rules_teardown (TestFixture *self, gconstpointer user_data)
 {
-  wp_base_test_fixture_teardown (&self->base);
-
   g_clear_object (&self->subject_node);
+
+  wp_base_test_fixture_teardown (&self->base);
 }
 
 static gboolean
