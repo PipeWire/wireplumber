@@ -234,6 +234,15 @@ wp_registry_finalize (GObject * object)
   WpRegistry *self = WP_REGISTRY (object);
 
   wp_registry_clear (self);
+  wp_registry_detach (self);
+
+  /* in case there are any object managers left,
+     remove the weak ref on them and let them be... */
+  while (self->object_managers->len > 0) {
+    GObject *om = g_ptr_array_steal_index_fast (self->object_managers,
+        self->object_managers->len - 1);
+    g_object_weak_unref (om, object_manager_destroyed, self);
+  }
 
   g_clear_pointer (&self->globals, g_ptr_array_unref);
   g_clear_pointer (&self->tmp_globals, g_ptr_array_unref);
@@ -313,36 +322,23 @@ wp_registry_get_core (WpRegistry * self)
   return g_weak_ref_get (&self->core);
 }
 
-/* removes all registered objects, pipewire globals and provided features */
+/* removes all registered objects and provided features; the pipewire globals
+   and the installed object managers are kept */
 void
 wp_registry_clear (WpRegistry *self)
 {
-  /* make sure all objects are disabled before clearing the registry; do this
-     before detaching, so that they stop watching the globals and do not
-     react to their removal */
+  /* disable all objects before removing them */
   for (guint i = 0; i < self->objects->len; i++) {
     gpointer o = g_ptr_array_index (self->objects, i);
     if (WP_IS_OBJECT (o))
       wp_object_deactivate (WP_OBJECT (o), WP_OBJECT_FEATURES_ALL);
   }
 
-  wp_registry_detach (self);
-
-  /* remove all the registered objects
-     this will normally also destroy the object managers, eventually, since
-     they are normally ref'ed by modules, which are registered objects */
+  /* now remove all the objects */
   while (self->objects->len > 0) {
     g_autoptr (GObject) object = g_ptr_array_steal_index_fast (self->objects,
         self->objects->len - 1);
     wp_registry_notify_rm_object (self, object);
-  }
-
-  /* in case there are any object managers left,
-     remove the weak ref on them and let them be... */
-  while (self->object_managers->len > 0) {
-    GObject *om = g_ptr_array_steal_index_fast (self->object_managers,
-        self->object_managers->len - 1);
-    g_object_weak_unref (om, object_manager_destroyed, self);
   }
 
   g_ptr_array_set_size (self->features, 0);

@@ -208,8 +208,10 @@ wp_core_finalize (GObject * obj)
   WpCore *self = WP_CORE (obj);
   WpConnection *conn;
 
-  /* Registry; clear it explicitly, in case something else holds a ref */
+  /* Registry; clear and detach it explicitly, in case something else holds
+     a ref, as the connection is closed below */
   wp_registry_clear (self->registry);
+  wp_registry_detach (self->registry);
   g_clear_object (&self->registry);
 
   /* Make sure we disconnect as the main context may outlive the core */
@@ -392,16 +394,12 @@ wp_core_deactivate (WpObject * object, WpObjectFeatures features)
 
   if (features & WP_CORE_FEATURE_CONNECTED) {
     wp_core_clear_registry (self);
+    wp_registry_detach (self->registry);
     self->connection_lost = FALSE;
     wp_connection_disconnect (connection);
     wp_object_update_features (object, 0, WP_CORE_FEATURE_CONNECTED);
   } else if (features & WP_CORE_FEATURE_COMPONENTS) {
     wp_core_clear_registry (self);
-
-    /* stay connected; watch the pipewire registry again */
-    if (wp_connection_get_pw_core (connection))
-      wp_registry_attach (self->registry,
-          wp_connection_get_pw_core (connection));
   }
 }
 
