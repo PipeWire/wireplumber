@@ -295,11 +295,13 @@ build_permissions_array (WpPermissionManager *self, WpClient *client)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) value = G_VALUE_INIT;
-  struct pw_permission def_perm = { PW_ID_ANY, self->default_perms };
   GArray *arr = g_array_new (FALSE, FALSE, sizeof (struct pw_permission));
 
-  /* Add default permissions */
-  g_array_append_val (arr, def_perm);
+  /* Add default permissions if set, otherwise leave PW_ID_ANY untouched */
+  if (self->default_perms != PW_PERM_INVALID) {
+    struct pw_permission def_perm = { PW_ID_ANY, self->default_perms };
+    g_array_append_val (arr, def_perm);
+  }
 
   /* Add core permissions if explicitly set (core is not in the OM since it is
    * implicit in the PipeWire connection and not sent through the registry) */
@@ -361,16 +363,23 @@ update_client_permissions (WpPermissionManager *self, WpClient *client)
 
   bound_id = wp_proxy_get_bound_id (WP_PROXY (client));
   perms = build_permissions_array (self, client);
+  if (perms->len == 0)
+    return;
 
-  wp_info_object (self,
-      "Updating permissions on client %u: any=%c%c%c%c%c len=%u",
-      bound_id,
-      !!(self->default_perms & PW_PERM_R) ? 'r' : '-',
-      !!(self->default_perms & PW_PERM_W) ? 'w' : '-',
-      !!(self->default_perms & PW_PERM_X) ? 'x' : '-',
-      !!(self->default_perms & PW_PERM_M) ? 'm' : '-',
-      !!(self->default_perms & PW_PERM_L) ? 'l' : '-',
-      perms->len);
+  if (self->default_perms != PW_PERM_INVALID)
+    wp_info_object (self,
+        "Updating permissions on client %u: any=%c%c%c%c%c len=%u",
+        bound_id,
+        !!(self->default_perms & PW_PERM_R) ? 'r' : '-',
+        !!(self->default_perms & PW_PERM_W) ? 'w' : '-',
+        !!(self->default_perms & PW_PERM_X) ? 'x' : '-',
+        !!(self->default_perms & PW_PERM_M) ? 'm' : '-',
+        !!(self->default_perms & PW_PERM_L) ? 'l' : '-',
+        perms->len);
+  else
+    wp_info_object (self,
+        "Updating permissions on client %u: any=(unchanged) len=%u",
+        bound_id, perms->len);
 
   wp_client_update_permissions_array (client, perms->len,
       (const struct pw_permission *) perms->data);
@@ -565,6 +574,9 @@ wp_permission_manager_new (WpCore * core)
 /*!
  * \brief Sets the default permissions that will be applied to all objects that
  * don't match any interest
+ *
+ * If set to PW_PERM_INVALID, the PW_ID_ANY permissions of the clients are left
+ * untouched, so only the objects that match an interest are updated.
  *
  * \ingroup wppermissionmanager
  * \param self the permission manager
