@@ -838,5 +838,6 @@ wp_dynamic_rules_remove_object (WpDynamicRules *self, WpGlobalProxy *object)
   g_return_if_fail (WP_IS_DYNAMIC_RULES (self));
   g_return_if_fail (WP_IS_GLOBAL_PROXY (object));
 
+  g_hash_table_remove (self->state, object);
   g_ptr_array_remove (self->objects, object);
 }
