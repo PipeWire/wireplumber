@@ -13,8 +13,8 @@ msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
 "issues\n"
-"POT-Creation-Date: 2026-10-28 11:51+0000\n"
-"PO-Revision-Date: 2026-11-02 09:31+0800\n"
+"POT-Creation-Date: 2026-11-02 22:30+0000\n"
+"PO-Revision-Date: 2026-11-06 08:05+0800\n"
 "Last-Translator: lumingzh <lumingzh@qq.com>\n"
 "Language-Team: Chinese (China) <i18n-zh@googlegroups.com>\n"
 "Language: zh_CN\n"
@@ -353,102 +353,102 @@ msgstr "摄像头发现超时设置（毫秒）"
 msgid "Discovery timeout"
 msgstr "发现超时"
 
-#. /wireplumber.settings.schema/node.features.audio.control-port/description
+#. /wireplumber.settings.schema/stream.default-capture-volume/description
 #: wireplumber.conf
-msgid "Enable control ports on audio nodes"
-msgstr "启用音频节点上的控制端口"
+msgid "The default volume for capture streams"
+msgstr "捕获媒体流的默认音量"
 
-#. /wireplumber.settings.schema/node.features.audio.control-port/name
-#: wireplumber.conf
-msgid "Control ports"
-msgstr "控制端口"
-
-#. /wireplumber.settings.schema/node.features.audio.monitor-ports/description
-#: wireplumber.conf
-msgid "Enable monitor ports on audio nodes"
-msgstr "启用音频节点上的监视器端口"
-
-#. /wireplumber.settings.schema/node.features.audio.monitor-ports/name
-#: wireplumber.conf
-msgid "Monitor ports"
-msgstr "监视器端口"
-
-#. /wireplumber.settings.schema/node.features.audio.mono/description
-#: wireplumber.conf
-msgid "Configure all audio device sink nodes in MONO"
-msgstr "在单声道中配置所有音频设备信宿节点"
-
-#. /wireplumber.settings.schema/node.features.audio.mono/name
-#: wireplumber.conf
-msgid "Mono"
-msgstr "单声道"
-
-#. /wireplumber.settings.schema/node.features.audio.no-dsp/description
-#: wireplumber.conf
-msgid "Do not convert audio to F32 format"
-msgstr "不要将音频转换至 F32 格式"
-
-#. /wireplumber.settings.schema/node.features.audio.no-dsp/name
-#: wireplumber.conf
-msgid "No DSP"
-msgstr "无 DSP"
-
-#. /wireplumber.settings.schema/node.restore-default-targets/description
-#: wireplumber.conf
-msgid "Remember and restore default audio/video input/output devices"
-msgstr "记住和恢复默认音频/视频的输入/输出设备"
-
-#. /wireplumber.settings.schema/node.restore-default-targets/name
-#: wireplumber.conf
-msgid "Restore default target"
-msgstr "恢复默认目标"
-
-#. /wireplumber.settings.schema/node.stream.default-capture-volume/description
-#: wireplumber.conf
-msgid "The default volume for capture nodes"
-msgstr "捕获节点的默认音量"
-
-#. /wireplumber.settings.schema/node.stream.default-capture-volume/name
+#. /wireplumber.settings.schema/stream.default-capture-volume/name
 #: wireplumber.conf
 msgid "Default capture volume"
 msgstr "默认捕获音量"
 
-#. /wireplumber.settings.schema/node.stream.default-media-role/description
+#. /wireplumber.settings.schema/stream.default-media-role/description
 #: wireplumber.conf
 msgid "Default media.role to assign on streams that do not specify it"
 msgstr "分配给未指定媒体角色的媒体流的默认 media.role"
 
-#. /wireplumber.settings.schema/node.stream.default-media-role/name
+#. /wireplumber.settings.schema/stream.default-media-role/name
 #: wireplumber.conf
 msgid "Default media role"
 msgstr "默认媒体角色"
 
-#. /wireplumber.settings.schema/node.stream.default-playback-volume/description
+#. /wireplumber.settings.schema/stream.default-playback-volume/description
 #: wireplumber.conf
-msgid "The default volume for playback nodes"
-msgstr "播放节点的默认音量"
+msgid "The default volume for playback streams"
+msgstr "播放媒体流的默认音量"
 
-#. /wireplumber.settings.schema/node.stream.default-playback-volume/name
+#. /wireplumber.settings.schema/stream.default-playback-volume/name
 #: wireplumber.conf
 msgid "Default playback volume"
 msgstr "默认播放音量"
 
-#. /wireplumber.settings.schema/node.stream.restore-props/description
+#. /wireplumber.settings.schema/stream.features.audio.control-port/description
+#: wireplumber.conf
+msgid "Enable control ports on audio streams"
+msgstr "启用音频流上的控制端口"
+
+#. /wireplumber.settings.schema/stream.features.audio.control-port/name
+#: wireplumber.conf
+msgid "Control ports"
+msgstr "控制端口"
+
+#. /wireplumber.settings.schema/stream.features.audio.monitor-ports/description
+#: wireplumber.conf
+msgid "Enable monitor ports on audio streams"
+msgstr "启用音频流上的监视器端口"
+
+#. /wireplumber.settings.schema/stream.features.audio.monitor-ports/name
+#: wireplumber.conf
+msgid "Monitor ports"
+msgstr "监视器端口"
+
+#. /wireplumber.settings.schema/stream.features.audio.mono/description
+#: wireplumber.conf
+msgid "Configure all audio device sink streams in MONO"
+msgstr "在单声道中配置所有音频设备信宿流"
+
+#. /wireplumber.settings.schema/stream.features.audio.mono/name
+#: wireplumber.conf
+msgid "Mono"
+msgstr "单声道"
+
+#. /wireplumber.settings.schema/stream.features.audio.no-dsp/description
+#: wireplumber.conf
+msgid "Do not convert audio to F32 format"
+msgstr "不要将音频转换至 F32 格式"
+
+#. /wireplumber.settings.schema/stream.features.audio.no-dsp/name
+#: wireplumber.conf
+msgid "No DSP"
+msgstr "无 DSP"
+
+#. /wireplumber.settings.schema/stream.restore-default-targets/description
+#: wireplumber.conf
+msgid "Remember and restore default audio/video input/output devices"
+msgstr "记住和恢复默认音频/视频的输入/输出设备"
+
+#. /wireplumber.settings.schema/stream.restore-default-targets/name
+#: wireplumber.conf
+msgid "Restore default target"
+msgstr "恢复默认目标"
+
+#. /wireplumber.settings.schema/stream.restore-props/description
 #: wireplumber.conf
 msgid "Remember and restore properties of streams"
 msgstr "记住和恢复媒体流属性"
 
-#. /wireplumber.settings.schema/node.stream.restore-props/name
+#. /wireplumber.settings.schema/stream.restore-props/name
 #: wireplumber.conf
 msgid "Restore properties"
 msgstr "恢复属性"
 
-#. /wireplumber.settings.schema/node.stream.restore-target/description
+#. /wireplumber.settings.schema/stream.restore-target/description
 #: wireplumber.conf
 msgid "Remember and restore stream targets"
 msgstr "记住和恢复媒体流目标"
 
-#. /wireplumber.settings.schema/node.stream.restore-target/name
+#. /wireplumber.settings.schema/stream.restore-target/name
 #: wireplumber.conf
 msgid "Restore target"
 msgstr "恢复目标"
