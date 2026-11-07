@@ -114,6 +114,22 @@ SimpleEventHook {
         object, group = parse_target_stream (
             metadata:find (node_id, "target.stream." .. port_group))
       end
+      -- "-1" is the follow-default marker that WirePlumber sets itself when a
+      -- stream got linked to the default target defined by node properties
+      -- (stream-utils.check_follow_default). It replaces the node properties
+      -- but must not override an explicit target set later in the metadata,
+      -- e.g. by pipewire-pulse on move-sink-input (0.5 kept the marker in
+      -- "target.node", which such a move overwrites). The metadata keys are
+      -- read with the same precedence as below.
+      if object == "-1" then
+        local explicit = metadata:find (node_id, "target.object")
+        if explicit == nil then
+          explicit = metadata:find (node_id, "target.node")
+        end
+        if explicit ~= nil and explicit ~= "-1" then
+          object = nil
+        end
+      end
       if object ~= nil then
         target_value = object
         target_port_group = group

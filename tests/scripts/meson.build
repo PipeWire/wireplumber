@@ -439,6 +439,13 @@ test(
 )
 
 test(
+  'scripts/linking/follow-default-move',
+  script_tester,
+  args: ['script-tests', 'linking/follow-default-move.lua'],
+  env: common_env,
+)
+
+test(
   'scripts/linking/unpositioned-target',
   script_tester,
   args: ['script-tests', 'linking/unpositioned-target.lua'],
