@@ -810,6 +810,10 @@ wp_stream_link_deactivate (WpObject * object, WpObjectFeatures features)
   WpStreamLink *self = WP_STREAM_LINK (object);
   guint current = wp_object_get_active_features (object);
 
+  /* Fail an activation still in progress, or its callback never runs. Its
+   * error step tears down what it has set up so far */
+  wp_object_abort_activation (object, "stream link deactivated");
+
   if (features & current & WP_STREAM_LINK_FEATURE_ACTIVE)
     stream_link_teardown (self);
 
