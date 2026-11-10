@@ -92,6 +92,7 @@ struct _WpStreamLinkPrivate
   guint n_pending_managed_links;
   GPtrArray *managed_links;
   gboolean reconfiguring;
+  gboolean links_lost;
 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpStreamLink, wp_stream_link,
@@ -218,6 +219,7 @@ on_stream_port_removed (WpStream *stream, WpPort *port, WpStreamLink *self)
     if (!wp_object_test_active_features (WP_OBJECT (link),
             WP_PIPEWIRE_OBJECT_FEATURE_INFO)) {
       g_ptr_array_remove_index_fast (priv->managed_links, i);
+      priv->links_lost = TRUE;
       continue;
     }
 
@@ -233,6 +235,7 @@ on_stream_port_removed (WpStream *stream, WpPort *port, WpStreamLink *self)
     WpLink *link = g_ptr_array_index (invalid_links, i);
     wp_object_deactivate (WP_OBJECT (link), WP_OBJECT_FEATURES_ALL);
     g_ptr_array_remove (priv->managed_links, link);
+    priv->links_lost = TRUE;
   }
 }
 
@@ -311,6 +314,7 @@ on_link_activated (WpLink * link, GAsyncResult * res, WpStreamLink * self)
   } else {
     wp_info_object (self, "activated link %p successfully", link);
     g_ptr_array_add (priv->managed_links, g_object_ref (link));
+    priv->links_lost = FALSE;
   }
 
   if (priv->n_pending_managed_links == 0)
@@ -335,6 +339,7 @@ on_link_activated_transition (WpLink * link, GAsyncResult * res,
     wp_info_object (self, "activated link %p successfully (pending %u)", link,
         priv->n_pending_managed_links);
     g_ptr_array_add (priv->managed_links, g_object_ref (link));
+    priv->links_lost = FALSE;
   }
 
   /* Check if we are done activating links */
@@ -784,6 +789,7 @@ stream_link_teardown (WpStreamLink * self)
     g_signal_handlers_disconnect_by_data (input_stream, self);
   priv->n_pending_managed_links = 0;
   g_ptr_array_set_size (priv->managed_links, 0);
+  priv->links_lost = FALSE;
 
   /* Activation info */
   priv->encoded_only = FALSE;
@@ -1274,6 +1280,43 @@ on_other_ports_configured (WpAudioStream *stream, WpAudioStreamLink *self)
   }
 }
 
+/* Links the streams again after the ports that the links were made of have
+ * been replaced behind our back, such as by another client that sets
+ * PortConfig on the node of one of the streams. A stream only emits
+ * ports-configured for a configuration requested through it, so nothing else
+ * gets us here; without this the stream link stays active with no links. */
+static void
+on_ports_changed (WpAudioStream *stream, WpAudioStreamLink *self)
+{
+  WpStreamLinkPrivate *priv =
+      wp_stream_link_get_instance_private (WP_STREAM_LINK (self));
+  g_autoptr (WpStream) output = NULL;
+  g_autoptr (WpStream) input = NULL;
+
+  if (!priv->links_lost || priv->reconfiguring || self->pending_transition)
+    return;
+
+  /* A request in flight ends with ports-configured, which links the streams */
+  output = g_weak_ref_get (&priv->output_stream);
+  input = g_weak_ref_get (&priv->input_stream);
+  if (!output || !input ||
+      wp_audio_stream_get_ports_state (WP_AUDIO_STREAM (output)) ==
+          WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING ||
+      wp_audio_stream_get_ports_state (WP_AUDIO_STREAM (input)) ==
+          WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING)
+    return;
+
+  /* Wait until the new ports are there */
+  if (wp_stream_get_ports_count (input) == 0 ||
+      (priv->is_output_stream_monitor ?
+          wp_stream_get_monitor_ports_count (output) :
+          wp_stream_get_ports_count (output)) == 0)
+    return;
+
+  wp_info_object (self, "the ports of a stream were replaced, linking again");
+  reconfigure_stream_link (self);
+}
+
 static void
 on_main_ports_error (WpAudioStream *stream, const gchar *message,
     WpAudioStreamLink *self)
@@ -1361,6 +1404,10 @@ wp_audio_stream_link_setup_ports (WpStreamLink *link, WpTransition *transition)
       G_CALLBACK (on_other_ports_error), self, 0);
   g_signal_connect_object (main, "ports-error",
       G_CALLBACK (on_main_ports_error), self, 0);
+  g_signal_connect_object (other, "ports-changed",
+      G_CALLBACK (on_ports_changed), self, 0);
+  g_signal_connect_object (main, "ports-changed",
+      G_CALLBACK (on_ports_changed), self, 0);
 
   configure_ports_and_link (self, transition);
 }
