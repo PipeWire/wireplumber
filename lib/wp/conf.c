@@ -55,6 +55,8 @@ struct _WpConf
 
   /* Private */
   GArray *conf_sections; /* element-type: WpConfSection */
+  GHashTable *merged_sections; /* gchar* -> WpSpaJson* */
+  GPtrArray *source_paths; /* element-type: gchar* */
   GPtrArray *files; /* element-type: GMappedFile* */
 };
 
@@ -74,6 +76,9 @@ wp_conf_init (WpConf * self)
 {
   self->conf_sections = g_array_new (FALSE, FALSE, sizeof (WpConfSection));
   g_array_set_clear_func (self->conf_sections, (GDestroyNotify) wp_conf_section_clear);
+  self->merged_sections = g_hash_table_new_full (g_str_hash, g_str_equal,
+      g_free, (GDestroyNotify) wp_spa_json_unref);
+  self->source_paths = g_ptr_array_new_with_free_func (g_free);
   self->files = g_ptr_array_new_with_free_func ((GDestroyNotify) g_mapped_file_unref);
 }
 
@@ -123,6 +128,8 @@ wp_conf_finalize (GObject * object)
   wp_conf_close (self);
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->conf_sections, g_array_unref);
+  g_clear_pointer (&self->merged_sections, g_hash_table_unref);
+  g_clear_pointer (&self->source_paths, g_ptr_array_unref);
   g_clear_pointer (&self->files, g_ptr_array_unref);
   g_clear_pointer (&self->name, g_free);
 
@@ -222,6 +229,7 @@ open_and_load_sections (WpConf * self, const gchar *path, GError ** error)
 
   if (!g_mapped_file_get_contents (file) || g_mapped_file_get_length (file) == 0) {
     wp_notice_object (self, "Ignoring empty configuration file at '%s'", path);
+    g_ptr_array_add (self->source_paths, g_strdup (path));
     return TRUE;
   }
 
@@ -314,6 +322,7 @@ open_and_load_sections (WpConf * self, const gchar *path, GError ** error)
   g_ptr_array_add (self->files, g_steal_pointer (&file));
   g_array_append_vals (self->conf_sections, sections->data, sections->len);
   g_array_set_clear_func (sections, NULL);
+  g_ptr_array_add (self->source_paths, g_strdup (path));
 
   return TRUE;
 }
@@ -337,6 +346,9 @@ wp_conf_open (WpConf * self, GError ** error)
   g_autofree gchar *path = NULL;
   g_autoptr (WpIterator) iterator = NULL;
   g_auto (GValue) value = G_VALUE_INIT;
+
+  /* Opening again may add more definitions, invalidating cached merges */
+  g_hash_table_remove_all (self->merged_sections);
 
   if (self->properties) {
     no_frags = wp_properties_get (self->properties, "no-fragments");
@@ -373,7 +385,7 @@ wp_conf_open (WpConf * self, GError ** error)
     }
   }
 
-  if (self->files->len == 0) {
+  if (self->source_paths->len == 0) {
     g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
         "Could not locate configuration file '%s'", self->name);
     return FALSE;
@@ -393,8 +405,10 @@ wp_conf_close (WpConf * self)
 {
   g_return_if_fail (WP_IS_CONF (self));
 
+  g_hash_table_remove_all (self->merged_sections);
   g_array_set_size (self->conf_sections, 0);
   g_ptr_array_set_size (self->files, 0);
+  g_ptr_array_set_size (self->source_paths, 0);
 }
 
 /*!
@@ -408,7 +422,7 @@ gboolean
 wp_conf_is_open (WpConf * self)
 {
   g_return_val_if_fail (WP_IS_CONF (self), FALSE);
-  return self->files->len > 0;
+  return self->source_paths->len > 0;
 }
 
 /*!
@@ -425,21 +439,96 @@ wp_conf_get_name (WpConf * self)
   return self->name;
 }
 
+/*!
+ * \brief Creates an iterator for the loaded configuration sections.
+ *
+ * Each iterator item is a WpSpaJson object. Depending on \a mode, the object
+ * contains "section.name", "section.location" and "section.value", or only a
+ * unique logical "section.name".
+ *
+ * \ingroup wpconf
+ * \param self the configuration
+ * \param mode the information to list
+ * \returns (transfer full): an iterator of WpSpaJson items
+ */
+WpIterator *
+wp_conf_new_sections_iterator (WpConf * self, WpConfSectionMode mode)
+{
+  g_autoptr (GPtrArray) items = NULL;
+  g_autoptr (GHashTable) seen = NULL;
+
+  g_return_val_if_fail (WP_IS_CONF (self), NULL);
+  g_return_val_if_fail (mode >= WP_CONF_SECTION_MODE_ALL &&
+      mode <= WP_CONF_SECTION_MODE_MERGED, NULL);
+
+  items = g_ptr_array_new_with_free_func ((GDestroyNotify) wp_spa_json_unref);
+  if (mode == WP_CONF_SECTION_MODE_MERGED)
+    seen = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+
+  for (guint i = 0; i < self->conf_sections->len; i++) {
+    WpConfSection *section =
+        &g_array_index (self->conf_sections, WpConfSection, i);
+
+    if (mode == WP_CONF_SECTION_MODE_ALL) {
+      g_ptr_array_add (items, wp_spa_json_new_object (
+          "section.name", "s", section->name,
+          "section.location", "s", section->location,
+          "section.value", "J", section->value,
+          NULL));
+    } else {
+      const gchar *name = section->name;
+      if (g_str_has_prefix (name, OVERRIDE_SECTION_PREFIX))
+        name += strlen (OVERRIDE_SECTION_PREFIX);
+
+      if (g_hash_table_add (seen, g_strdup (name))) {
+        g_ptr_array_add (items, wp_spa_json_new_object (
+            "section.name", "s", name, NULL));
+      }
+    }
+  }
+
+  return wp_iterator_new_ptr_array (g_steal_pointer (&items), WP_TYPE_SPA_JSON);
+}
+
+/*!
+ * \brief Creates an iterator for the loaded configuration file locations.
+ *
+ * Each iterator item is a WpSpaJson object containing "section.location".
+ *
+ * \ingroup wpconf
+ * \param self the configuration
+ * \returns (transfer full): an iterator of WpSpaJson items
+ */
+WpIterator *
+wp_conf_new_locations_iterator (WpConf * self)
+{
+  g_autoptr (GPtrArray) items = NULL;
+
+  g_return_val_if_fail (WP_IS_CONF (self), NULL);
+
+  items = g_ptr_array_new_with_free_func ((GDestroyNotify) wp_spa_json_unref);
+
+  for (guint i = 0; i < self->source_paths->len; i++) {
+    const gchar *path = g_ptr_array_index (self->source_paths, i);
+    g_ptr_array_add (items, wp_spa_json_new_object (
+        "section.location", "s", path, NULL));
+  }
+
+  return wp_iterator_new_ptr_array (g_steal_pointer (&items), WP_TYPE_SPA_JSON);
+}
+
 static WpSpaJson *
 ensure_merged_section (WpConf * self, const gchar *section)
 {
   g_autoptr (WpSpaJson) merged = NULL;
   WpConfSection *merged_section = NULL;
+  WpSpaJson *cached;
 
   /* check if the section is already merged */
-  for (guint i = 0; i < self->conf_sections->len; i++) {
-    WpConfSection *s = &g_array_index (self->conf_sections, WpConfSection, i);
-    if (g_str_equal (s->name, section)) {
-      if (!s->location) {
-        wp_debug_object (self, "section %s is already merged", section);
-        return wp_spa_json_ref (s->value);
-      }
-    }
+  cached = g_hash_table_lookup (self->merged_sections, section);
+  if (cached) {
+    wp_debug_object (self, "section %s is already merged", section);
+    return wp_spa_json_ref (cached);
   }
 
   /* Iterate over the sections and merge them */
@@ -480,20 +569,18 @@ ensure_merged_section (WpConf * self, const gchar *section)
 
   /* cache the result */
   if (merged_section) {
-    /* if the merged json came from a single location, just clear
-       the location from that WpConfSection to mark it as the result */
     wp_info_object (self, "section '%s' is used as-is from '%s'", section,
         merged_section->location);
-    g_clear_pointer (&merged_section->location, g_free);
   } else if (merged) {
-    /* if the merged json came from multiple locations, create a new
-       WpConfSection to store it */
-    WpConfSection s = { g_strdup (section), wp_spa_json_ref (merged), NULL };
-    g_array_append_val (self->conf_sections, s);
     wp_info_object (self, "section '%s' is merged from multiple locations",
         section);
   } else {
     wp_info_object (self, "section '%s' is not defined", section);
+  }
+
+  if (merged) {
+    g_hash_table_insert (self->merged_sections, g_strdup (section),
+        wp_spa_json_ref (merged));
   }
 
   return g_steal_pointer (&merged);
