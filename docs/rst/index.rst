@@ -51,6 +51,7 @@ Table of Contents
    :caption: Man Pages
 
    man/wireplumber.rst
+   man/wpconfig.rst
    man/wpctl.rst
    man/wpdot.rst
    man/wpexec.rst

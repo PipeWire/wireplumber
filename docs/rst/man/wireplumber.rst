@@ -137,7 +137,7 @@ Exit codes follow the conventions of **sysexits.h**\ (3head):
 SEE ALSO
 --------
 
-**wpctl**\ (1), **wpdot**\ (1), **wpexec**\ (1), **pipewire**\ (1),
-**pw-cli**\ (1), **pw-dump**\ (1), **sysexits.h**\ (3head)
+**wpconfig**\ (1), **wpctl**\ (1), **wpdot**\ (1), **wpexec**\ (1),
+**pipewire**\ (1), **pw-cli**\ (1), **pw-dump**\ (1), **sysexits.h**\ (3head)
 
 WirePlumber Documentation: https://pipewire.pages.freedesktop.org/wireplumber/

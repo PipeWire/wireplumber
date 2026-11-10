@@ -26,4 +26,10 @@ executable('wpexec',
   dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep],
 )
 
+executable('wpconfig',
+  'wpconfig.c',
+  install: true,
+  dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep],
+)
+
 spa_json_po = files('spa-json-po.py')
