@@ -25,12 +25,12 @@ test_permission_manager_setup (TestFixture * f, gconstpointer data)
   /* find the client object of the "client" core on the sm core */
   client_id = wp_connection_get_own_bound_id (
       wp_core_get_connection (f->base.client_core));
-  om = wp_object_manager_new ();
+  om = wp_object_manager_new (f->base.core);
   wp_object_manager_add_interest (om, WP_TYPE_CLIENT,
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", client_id, NULL);
   wp_object_manager_request_object_features (om, WP_TYPE_CLIENT,
       WP_OBJECT_FEATURES_ALL);
-  test_ensure_object_manager_is_installed (om, f->base.core, f->base.loop);
+  test_ensure_object_manager_is_installed (om, f->base.loop);
 
   f->client = wp_object_manager_lookup (om, WP_TYPE_CLIENT, NULL);
   g_assert_nonnull (f->client);

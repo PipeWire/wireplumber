@@ -118,10 +118,19 @@ construct_params_pod (WpSpaJson * params_j)
 }
 
 static void
-on_om_installed (WpObjectManager * om, Data * data)
+on_om_installed (WpObjectManager * om, GAsyncResult * res, Data * data)
 {
-  g_autoptr (WpPipewireObject) pwobj = wp_object_manager_lookup (om, WP_TYPE_NODE,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", data->arg_id, NULL);
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    g_main_loop_quit (data->loop);
+    return;
+  }
+
+  g_autoptr (WpPipewireObject) pwobj = wp_object_manager_lookup (om,
+      WP_TYPE_NODE, WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u",
+      data->arg_id, NULL);
 
   wp_pipewire_object_set_param (pwobj, "Props", 0,
       construct_params_pod (data->arg_params));
@@ -141,14 +150,14 @@ on_core_activated (WpObject * core, GAsyncResult * res, Data * data)
     return;
   }
 
-  data->om = wp_object_manager_new ();
+  data->om = wp_object_manager_new (data->core);
   wp_object_manager_add_interest (data->om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", data->arg_id, NULL);
   wp_object_manager_request_object_features (data->om, WP_TYPE_NODE,
       WP_PIPEWIRE_OBJECT_FEATURES_ALL);
-  g_signal_connect (data->om, "installed", G_CALLBACK (on_om_installed), data);
-  wp_registry_install_object_manager (wp_core_get_registry (data->core),
-      data->om);
+  wp_object_activate (WP_OBJECT (data->om),
+      WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+      (GAsyncReadyCallback) on_om_installed, data);
 }
 
 int

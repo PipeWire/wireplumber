@@ -15,7 +15,6 @@
 G_BEGIN_DECLS
 
 typedef struct _WpCore WpCore;
-typedef struct _WpObjectManager WpObjectManager;
 
 /*!
  * \brief The WpRegistry GType
@@ -37,10 +36,6 @@ void wp_registry_register_object (WpRegistry * self, gpointer obj);
 
 WP_API
 void wp_registry_remove_object (WpRegistry * self, gpointer obj);
-
-WP_API
-void wp_registry_install_object_manager (WpRegistry * self,
-    WpObjectManager * om);
 
 WP_API
 gboolean wp_registry_test_feature (WpRegistry * self, const gchar * feature);

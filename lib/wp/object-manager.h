@@ -17,20 +17,25 @@
 G_BEGIN_DECLS
 
 /*!
+ * \brief Flags to be used as WpObjectFeatures on WpObjectManager.
+ * \ingroup wpobjectmanager
+ */
+typedef enum { /*< flags >*/
+  /*! the object manager is installed and its initial objects are ready */
+  WP_OBJECT_MANAGER_FEATURE_INSTALLED = (1 << 0),
+} WpObjectManagerFeatures;
+
+/*!
  * \brief The WpObjectManager GType
  * \ingroup wpobjectmanager
  */
 #define WP_TYPE_OBJECT_MANAGER (wp_object_manager_get_type ())
 WP_API
-G_DECLARE_FINAL_TYPE (WpObjectManager, wp_object_manager, WP, OBJECT_MANAGER, GObject)
+G_DECLARE_FINAL_TYPE (WpObjectManager, wp_object_manager, WP, OBJECT_MANAGER,
+    WpObject)
 
 WP_API
-WpObjectManager * wp_object_manager_new (void);
-
-/* installation */
-
-WP_API
-gboolean wp_object_manager_is_installed (WpObjectManager * self);
+WpObjectManager * wp_object_manager_new (WpCore * core);
 
 /* interest */
 

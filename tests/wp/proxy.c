@@ -18,7 +18,7 @@ static void
 test_proxy_setup (TestFixture *self, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&self->base, 0);
-  self->om = wp_object_manager_new ();
+  self->om = wp_object_manager_new (self->base.core);
 }
 
 static void
@@ -49,9 +49,8 @@ test_proxy_basic_object_added (WpObjectManager *om, WpGlobalProxy *proxy,
   g_assert_nonnull (proxy);
   {
     g_autoptr (WpCore) pcore = NULL;
-    g_autoptr (WpCore) omcore = NULL;
+    g_autoptr (WpCore) omcore = wp_object_get_core (WP_OBJECT (om));
     g_object_get (proxy, "core", &pcore, NULL);
-    g_object_get (om, "core", &omcore, NULL);
     g_assert_nonnull (pcore);
     g_assert_nonnull (omcore);
     g_assert_true (pcore == omcore);
@@ -83,8 +82,7 @@ test_proxy_basic (TestFixture *fixture, gconstpointer data)
       (GCallback) test_proxy_basic_object_added, fixture);
 
   wp_object_manager_add_interest (fixture->om, WP_TYPE_CLIENT, NULL);
-  wp_registry_install_object_manager (wp_core_get_registry (fixture->base.core),
-      fixture->om);
+  test_object_manager_install (fixture->om);
 
   g_main_loop_run (fixture->base.loop);
 }

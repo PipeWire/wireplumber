@@ -68,12 +68,17 @@ Constructors
 Methods
 ~~~~~~~
 
-.. function:: ObjectManager.activate(self)
+.. function:: ObjectManager.activate(self, [callback])
 
-   Activates the object manager.
-   Binds :c:func:`wp_registry_install_object_manager`.
+   Installs the object manager by activating
+   ``Feature.ObjectManager.INSTALLED``. The object manager can be uninstalled
+   again with ``om:deactivate(Feature.ObjectManager.INSTALLED)``.
+   Binds :c:func:`wp_object_activate`.
 
    :param self: the object manager
+   :param function callback: optional; called as ``callback(om, err)`` once
+     the object manager is installed and its initial objects are ready.
+     ``err`` is nil on success
 
 .. function:: ObjectManager.get_n_objects(self)
 

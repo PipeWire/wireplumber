@@ -12,6 +12,7 @@
 #include "core.h"
 #include "global-proxy.h"
 #include "object-interest.h"
+#include "object-manager.h"
 #include "spa-json.h"
 
 G_BEGIN_DECLS

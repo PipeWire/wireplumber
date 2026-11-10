@@ -57,6 +57,15 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
 }
 
 static void
+on_metadata_om_installed (WpObjectManager * om, GAsyncResult * res, gpointer d)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error))
+    wp_warning_object (om, "failed to install: %s", error->message);
+}
+
+static void
 wp_log_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpLogSettingsPlugin * self = WP_LOG_SETTINGS_PLUGIN (plugin);
@@ -64,7 +73,7 @@ wp_log_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   g_return_if_fail (core);
 
   /* Create the metadata object manager */
-  self->metadata_om = wp_object_manager_new ();
+  self->metadata_om = wp_object_manager_new (core);
   wp_object_manager_add_interest (self->metadata_om, WP_TYPE_METADATA,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "settings",
       NULL);
@@ -72,8 +81,9 @@ wp_log_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
       WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
   g_signal_connect_object (self->metadata_om, "object-added",
       G_CALLBACK (on_metadata_added), self, 0);
-  wp_registry_install_object_manager (wp_core_get_registry (core),
-      self->metadata_om);
+  wp_object_activate (WP_OBJECT (self->metadata_om),
+      WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+      (GAsyncReadyCallback) on_metadata_om_installed, NULL);
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }

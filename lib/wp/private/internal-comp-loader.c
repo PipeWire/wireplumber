@@ -704,8 +704,16 @@ wp_component_array_load_task_new (WpSpaJson * json, WpProperties * profile,
 /*** built-in components ***/
 
 static void
-ensure_no_media_session_om_installed (WpObjectManager * om, GTask * task)
+ensure_no_media_session_om_installed (WpObjectManager * om, GAsyncResult * res,
+    gpointer data)
 {
+  g_autoptr (GTask) task = G_TASK (data);
+  GError *error = NULL;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    g_task_return_error (task, error);
+    return;
+  }
   if (wp_object_manager_get_n_objects (om) > 0) {
     g_task_return_new_error (task,
         WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
@@ -726,7 +734,7 @@ ensure_no_media_session_task_idle (GTask * task)
 static void
 ensure_no_media_session (GTask * task, WpCore * core, WpSpaJson * args)
 {
-  WpObjectManager *om = wp_object_manager_new ();
+  WpObjectManager *om = wp_object_manager_new (core);
 
   wp_info_object (core, "checking if pipewire-media-session is running...");
 
@@ -742,9 +750,9 @@ ensure_no_media_session (GTask * task, WpCore * core, WpSpaJson * args)
   wp_object_manager_add_interest (om, WP_TYPE_CLIENT,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "application.name", "=s", "pipewire-media-session", NULL);
-  g_signal_connect_object (om, "installed",
-      G_CALLBACK (ensure_no_media_session_om_installed), task, 0);
-  wp_registry_install_object_manager (wp_core_get_registry (core), om);
+  wp_object_activate (WP_OBJECT (om), WP_OBJECT_MANAGER_FEATURE_INSTALLED,
+      NULL, (GAsyncReadyCallback) ensure_no_media_session_om_installed,
+      g_object_ref (task));
 }
 
 /* Builds the properties of a client context from those of the main core's

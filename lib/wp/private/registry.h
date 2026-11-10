@@ -11,6 +11,7 @@
 
 #include "core.h"
 #include "global-proxy.h"
+#include "object-manager.h"
 
 #include <pipewire/pipewire.h>
 
@@ -37,6 +38,8 @@ void wp_registry_notify_add_object (WpRegistry * self, gpointer object);
 void wp_registry_notify_rm_object (WpRegistry * self, gpointer object);
 
 void wp_registry_add_object_manager (WpRegistry * self,
+    WpObjectManager * om);
+void wp_registry_remove_object_manager (WpRegistry * self,
     WpObjectManager * om);
 
 void wp_registry_mark_feature_provided (WpRegistry * self,

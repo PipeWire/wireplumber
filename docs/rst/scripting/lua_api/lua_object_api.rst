@@ -89,6 +89,7 @@ Constant                                     Applies to
 ``Feature.Metadata.DATA``                    :ref:`Metadata <lua_proxies_api>`
 ``Feature.Stream.ACTIVE``                    :ref:`Stream <lua_streams_api>`
 ``Feature.StreamLink.ACTIVE``                :ref:`StreamLink <lua_stream_links_api>`
+``Feature.ObjectManager.INSTALLED``          :ref:`ObjectManager <lua_object_manager_api>`
 ============================================ =====================================
 
 The ``Features`` table provides convenient combinations:

@@ -292,9 +292,21 @@ on_node_params_changed (WpNode * node, const gchar *param_name,
 }
 
 static void
-on_ports_om_installed (WpObjectManager *ports_om, WpTransition * transition)
+on_ports_om_installed (WpObjectManager *ports_om, GAsyncResult *res, gpointer d)
 {
+  g_autoptr (WpTransition) transition = WP_TRANSITION (d);
   WpStream *self = wp_transition_get_source_object (transition);
+  WpStreamPrivate *priv = wp_stream_get_instance_private (self);
+  g_autoptr (GError) error = NULL;
+
+  /* ignore an object manager that was dropped while installing */
+  if (ports_om != priv->ports_om)
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (ports_om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
 
   /* Let the sub-class complete the activation */
   if (!WP_STREAM_GET_CLASS (self)->enable_active) {
@@ -359,7 +371,7 @@ wp_stream_activate_execute_step (WpObject * object,
 
     /* Create the ports object manager */
     g_return_if_fail (priv->ports_om == NULL);
-    priv->ports_om = wp_object_manager_new ();
+    priv->ports_om = wp_object_manager_new (core);
     wp_stream_add_ports_interests (self, priv->ports_om);
 
     /* Handle ports object manager signals */
@@ -371,12 +383,11 @@ wp_stream_activate_execute_step (WpObject * object,
         G_CALLBACK (on_port_removed), self, 0);
     g_signal_connect_object (priv->ports_om, "objects-changed",
         G_CALLBACK (on_ports_changed), self, 0);
-    g_signal_connect_object (priv->ports_om, "installed",
-        G_CALLBACK (on_ports_om_installed), transition, 0);
 
     /* Install ports object manager */
-    wp_registry_install_object_manager (wp_core_get_registry (core),
-        priv->ports_om);
+    wp_object_activate (WP_OBJECT (priv->ports_om),
+        WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+        (GAsyncReadyCallback) on_ports_om_installed, g_object_ref (transition));
     break;
   }
   case WP_TRANSITION_STEP_ERROR:

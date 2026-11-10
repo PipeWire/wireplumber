@@ -179,8 +179,21 @@ on_metadata_added (WpObjectManager *om, WpObject *obj,
 }
 
 static void
-on_om_installed (WpObjectManager * om, WpDefaultStreamsApi * self)
+on_om_installed (WpObjectManager * om, GAsyncResult * res, gpointer d)
 {
+  g_autoptr (WpTransition) transition = WP_TRANSITION (d);
+  WpDefaultStreamsApi * self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+
+  /* ignore an object manager that was dropped while installing */
+  if (om != self->om)
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
@@ -192,7 +205,7 @@ wp_default_streams_api_enable (WpPlugin * plugin, WpTransition * transition)
   g_return_if_fail (core);
 
   /* Create the metadata object manager */
-  self->om = wp_object_manager_new ();
+  self->om = wp_object_manager_new (core);
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
       NULL);
@@ -201,9 +214,9 @@ wp_default_streams_api_enable (WpPlugin * plugin, WpTransition * transition)
       WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
   g_signal_connect_object (self->om, "object-added",
       G_CALLBACK (on_metadata_added), self, 0);
-  g_signal_connect_object (self->om, "installed",
-      G_CALLBACK (on_om_installed), self, 0);
-  wp_registry_install_object_manager (wp_core_get_registry (core), self->om);
+  wp_object_activate (WP_OBJECT (self->om),
+      WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+      (GAsyncReadyCallback) on_om_installed, g_object_ref (transition));
 }
 
 static void

@@ -597,15 +597,25 @@ on_link_removed (WpObjectManager *om, WpLink *link, WpStreamLink *self)
 }
 
 static void
-on_links_om_installed (WpObjectManager *om, gpointer d)
+on_links_om_installed (WpObjectManager *om, GAsyncResult *res, gpointer d)
 {
-  WpTransition *transition = WP_TRANSITION (d);
+  g_autoptr (WpTransition) transition = WP_TRANSITION (d);
   WpStreamLink *self = wp_transition_get_source_object (transition);
   WpStreamLinkPrivate *priv = wp_stream_link_get_instance_private (self);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
   g_autoptr (WpStream) output_stream = NULL;
   g_autoptr (WpStream) input_stream = NULL;
+  g_autoptr (GError) error = NULL;
+
+  /* ignore an object manager that was dropped while installing */
+  if (om != priv->links_om)
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
 
   /* Handle future added and removed objects */
   g_signal_connect_object (priv->links_om, "object-added",
@@ -739,7 +749,7 @@ wp_stream_link_activate (WpStreamLink *self, WpTransition *transition)
 
   /* Create and install links object manager */
   g_return_if_fail (priv->links_om == NULL);
-  priv->links_om = wp_object_manager_new ();
+  priv->links_om = wp_object_manager_new (core);
   wp_object_manager_add_interest (priv->links_om, WP_TYPE_LINK,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       PW_KEY_LINK_OUTPUT_NODE, "=u", out_node_id,
@@ -748,10 +758,9 @@ wp_stream_link_activate (WpStreamLink *self, WpTransition *transition)
       NULL);
   wp_object_manager_request_object_features (priv->links_om,
       WP_TYPE_LINK, WP_OBJECT_FEATURES_ALL);
-  g_signal_connect_object (priv->links_om, "installed",
-      G_CALLBACK (on_links_om_installed), transition, 0);
-  wp_registry_install_object_manager (wp_core_get_registry (core),
-      priv->links_om);
+  wp_object_activate (WP_OBJECT (priv->links_om),
+      WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+      (GAsyncReadyCallback) on_links_om_installed, g_object_ref (transition));
 }
 
 /* Undoes everything the activation set up */

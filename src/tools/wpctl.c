@@ -33,6 +33,7 @@ struct _WpCtl
   GMainLoop *loop;
   WpCore *core;
   WpObjectManager *om;
+  void (*run) (WpCtl *);
   guint pending_plugins;
   gint exit_code;
   gboolean streams_requested;
@@ -3446,13 +3447,29 @@ on_plugin_loaded (WpCore * core, GAsyncResult * res, WpCtl *ctl)
 }
 
 static void
+on_om_installed (WpObjectManager * om, GAsyncResult * res, WpCtl * ctl)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    ctl->exit_code = 1;
+    g_main_loop_quit (ctl->loop);
+    return;
+  }
+
+  ctl->run (ctl);
+}
+
+static void
 on_plugin_ready (WpCtl * ctl)
 {
   if (--ctl->pending_plugins == 0) {
     g_autoptr (WpPlugin) mixer_api = wp_plugin_find (ctl->core, "mixer-api");
     g_object_set (mixer_api, "scale", 1 /* cubic */, NULL);
-    wp_registry_install_object_manager (wp_core_get_registry (ctl->core),
-        ctl->om);
+    wp_object_activate (WP_OBJECT (ctl->om),
+        WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+        (GAsyncReadyCallback) on_om_installed, ctl);
   }
 }
 
@@ -3486,7 +3503,7 @@ main (gint argc, gchar **argv)
   ctl.loop = g_main_loop_new (NULL, FALSE);
   ctl.core = wp_core_new (NULL, NULL, wp_properties_new (PW_KEY_REMOTE_NAME,
           ("[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]"), NULL));
-  ctl.om = wp_object_manager_new ();
+  ctl.om = wp_object_manager_new (ctl.core);
 
   /* find the subcommand */
   if (argc > 1) {
@@ -3580,8 +3597,7 @@ main (gint argc, gchar **argv)
   /* run */
   g_signal_connect_swapped (wp_core_get_connection (ctl.core), "disconnected",
       (GCallback) g_main_loop_quit, ctl.loop);
-  g_signal_connect_swapped (ctl.om, "installed",
-      (GCallback) cmd->run, &ctl);
+  ctl.run = cmd->run;
 
   g_main_loop_run (ctl.loop);
 

@@ -614,6 +614,21 @@ wp_dot_run (WpDot * self)
 }
 
 static void
+on_om_installed (WpObjectManager *om, GAsyncResult *res, WpDot *dot)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    dot->exit_code = 1;
+    g_main_loop_quit (dot->loop);
+    return;
+  }
+
+  wp_dot_run (dot);
+}
+
+static void
 on_singleton_activated (WpObject *o, GAsyncResult *res, WpDot *dot)
 {
   g_autoptr (GError) error = NULL;
@@ -629,8 +644,9 @@ on_singleton_activated (WpObject *o, GAsyncResult *res, WpDot *dot)
       g_object_ref (o));
 
   if (--dot->pending_plugins == 0)
-    wp_registry_install_object_manager (wp_core_get_registry (dot->core),
-        dot->om);
+    wp_object_activate (WP_OBJECT (dot->om),
+        WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+        (GAsyncReadyCallback) on_om_installed, dot);
 }
 
 static void
@@ -707,7 +723,7 @@ main (gint argc, gchar **argv)
       PW_KEY_REMOTE_NAME,
       ("[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]"),
       NULL));
-  dot.om = wp_object_manager_new ();
+  dot.om = wp_object_manager_new (dot.core);
 
   if (!wp_dot_prepare (&dot, &error)) {
     fprintf (stderr, "%s\n", error->message);
@@ -728,8 +744,6 @@ main (gint argc, gchar **argv)
 
   g_signal_connect_swapped (wp_core_get_connection (dot.core), "disconnected",
       (GCallback) g_main_loop_quit, dot.loop);
-  g_signal_connect_swapped (dot.om, "installed",
-      (GCallback) wp_dot_run, &dot);
 
   g_main_loop_run (dot.loop);
   return dot.exit_code;

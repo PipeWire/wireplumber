@@ -434,10 +434,20 @@ on_objects_changed (WpObjectManager *om, gpointer d)
 }
 
 static void
-on_object_manager_installed (WpObjectManager *om, gpointer d)
+on_object_manager_installed (WpObjectManager *om, GAsyncResult *res, gpointer d)
 {
-  WpTransition * transition = WP_TRANSITION (d);
+  g_autoptr (WpTransition) transition = WP_TRANSITION (d);
   WpPermissionManager * self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+
+  /* ignore an object manager that was dropped while installing */
+  if (om != self->om)
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
 
   wp_object_update_features (WP_OBJECT (self), WP_PERMISSION_MANAGER_LOADED, 0);
 }
@@ -454,7 +464,7 @@ wp_permission_manager_activate_execute_step (WpObject * object,
     case STEP_LOAD: {
       /* Install object manager */
       g_clear_object (&self->om);
-      self->om = wp_object_manager_new ();
+      self->om = wp_object_manager_new (core);
       wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
       wp_object_manager_request_object_features (self->om,
           WP_TYPE_GLOBAL_PROXY, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
@@ -464,10 +474,10 @@ wp_permission_manager_activate_execute_step (WpObject * object,
           G_CALLBACK (on_object_added_or_removed), self, 0);
       g_signal_connect_object (self->om, "objects-changed",
           G_CALLBACK (on_objects_changed), self, 0);
-      g_signal_connect_object (self->om, "installed",
-          G_CALLBACK (on_object_manager_installed), transition, 0);
-      wp_registry_install_object_manager (wp_core_get_registry (core),
-          self->om);
+      wp_object_activate (WP_OBJECT (self->om),
+          WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+          (GAsyncReadyCallback) on_object_manager_installed,
+          g_object_ref (transition));
       break;
     }
 

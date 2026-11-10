@@ -8,6 +8,7 @@
 
 #include "object-manager.h"
 #include "log.h"
+#include "error.h"
 #include "proxy-interfaces.h"
 #include "private/registry.h"
 
@@ -40,39 +41,24 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-object-manager")
  *
  * To start an object manager, you first need to declare interest in a certain
  * kind of object by calling wp_object_manager_add_interest() and then install
- * it on the WpRegistry of the core with wp_registry_install_object_manager().
+ * it by activating WP_OBJECT_MANAGER_FEATURE_INSTALLED with
+ * wp_object_activate().
  *
- * Upon installing a WpObjectManager on a WpRegistry, any pre-existing objects
- * that match the interests of this WpObjectManager will immediately become
+ * Upon installing a WpObjectManager, any pre-existing objects
+ * that match the interests of this WpObjectManager will become
  * available to get through wp_object_manager_new_iterator() and the
  * WpObjectManager \c object-added signal will be emitted for all of them.
  * However, note that if these objects need to be prepared (to activate some
  * features on them), the emission of \c object-added will be delayed. To know
  * when it is safe to access the initial set of objects, wait until the
- * \c installed signal has been emitted. That signal is emitted asynchronously
- * after all the initial objects have been prepared.
+ * activation of WP_OBJECT_MANAGER_FEATURE_INSTALLED has completed. That
+ * happens asynchronously after all the initial objects have been prepared.
  *
- * \gproperties
- *
- * \gproperty{core, WpCore *, G_PARAM_READABLE, The core}
+ * Deactivating WP_OBJECT_MANAGER_FEATURE_INSTALLED uninstalls the object
+ * manager; all its objects are dropped without emitting \c object-removed,
+ * and it can be installed again later by activating the feature.
  *
  * \gsignals
- *
- * \par installed
- * \parblock
- * \code
- * void
- * installed_callback (WpObjectManager * self,
- *                     gpointer user_data)
- * \endcode
- *
- * This is emitted once after the object manager is installed with
- * wp_registry_install_object_manager(). If there are objects that need to be
- * prepared asynchronously internally, emission of this signal is delayed
- * until all objects are ready.
- *
- * Flags: G_SIGNAL_RUN_FIRST
- * \endparblock
  *
  * \par object-added
  * \parblock
@@ -130,8 +116,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-object-manager")
 
 struct _WpObjectManager
 {
-  GObject parent;
-  GWeakRef core;
+  WpObject parent;
 
   /* element-type: WpObjectInterest* */
   GPtrArray *interests;
@@ -140,38 +125,35 @@ struct _WpObjectManager
   /* objects that we are interested in, without a ref */
   GPtrArray *objects;
 
-  gboolean installed;
+  gboolean registered;
   gboolean changed;
   guint pending_objects;
   GSource *idle_source;
 };
 
 enum {
-  PROP_0,
-  PROP_CORE,
-};
-
-enum {
   SIGNAL_OBJECT_ADDED,
   SIGNAL_OBJECT_REMOVED,
   SIGNAL_OBJECTS_CHANGED,
-  SIGNAL_INSTALLED,
   LAST_SIGNAL,
+};
+
+enum {
+  STEP_INSTALL = WP_TRANSITION_STEP_CUSTOM_START,
 };
 
 static guint signals[LAST_SIGNAL] = { 0 };
 
-G_DEFINE_TYPE (WpObjectManager, wp_object_manager, G_TYPE_OBJECT)
+G_DEFINE_TYPE (WpObjectManager, wp_object_manager, WP_TYPE_OBJECT)
 
 static void
 wp_object_manager_init (WpObjectManager * self)
 {
-  g_weak_ref_init (&self->core, NULL);
   self->interests = g_ptr_array_new_with_free_func (
       (GDestroyNotify) wp_object_interest_unref);
   self->features = g_hash_table_new (g_direct_hash, g_direct_equal);
   self->objects = g_ptr_array_new ();
-  self->installed = FALSE;
+  self->registered = FALSE;
   self->changed = FALSE;
   self->pending_objects = 0;
 }
@@ -181,47 +163,100 @@ wp_object_manager_finalize (GObject * object)
 {
   WpObjectManager *self = WP_OBJECT_MANAGER (object);
 
-  if (self->idle_source) {
-    g_source_destroy (self->idle_source);
-    g_clear_pointer (&self->idle_source, g_source_unref);
-  }
   g_clear_pointer (&self->objects, g_ptr_array_unref);
   g_clear_pointer (&self->features, g_hash_table_unref);
   g_clear_pointer (&self->interests, g_ptr_array_unref);
-  g_weak_ref_clear (&self->core);
 
   G_OBJECT_CLASS (wp_object_manager_parent_class)->finalize (object);
 }
 
+static WpObjectFeatures
+wp_object_manager_get_supported_features (WpObject * object)
+{
+  return WP_OBJECT_MANAGER_FEATURE_INSTALLED;
+}
+
+static guint
+wp_object_manager_activate_get_next_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  g_return_val_if_fail (missing == WP_OBJECT_MANAGER_FEATURE_INSTALLED,
+      WP_TRANSITION_STEP_ERROR);
+
+  return STEP_INSTALL;
+}
+
 static void
-wp_object_manager_get_property (GObject * object, guint property_id,
-    GValue * value, GParamSpec * pspec)
+wp_object_manager_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
 {
   WpObjectManager *self = WP_OBJECT_MANAGER (object);
 
-  switch (property_id) {
-  case PROP_CORE:
-    g_value_take_object (value, g_weak_ref_get (&self->core));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+  switch (step) {
+  case STEP_INSTALL: {
+    g_autoptr (WpCore) core = wp_object_get_core (object);
+    if (!core) {
+      wp_transition_return_error (WP_TRANSITION (transition),
+          g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+              "The core of the object manager is gone"));
+      return;
+    }
+    self->registered = TRUE;
+    wp_registry_add_object_manager (wp_core_get_registry (core), self);
     break;
   }
+  case WP_TRANSITION_STEP_ERROR:
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
+wp_object_manager_deactivate (WpObject * object, WpObjectFeatures features)
+{
+  WpObjectManager *self = WP_OBJECT_MANAGER (object);
+
+  if (!(features & WP_OBJECT_MANAGER_FEATURE_INSTALLED))
+    return;
+
+  if (self->registered) {
+    g_autoptr (WpCore) core = wp_object_get_core (object);
+    if (core)
+      wp_registry_remove_object_manager (wp_core_get_registry (core), self);
+    self->registered = FALSE;
+  }
+
+  if (self->idle_source) {
+    g_source_destroy (self->idle_source);
+    g_clear_pointer (&self->idle_source, g_source_unref);
+  }
+
+  /* pending_objects is kept, as the proxy activations still in progress
+     will decrement it when they finish */
+  self->changed = FALSE;
+  g_ptr_array_set_size (self->objects, 0);
+
+  wp_object_update_features (object, 0, WP_OBJECT_MANAGER_FEATURE_INSTALLED);
 }
 
 static void
 wp_object_manager_class_init (WpObjectManagerClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
 
   object_class->finalize = wp_object_manager_finalize;
-  object_class->get_property = wp_object_manager_get_property;
 
-  /* Install the properties */
-
-  g_object_class_install_property (object_class, PROP_CORE,
-      g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  wpobject_class->get_supported_features =
+      wp_object_manager_get_supported_features;
+  wpobject_class->activate_get_next_step =
+      wp_object_manager_activate_get_next_step;
+  wpobject_class->activate_execute_step =
+      wp_object_manager_activate_execute_step;
+  wpobject_class->deactivate = wp_object_manager_deactivate;
 
   signals[SIGNAL_OBJECT_ADDED] = g_signal_new (
       "object-added", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
@@ -234,35 +269,20 @@ wp_object_manager_class_init (WpObjectManagerClass * klass)
   signals[SIGNAL_OBJECTS_CHANGED] = g_signal_new (
       "objects-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 0);
-
-  signals[SIGNAL_INSTALLED] = g_signal_new (
-      "installed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
-      0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 /*!
  * \brief Constructs a new object manager.
  * \ingroup wpobjectmanager
+ * \param core the core
  * \returns (transfer full): the newly constructed object manager
  */
 WpObjectManager *
-wp_object_manager_new (void)
+wp_object_manager_new (WpCore * core)
 {
-  return g_object_new (WP_TYPE_OBJECT_MANAGER, NULL);
-}
+  g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-/*!
- * \brief Checks if an object manager is installed.
- * \ingroup wpobjectmanager
- * \param self the object manager
- * \returns TRUE if the object manager is installed (i.e. the
- *   WpObjectManager \c installed signal has been emitted), FALSE otherwise
- */
-gboolean
-wp_object_manager_is_installed (WpObjectManager * self)
-{
-  g_return_val_if_fail (WP_IS_OBJECT_MANAGER (self), FALSE);
-  return self->installed;
+  return g_object_new (WP_TYPE_OBJECT_MANAGER, "core", core, NULL);
 }
 
 /*!
@@ -661,10 +681,11 @@ idle_emit_objects_changed (WpObjectManager * self)
 {
   g_clear_pointer (&self->idle_source, g_source_unref);
 
-  if (G_UNLIKELY (!self->installed)) {
+  if (G_UNLIKELY (!wp_object_test_active_features (WP_OBJECT (self),
+          WP_OBJECT_MANAGER_FEATURE_INSTALLED))) {
     wp_trace_object (self, "installed");
-    self->installed = TRUE;
-    g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
+    wp_object_update_features (WP_OBJECT (self),
+        WP_OBJECT_MANAGER_FEATURE_INSTALLED, 0);
   }
   wp_trace_object (self, "emit objects-changed");
   g_signal_emit (self, signals[SIGNAL_OBJECTS_CHANGED], 0);
@@ -681,11 +702,14 @@ idle_emit_objects_changed (WpObjectManager * self)
 void
 wp_object_manager_maybe_objects_changed (WpObjectManager * self)
 {
+  gboolean installed = wp_object_test_active_features (WP_OBJECT (self),
+      WP_OBJECT_MANAGER_FEATURE_INSTALLED);
+
   wp_trace_object (self, "pending:%u changed:%d idle_source:%p installed:%d",
-      self->pending_objects, self->changed, self->idle_source, self->installed);
+      self->pending_objects, self->changed, self->idle_source, installed);
 
   /* always wait until there are no pending objects */
-  if (self->pending_objects > 0)
+  if (!self->registered || self->pending_objects > 0)
     return;
 
   /* Emit 'objects-changed' when:
@@ -699,7 +723,7 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
        there is nothing to do; we will emit objects-changed once for all
        changes... win-win */
     if (!self->idle_source) {
-      g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+      g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
       if (core) {
         WpMainContext *wp_ctx =
             wp_core_get_main_context (core);
@@ -710,7 +734,7 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
       }
     }
   }
-  /* Emit 'installed' when:
+  /* Activate the 'installed' feature when:
    * - there are no pending objects
    * - !changed: there was no object added
    * - !installed: not already installed
@@ -720,13 +744,13 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
    * - the registry has globals; if we are on early startup where we don't
    * have any globals yet, wait...
    */
-  else if (!self->installed) {
-    g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  else if (!installed) {
+    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
     if (core) {
       if (!wp_registry_has_pending_globals (wp_core_get_registry (core))) {
         wp_trace_object (self, "installed");
-        self->installed = TRUE;
-        g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
+        wp_object_update_features (WP_OBJECT (self),
+            WP_OBJECT_MANAGER_FEATURE_INSTALLED, 0);
       }
     }
   }
@@ -743,6 +767,10 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
 void
 wp_object_manager_add_object (WpObjectManager * self, gpointer object)
 {
+  /* may be uninstalled from a callback while the registry iterates */
+  if (!self->registered)
+    return;
+
   if (wp_object_manager_is_interested_in_object (self, object)) {
     wp_trace_object (self, "added: " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (object));
     g_ptr_array_add (self->objects, object);
@@ -778,9 +806,11 @@ on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
 
   self->pending_objects--;
 
+  /* the proxy may already be added by an activation started before the
+     object manager was uninstalled and installed again */
   if (!wp_object_activate_finish (WP_OBJECT (proxy), res, &error)) {
     wp_debug_object (self, "proxy activation failed: %s", error->message);
-  } else {
+  } else if (!g_ptr_array_find (self->objects, proxy, NULL)) {
     wp_object_manager_add_object (self, proxy);
   }
 
@@ -802,11 +832,11 @@ wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
 
   /* do not allow proxies that don't have a defined subclass;
      bind will fail because proxy_class->pw_iface_type is NULL */
-  if (global->type == WP_TYPE_GLOBAL_PROXY)
+  if (global->type == WP_TYPE_GLOBAL_PROXY || !self->registered)
     return;
 
   if (wp_object_manager_is_interested_in_global (self, global, &features)) {
-    g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
     self->pending_objects++;
 
@@ -822,26 +852,4 @@ wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
     wp_object_activate (WP_OBJECT (global->proxy), features, NULL,
         on_proxy_ready, g_object_ref (self));
   }
-}
-
-/*!
- * \brief Installs the object manager on this registry, activating its internal
- * management engine.
- *
- * This will immediately emit signals about objects added on \a om
- * if objects that the \a om is interested in were in existence already.
- *
- * \ingroup wpregistry
- * \param self the registry
- * \param om (transfer none): a WpObjectManager
- */
-void
-wp_registry_install_object_manager (WpRegistry * self, WpObjectManager * om)
-{
-  g_return_if_fail (WP_IS_REGISTRY (self));
-  g_return_if_fail (WP_IS_OBJECT_MANAGER (om));
-
-  g_autoptr (WpCore) core = wp_registry_get_core (self);
-  g_weak_ref_set (&om->core, core);
-  wp_registry_add_object_manager (self, om);
 }

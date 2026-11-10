@@ -513,9 +513,20 @@ on_conditions_changed (WpObjectManager *om, WpDynamicRules *self)
 }
 
 static void
-on_condition_om_installed (WpObjectManager *om, WpTransition *transition)
+on_condition_om_installed (WpObjectManager *om, GAsyncResult *res, gpointer d)
 {
+  g_autoptr (WpTransition) transition = WP_TRANSITION (d);
   WpDynamicRules *self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+
+  /* ignore an object manager that was dropped while installing */
+  if (om != self->condition_om)
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
 
   evaluate_all_objects (self);
   wp_object_update_features (WP_OBJECT (self), WP_DYNAMIC_RULES_LOADED, 0);
@@ -533,17 +544,17 @@ wp_dynamic_rules_activate_execute_step (WpObject *object,
     case STEP_LOAD: {
       /* Create and install the condition object manager */
       g_return_if_fail (!self->condition_om);
-      self->condition_om = wp_object_manager_new ();
+      self->condition_om = wp_object_manager_new (core);
       wp_object_manager_add_interest (self->condition_om,
           WP_TYPE_GLOBAL_PROXY, NULL);
       wp_object_manager_request_object_features (self->condition_om,
           WP_TYPE_GLOBAL_PROXY, WP_OBJECT_FEATURES_ALL);
       g_signal_connect_object (self->condition_om, "objects-changed",
           G_CALLBACK (on_conditions_changed), self, 0);
-      g_signal_connect_object (self->condition_om, "installed",
-          G_CALLBACK (on_condition_om_installed), transition, 0);
-      wp_registry_install_object_manager (wp_core_get_registry (core),
-          self->condition_om);
+      wp_object_activate (WP_OBJECT (self->condition_om),
+          WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+          (GAsyncReadyCallback) on_condition_om_installed,
+          g_object_ref (transition));
       break;
     }
 

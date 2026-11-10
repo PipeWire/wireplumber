@@ -181,6 +181,9 @@ local Feature = {
   StreamLink = {
     ACTIVE            = (1 << 0),
   },
+  ObjectManager = {
+    INSTALLED         = (1 << 0),
+  },
 }
 
 PERM_R_VAL = 0x100

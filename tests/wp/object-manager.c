@@ -146,23 +146,23 @@ test_om_interest_on_pw_props (TestFixture *f, gconstpointer user_data)
   g_main_loop_run (f->base.loop);
 
   /* request that node from the base core */
-  om = wp_object_manager_new ();
+  om = wp_object_manager_new (f->base.core);
   wp_object_manager_add_interest (om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "node.name", "=s", "Test Source",
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "test.answer", "=s", "42",
       NULL);
-  test_ensure_object_manager_is_installed (om, f->base.core, f->base.loop);
+  test_ensure_object_manager_is_installed (om, f->base.loop);
 
   g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 1);
   g_clear_object (&om);
 
   /* request "test.answer" to be absent... this will not match */
-  om = wp_object_manager_new ();
+  om = wp_object_manager_new (f->base.core);
   wp_object_manager_add_interest (om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "node.name", "=s", "Test Source",
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "test.answer", "-",
       NULL);
-  test_ensure_object_manager_is_installed (om, f->base.core, f->base.loop);
+  test_ensure_object_manager_is_installed (om, f->base.loop);
 
   g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 0);
 }
@@ -177,9 +177,9 @@ test_om_iterate_remove (TestFixture *f, gconstpointer user_data)
   test_register_dummy (f->base.core, "1234");
   test_register_dummy (f->base.core, "1234");
 
-  om = wp_object_manager_new ();
+  om = wp_object_manager_new (f->base.core);
   wp_object_manager_add_interest (om, test_dummy_get_type (), NULL);
-  test_ensure_object_manager_is_installed (om, f->base.core, f->base.loop);
+  test_ensure_object_manager_is_installed (om, f->base.loop);
 
   g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 4);
 

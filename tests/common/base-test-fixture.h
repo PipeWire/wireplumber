@@ -196,16 +196,34 @@ test_object_activate_finish_cb (WpObject * object, GAsyncResult * res,
   g_main_loop_quit (f->loop);
 }
 
-static G_GNUC_UNUSED void
-test_ensure_object_manager_is_installed (WpObjectManager * om, WpCore * core,
+static void
+test_object_manager_installed (WpObjectManager * om, GAsyncResult * res,
     GMainLoop * loop)
 {
-  gulong id = g_signal_connect_swapped (om, "installed",
-      G_CALLBACK (g_main_loop_quit), loop);
-  wp_registry_install_object_manager (wp_core_get_registry (core), om);
-  if (!wp_object_manager_is_installed (om))
-    g_main_loop_run (loop);
-  g_signal_handler_disconnect (om, id);
+  g_autoptr (GError) error = NULL;
+  gboolean ret = wp_object_activate_finish (WP_OBJECT (om), res, &error);
+  g_assert_no_error (error);
+  g_assert_true (ret);
+
+  if (loop)
+    g_main_loop_quit (loop);
+}
+
+/* installs the object manager without waiting for it */
+static G_GNUC_UNUSED void
+test_object_manager_install (WpObjectManager * om)
+{
+  wp_object_activate (WP_OBJECT (om), WP_OBJECT_MANAGER_FEATURE_INSTALLED,
+      NULL, (GAsyncReadyCallback) test_object_manager_installed, NULL);
+}
+
+static G_GNUC_UNUSED void
+test_ensure_object_manager_is_installed (WpObjectManager * om,
+    GMainLoop * loop)
+{
+  wp_object_activate (WP_OBJECT (om), WP_OBJECT_MANAGER_FEATURE_INSTALLED,
+      NULL, (GAsyncReadyCallback) test_object_manager_installed, loop);
+  g_main_loop_run (loop);
 }
 
 static G_GNUC_UNUSED gboolean

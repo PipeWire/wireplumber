@@ -283,12 +283,9 @@ test_deactivate_components (TestFixture *f, gconstpointer data)
       WP_CORE_FEATURE_CONNECTED));
 
   /* the registry is watched again, so object managers still get globals */
-  g_autoptr (WpObjectManager) om = wp_object_manager_new ();
+  g_autoptr (WpObjectManager) om = wp_object_manager_new (f->base.core);
   wp_object_manager_add_interest (om, WP_TYPE_CLIENT, NULL);
-  g_signal_connect_swapped (om, "installed",
-      G_CALLBACK (g_main_loop_quit), f->base.loop);
-  wp_registry_install_object_manager (wp_core_get_registry (f->base.core), om);
-  g_main_loop_run (f->base.loop);
+  test_ensure_object_manager_is_installed (om, f->base.loop);
   g_assert_cmpuint (wp_object_manager_get_n_objects (om), >, 0);
 }
 

@@ -1158,7 +1158,7 @@ object_manager_new (lua_State *L)
   luaL_checktype (L, 1, LUA_TTABLE);
 
   /* push to Lua asap to have a way to unref in case of error */
-  om = wp_object_manager_new ();
+  om = wp_object_manager_new (get_wp_core (L));
   wplua_pushobject (L, om);
 
   lua_pushnil (L);
@@ -1180,8 +1180,11 @@ static int
 object_manager_activate (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
-  wp_registry_install_object_manager (wp_core_get_registry (get_wp_core (L)),
-      om);
+  GClosure * closure = luaL_opt (L, wplua_checkclosure, 2, NULL);
+  if (closure)
+    g_closure_sink (g_closure_ref (closure));
+  wp_object_activate (WP_OBJECT (om), WP_OBJECT_MANAGER_FEATURE_INSTALLED,
+      NULL, (GAsyncReadyCallback) object_activate_done, closure);
   return 0;
 }
 

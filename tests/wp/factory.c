@@ -16,7 +16,7 @@ static void
 test_factory_setup (TestFixture *self, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&self->base, 0);
-  self->om = wp_object_manager_new ();
+  self->om = wp_object_manager_new (self->base.core);
 }
 
 static void
@@ -48,8 +48,7 @@ test_factory_enumeration (TestFixture *self, gconstpointer user_data)
       (GCallback) test_factory_enumeration_object_added, self);
 
   wp_object_manager_add_interest(self->om, WP_TYPE_FACTORY, NULL);
-  wp_registry_install_object_manager(wp_core_get_registry (self->base.core),
-      self->om);
+  test_object_manager_install (self->om);
   g_main_loop_run(self->base.loop);
 }
 

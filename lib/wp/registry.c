@@ -647,6 +647,13 @@ wp_registry_add_object_manager (WpRegistry * self, WpObjectManager * om)
   wp_object_manager_maybe_objects_changed (om);
 }
 
+void
+wp_registry_remove_object_manager (WpRegistry * self, WpObjectManager * om)
+{
+  if (g_ptr_array_remove_fast (self->object_managers, om))
+    g_object_weak_unref (G_OBJECT (om), object_manager_destroyed, self);
+}
+
 /*!
  * \brief Finds a registered object
  *

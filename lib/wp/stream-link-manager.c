@@ -333,12 +333,22 @@ on_object_removed (WpObjectManager *om, WpObject *object, gpointer d)
 }
 
 static void
-on_om_installed (WpObjectManager *om, gpointer d)
+on_om_installed (WpObjectManager *om, GAsyncResult *res, gpointer d)
 {
-  WpTransition *transition = WP_TRANSITION (d);
+  g_autoptr (WpTransition) transition = WP_TRANSITION (d);
   WpStreamLinkManager *self = wp_transition_get_source_object (transition);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
+  g_autoptr (GError) error = NULL;
+
+  /* ignore an object manager that was dropped while installing */
+  if (om != self->om)
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
 
   /* Handle future added and removed objects */
   g_signal_connect_object (self->om, "object-added",
@@ -375,7 +385,7 @@ wp_stream_link_manager_activate_execute_step (WpObject * object,
     g_return_if_fail (self->pending_stream_links == 0);
 
     g_return_if_fail (self->om == NULL);
-    self->om = wp_object_manager_new ();
+    self->om = wp_object_manager_new (core);
 
     wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
     wp_object_manager_add_interest (self->om, WP_TYPE_LINK, NULL);
@@ -383,10 +393,9 @@ wp_stream_link_manager_activate_execute_step (WpObject * object,
         WP_TYPE_STREAM, WP_OBJECT_FEATURES_ALL);
     wp_object_manager_request_object_features (self->om,
         WP_TYPE_LINK, WP_OBJECT_FEATURES_ALL);
-    g_signal_connect_object (self->om, "installed",
-      G_CALLBACK (on_om_installed), transition, 0);
-
-    wp_registry_install_object_manager (wp_core_get_registry (core), self->om);
+    wp_object_activate (WP_OBJECT (self->om),
+        WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+        (GAsyncReadyCallback) on_om_installed, g_object_ref (transition));
     break;
   }
   case WP_TRANSITION_STEP_ERROR:

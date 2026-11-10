@@ -498,12 +498,22 @@ on_node_removed (WpObjectManager *om, WpNode *node, gpointer d)
 }
 
 static void
-on_nodes_om_installed (WpObjectManager *om, gpointer d)
+on_nodes_om_installed (WpObjectManager *om, GAsyncResult *res, gpointer d)
 {
-  WpTransition *transition = WP_TRANSITION (d);
+  g_autoptr (WpTransition) transition = WP_TRANSITION (d);
   WpStreamManager *self = wp_transition_get_source_object (transition);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
+  g_autoptr (GError) error = NULL;
+
+  /* ignore an object manager that was dropped while installing */
+  if (om != self->nodes_om)
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
 
   /* Handle future added and removed objects */
   g_signal_connect_object (self->nodes_om, "object-added",
@@ -536,16 +546,14 @@ wp_stream_manager_activate_execute_step (WpObject * object,
     g_return_if_fail (self->pending_streams == 0);
 
     g_return_if_fail (self->nodes_om == NULL);
-    self->nodes_om = wp_object_manager_new ();
+    self->nodes_om = wp_object_manager_new (core);
 
     wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE, NULL);
     wp_object_manager_request_object_features (self->nodes_om,
         WP_TYPE_NODE, WP_OBJECT_FEATURES_ALL);
-    g_signal_connect_object (self->nodes_om, "installed",
-        G_CALLBACK (on_nodes_om_installed), transition, 0);
-
-    wp_registry_install_object_manager (wp_core_get_registry (core),
-        self->nodes_om);
+    wp_object_activate (WP_OBJECT (self->nodes_om),
+        WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+        (GAsyncReadyCallback) on_nodes_om_installed, g_object_ref (transition));
     break;
   }
   case WP_TRANSITION_STEP_ERROR:

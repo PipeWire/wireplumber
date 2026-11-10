@@ -311,8 +311,21 @@ stream_info_free (gpointer info)
 }
 
 static void
-on_om_installed (WpObjectManager * om, WpMixerApi * self)
+on_om_installed (WpObjectManager * om, GAsyncResult * res, gpointer d)
 {
+  g_autoptr (WpTransition) transition = WP_TRANSITION (d);
+  WpMixerApi * self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+
+  /* ignore an object manager that was dropped while installing */
+  if (om != self->om)
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
@@ -326,7 +339,7 @@ wp_mixer_api_enable (WpPlugin * plugin, WpTransition * transition)
   self->stream_infos = g_hash_table_new_full (g_direct_hash, g_direct_equal,
       g_object_unref, stream_info_free);
 
-  self->om = wp_object_manager_new ();
+  self->om = wp_object_manager_new (core);
   wp_object_manager_add_interest (self->om, WP_TYPE_AUDIO_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "media.class", "=s", "Audio/Device",
@@ -339,9 +352,9 @@ wp_mixer_api_enable (WpPlugin * plugin, WpTransition * transition)
       G_CALLBACK (on_object_added), self, 0);
   g_signal_connect_object (self->om, "object-removed",
       G_CALLBACK (on_object_removed), self, 0);
-  g_signal_connect_object (self->om, "installed",
-      G_CALLBACK (on_om_installed), self, 0);
-  wp_registry_install_object_manager (wp_core_get_registry (core), self->om);
+  wp_object_activate (WP_OBJECT (self->om),
+      WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+      (GAsyncReadyCallback) on_om_installed, g_object_ref (transition));
 }
 
 static void

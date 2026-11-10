@@ -416,8 +416,24 @@ on_object_removed (WpObjectManager *om, WpObject *obj, WpStandardEventSource *se
 }
 
 static void
-on_om_installed (WpObjectManager * om, WpStandardEventSource * self)
+on_om_installed (WpObjectManager * om, GAsyncResult * res, gpointer d)
 {
+  g_autoptr (WpTransition) transition = WP_TRANSITION (d);
+  WpStandardEventSource * self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+  gboolean ours = FALSE;
+
+  /* ignore an object manager that was dropped while installing */
+  for (gint i = 0; i < N_OBJECT_TYPES; i++)
+    ours |= (om == self->oms[i]);
+  if (!ours)
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
   if (++self->n_oms_installed == N_OBJECT_TYPES)
     wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
@@ -451,7 +467,7 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
   self->n_oms_installed = 0;
   for (gint i = 0; i < N_OBJECT_TYPES; i++) {
     GType gtype = object_type_to_gtype (i);
-    self->oms[i] = wp_object_manager_new ();
+    self->oms[i] = wp_object_manager_new (core);
     wp_object_manager_add_interest (self->oms[i], gtype, NULL);
     wp_object_manager_request_object_features (self->oms[i],
         gtype, WP_OBJECT_FEATURES_ALL);
@@ -459,10 +475,9 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
         G_CALLBACK (on_object_added), self, 0);
     g_signal_connect_object (self->oms[i], "object-removed",
         G_CALLBACK (on_object_removed), self, 0);
-    g_signal_connect_object (self->oms[i], "installed",
-        G_CALLBACK (on_om_installed), self, 0);
-    wp_registry_install_object_manager (wp_core_get_registry (core),
-        self->oms[i]);
+    wp_object_activate (WP_OBJECT (self->oms[i]),
+        WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
+        (GAsyncReadyCallback) on_om_installed, g_object_ref (transition));
   }
 
   /* install hook to restore the rescan_scheduled state just before rescanning */
