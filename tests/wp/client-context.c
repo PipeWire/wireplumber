@@ -148,6 +148,86 @@ static const gchar * const local_node_names[] = {
   "test.client-context.localnode", NULL
 };
 
+struct module_lookup {
+  struct pw_impl_module *module;
+  guint count;
+};
+
+static int
+find_loopback_module (void *data, struct pw_global *global)
+{
+  struct module_lookup *l = data;
+  const struct pw_properties *props;
+
+  if (!spa_streq (pw_global_get_type (global), PW_TYPE_INTERFACE_Module))
+    return 0;
+
+  props = pw_global_get_properties (global);
+  if (props && spa_streq (pw_properties_get (props, PW_KEY_MODULE_NAME),
+          "libpipewire-module-loopback")) {
+    l->module = pw_global_get_object (global);
+    l->count++;
+  }
+  return 0;
+}
+
+/* must run on the thread of the context */
+static struct module_lookup
+lookup_loopback_module (struct pw_context *context)
+{
+  struct module_lookup l = { NULL, 0 };
+  pw_context_for_each_global (context, find_loopback_module, &l);
+  return l;
+}
+
+struct run_on_loop_data {
+  void (*func) (gpointer data);
+  gpointer data;
+  GMutex lock;
+  GCond cond;
+  gboolean done;
+};
+
+static int
+do_run_on_loop (struct spa_loop *loop, bool async, uint32_t seq,
+    const void *data, size_t size, void *user_data)
+{
+  struct run_on_loop_data *r = user_data;
+
+  r->func (r->data);
+
+  g_mutex_lock (&r->lock);
+  r->done = TRUE;
+  g_cond_signal (&r->cond);
+  g_mutex_unlock (&r->lock);
+  return 0;
+}
+
+/* runs @func on the client context's thread, which owns its pw_context, and
+   waits for it; a blocking invoke cannot be used for this from here, as older
+   PipeWire versions require the caller to hold the thread loop's lock */
+static void
+run_on_client_loop (TestFixture * f, void (*func) (gpointer), gpointer data)
+{
+  g_autoptr (WpClientContext) ctx = wp_client_context_find (f->base.core);
+  struct pw_context *context = wp_context_get_pw_context (WP_CONTEXT (ctx));
+  struct run_on_loop_data r = { .func = func, .data = data, .done = FALSE };
+
+  g_mutex_init (&r.lock);
+  g_cond_init (&r.cond);
+
+  pw_loop_invoke (pw_context_get_main_loop (context), do_run_on_loop,
+      SPA_ID_INVALID, NULL, 0, false, &r);
+
+  g_mutex_lock (&r.lock);
+  while (!r.done)
+    g_cond_wait (&r.cond, &r.lock);
+  g_mutex_unlock (&r.lock);
+
+  g_cond_clear (&r.cond);
+  g_mutex_clear (&r.lock);
+}
+
 static void
 on_component_loaded (WpCore * core, GAsyncResult * res, TestFixture * f)
 {
@@ -182,6 +262,43 @@ register_client_context (TestFixture * f)
 }
 
 static void
+on_object_activated (WpObject * object, GAsyncResult * res, TestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean ok = wp_object_activate_finish (object, res, &error);
+  g_assert_no_error (error);
+  g_assert_true (ok);
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
+on_module_loaded (WpObject * object, GAsyncResult * res, gboolean * done)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean ok = wp_object_activate_finish (object, res, &error);
+  g_assert_no_error (error);
+  g_assert_true (ok);
+  *done = TRUE;
+}
+
+static WpImplModule *
+load_loopback (TestFixture * f)
+{
+  WpImplModule *module = wp_impl_module_new (f->base.core,
+      "libpipewire-module-loopback", LOOPBACK_ARGS, NULL);
+  gboolean done = FALSE;
+
+  wp_object_activate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
+      (GAsyncReadyCallback) on_module_loaded, &done);
+  while (!done)
+    g_main_context_iteration (f->base.context, TRUE);
+
+  g_assert_true (wp_object_test_active_features (WP_OBJECT (module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+  return module;
+}
+
+static void
 test_load (TestFixture * f, gconstpointer data)
 {
   g_autoptr (WpClientContext) ctx = NULL;
@@ -198,9 +315,7 @@ test_load (TestFixture * f, gconstpointer data)
   g_assert_true (core == f->base.core);
   g_assert_nonnull (wp_context_get_pw_core (WP_CONTEXT (ctx)));
 
-  module = wp_impl_module_load (f->base.core, "libpipewire-module-loopback",
-      LOOPBACK_ARGS, NULL);
-  g_assert_nonnull (module);
+  module = load_loopback (f);
 
   g_assert_cmpuint (wait_server_nodes (f, loopback_node_names, 2), ==, 2);
 }
@@ -213,9 +328,7 @@ test_module_runs_while_main_loop_is_blocked (TestFixture * f,
 
   register_client_context (f);
 
-  module = wp_impl_module_load (f->base.core, "libpipewire-module-loopback",
-      LOOPBACK_ARGS, NULL);
-  g_assert_nonnull (module);
+  module = load_loopback (f);
 
   /* From here on we deliberately never iterate the GMainContext, simulating a
      long event-dispatch iteration. Without the client context nothing can
@@ -231,18 +344,15 @@ static void
 test_module_fallback_to_main_context (TestFixture * f, gconstpointer data)
 {
   g_autoptr (WpImplModule) module = NULL;
-  struct pw_impl_module *pw_module = NULL;
+  WpMainContext *wp_ctx = wp_core_get_main_context (f->base.core);
+  struct module_lookup l;
 
-  module = wp_impl_module_load (f->base.core, "libpipewire-module-loopback",
-      LOOPBACK_ARGS, NULL);
-  g_assert_nonnull (module);
+  module = load_loopback (f);
 
-  g_object_get (module, "pw-impl-module", &pw_module, NULL);
-  g_assert_nonnull (pw_module);
-  WpMainContext *wp_ctx =
-      wp_core_get_main_context (f->base.core);
-  g_assert_true (pw_impl_module_get_context (pw_module) ==
+  /* the main context runs on this thread */
+  l = lookup_loopback_module (
       wp_context_get_pw_context (WP_CONTEXT (wp_ctx)));
+  g_assert_cmpuint (l.count, ==, 1);
 }
 
 struct destroy_data {
@@ -276,65 +386,30 @@ on_module_destroy (void *data)
       true, NULL);
 }
 
+static void
+run_nothing (gpointer data)
+{
+}
+
 static const struct pw_impl_module_events destroy_events = {
   PW_VERSION_IMPL_MODULE_EVENTS,
   .destroy = on_module_destroy,
 };
 
-struct invoke_data {
-  spa_invoke_func_t func;
-  void *user_data;
-  GMutex lock;
-  GCond cond;
-  gboolean done;
+struct add_listener_data {
+  struct pw_context *context;
+  struct destroy_data *d;
 };
 
-static int
-do_invoke (struct spa_loop *loop, bool async, uint32_t seq,
-    const void *data, size_t size, void *user_data)
-{
-  struct invoke_data *i = user_data;
-
-  i->func (loop, async, seq, NULL, 0, i->user_data);
-
-  g_mutex_lock (&i->lock);
-  i->done = TRUE;
-  g_cond_signal (&i->cond);
-  g_mutex_unlock (&i->lock);
-  return 0;
-}
-
-/* runs func on the loop thread and waits for it; a blocking invoke cannot be
-   used for this from here, as older PipeWire versions require the caller of a
-   blocking invoke to hold the thread loop's lock */
 static void
-invoke_and_wait (struct pw_loop *loop, spa_invoke_func_t func,
-    void *user_data)
+do_add_destroy_listener (gpointer data)
 {
-  struct invoke_data i = { .func = func, .user_data = user_data };
+  struct add_listener_data *a = data;
 
-  g_mutex_init (&i.lock);
-  g_cond_init (&i.cond);
-
-  pw_loop_invoke (loop, do_invoke, SPA_ID_INVALID, NULL, 0, false, &i);
-
-  g_mutex_lock (&i.lock);
-  while (!i.done)
-    g_cond_wait (&i.cond, &i.lock);
-  g_mutex_unlock (&i.lock);
-
-  g_cond_clear (&i.cond);
-  g_mutex_clear (&i.lock);
-}
-
-static int
-do_add_destroy_listener (struct spa_loop *loop, bool async, uint32_t seq,
-    const void *data, size_t size, void *user_data)
-{
-  struct destroy_data *d = user_data;
-
-  pw_impl_module_add_listener (d->module, &d->listener, &destroy_events, d);
-  return 0;
+  a->d->module = lookup_loopback_module (a->context).module;
+  if (a->d->module)
+    pw_impl_module_add_listener (a->d->module, &a->d->listener,
+        &destroy_events, a->d);
 }
 
 /*
@@ -347,45 +422,30 @@ do_add_destroy_listener (struct spa_loop *loop, bool async, uint32_t seq,
 static void
 test_module_unload_in_client_context (TestFixture * f, gconstpointer data)
 {
-  g_autoptr (WpClientContext) ctx = NULL;
   g_autoptr (WpImplModule) module = NULL;
+  g_autoptr (WpClientContext) ctx = NULL;
   struct destroy_data d = { 0, };
-  struct pw_loop *loop;
+  struct add_listener_data a = { .d = &d };
 
   register_client_context (f);
+
+  module = load_loopback (f);
+
   ctx = wp_client_context_find (f->base.core);
-  loop = pw_context_get_main_loop (
-      wp_context_get_pw_context (WP_CONTEXT (ctx)));
-
-  module = wp_impl_module_load (f->base.core, "libpipewire-module-loopback",
-      LOOPBACK_ARGS, NULL);
-  g_assert_nonnull (module);
-
-  g_object_get (module, "pw-impl-module", &d.module, NULL);
+  a.context = wp_context_get_pw_context (WP_CONTEXT (ctx));
+  run_on_client_loop (f, do_add_destroy_listener, &a);
   g_assert_nonnull (d.module);
-  /* the loop thread owns the module */
-  invoke_and_wait (loop, do_add_destroy_listener, &d);
 
-  wp_impl_module_unload (module);
+  wp_object_deactivate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED);
 
   g_assert_cmpuint (d.count, ==, 1);
   g_assert_false (pthread_equal (d.thread, pthread_self ()));
 
   /* a scheduled destroy runs from the loop's next iteration, possibly after
      the first no-op in that same iteration, but always before the second */
-  invoke_and_wait (loop, do_nothing, NULL);
-  invoke_and_wait (loop, do_nothing, NULL);
+  run_on_client_loop (f, run_nothing, NULL);
+  run_on_client_loop (f, run_nothing, NULL);
   g_assert_cmpuint (d.count, ==, 1);
-}
-
-static void
-on_object_activated (WpObject * object, GAsyncResult * res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  gboolean ok = wp_object_activate_finish (object, res, &error);
-  g_assert_no_error (error);
-  g_assert_true (ok);
-  g_main_loop_quit (f->base.loop);
 }
 
 /*

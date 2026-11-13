@@ -997,6 +997,18 @@ parse_profile_description (WpProperties * profile, WpSpaJson * all_profiles_j,
   return TRUE;
 }
 
+static void
+on_client_module_loaded (WpObject * module, GAsyncResult * res, gpointer data)
+{
+  g_autoptr (GTask) task = G_TASK (data);
+  GError *error = NULL;
+
+  if (!wp_object_activate_finish (module, res, &error))
+    g_task_return_error (task, error);
+  else
+    g_task_return_pointer (task, g_object_ref (module), g_object_unref);
+}
+
 static gboolean
 wp_internal_comp_loader_supports_type (WpComponentLoader * cl,
     const gchar * type)
@@ -1089,16 +1101,11 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
       g_autofree gchar *module_args = args ?
           g_strndup (wp_spa_json_get_data (args), wp_spa_json_get_size (args)) :
           NULL;
-      WpImplModule *m = wp_impl_module_load (core, component, module_args, NULL);
+      g_autoptr (WpImplModule) m =
+          wp_impl_module_new (core, component, module_args, NULL);
 
-      if (!m) {
-        g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
-            WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "Failed to load pipewire module %s: %s", component, strerror (errno));
-      }
-      else {
-        g_task_return_pointer (task, m, g_object_unref);
-      }
+      wp_object_activate (WP_OBJECT (m), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
+          (GAsyncReadyCallback) on_client_module_loaded, g_object_ref (task));
     }
     else if (g_str_equal (type, "virtual")) {
       g_task_return_pointer (task, NULL, NULL);

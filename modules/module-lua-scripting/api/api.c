@@ -2479,6 +2479,15 @@ static const luaL_Reg state_metadata_methods[] = {
 
 /* ImplModule */
 
+static void
+impl_module_load_done (WpObject * m, GAsyncResult * res, gpointer data)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (m, res, &error))
+    wp_warning_object (m, "%s", error->message);
+}
+
 static int
 impl_module_new (lua_State *L)
 {
@@ -2496,22 +2505,21 @@ impl_module_new (lua_State *L)
     properties = wp_properties_ref (wplua_checkboxed (L, 3,
         WP_TYPE_PROPERTIES));
 
-  WpImplModule *m = wp_impl_module_load (get_wp_core (L),
+  WpImplModule *m = wp_impl_module_new (get_wp_core (L),
      name, args, properties);
 
-  if (m) {
-    wplua_pushobject (L, m);
-    return 1;
-  } else {
-    return 0;
-  }
+  wp_object_activate (WP_OBJECT (m), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
+      (GAsyncReadyCallback) impl_module_load_done, NULL);
+
+  wplua_pushobject (L, m);
+  return 1;
 }
 
 static int
 impl_module_unload (lua_State *L)
 {
   WpImplModule *m = wplua_checkobject (L, 1, WP_TYPE_IMPL_MODULE);
-  wp_impl_module_unload (m);
+  wp_object_deactivate (WP_OBJECT (m), WP_IMPL_MODULE_FEATURE_LOADED);
   return 0;
 }
 

@@ -8,7 +8,8 @@ Local Modules
 
    digraph inheritance {
       rankdir=LR;
-      GObject -> WpImplModule;
+      GObject -> WpObject;
+      WpObject -> WpImplModule;
    }
 
 .. doxygenstruct:: WpImplModule
