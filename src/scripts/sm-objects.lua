@@ -38,7 +38,15 @@
 on_demand_objects = {}
 
 object_constructors = {
-  ["pw-module"] = LocalModule,
+  ["pw-module"] = function (name, args)
+    local m = LocalModule (name, args)
+    m:activate (Feature.LocalModule.LOADED, function (m, e)
+      if e then
+        Log.warning ("failed to load on-demand module `" .. name .. "`: " .. tostring (e))
+      end
+    end)
+    return m
+  end,
   ["metadata"] = function (name, args)
     local m = ImplMetadata (name, args)
     m:activate (Features.ALL, function (m, e)

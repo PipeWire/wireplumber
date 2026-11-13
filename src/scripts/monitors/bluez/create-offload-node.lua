@@ -65,7 +65,7 @@ function createOffloadScoNode(parent, id, type, factory, properties)
     args["playback.props"] = Json.Object(playback_args)
   else
     log:warning(parent, "Unsupported factory: " .. factory)
-    return false
+    return nil
   end
 
   -- Transform 'args' to a json object here
@@ -76,9 +76,7 @@ function createOffloadScoNode(parent, id, type, factory, properties)
 
   local loopback_properties = {}
 
-  local loopback = LocalModule("libpipewire-module-loopback", args_string, loopback_properties)
-  parent:store_managed_object(id, loopback)
-  return true
+  return LocalModule("libpipewire-module-loopback", args_string, loopback_properties)
 end
 
 AsyncEventHook {
@@ -110,18 +108,29 @@ AsyncEventHook {
         end
 
         -- Create the offload SCO loopback nodes module
-        if not createOffloadScoNode(parent, id, type, factory, properties) then
+        local loopback = createOffloadScoNode(parent, id, type, factory, properties)
+        if loopback == nil then
           transition:return_error (
               "Failed to create Offload SCO node for BT node " .. node_name)
           event:stop_processing ()
           return
         end
+        parent:store_managed_object(id, loopback)
 
         -- FIXME: We should check and wait for the actual offload loopback nodes
         -- to be created before finishing
-        Core.sync (function ()
-          log:info (parent, "Created Offload node for BT node " .. node_name)
-          transition:advance ()
+        loopback:activate (Feature.LocalModule.LOADED, function (m, e)
+          if e then
+            if parent:get_managed_object (id) == m then
+              parent:store_managed_object (id, nil)
+            end
+            transition:return_error (
+                "Failed to create Offload SCO node for BT node " .. node_name ..
+                ": " .. tostring (e))
+          else
+            log:info (parent, "Created Offload node for BT node " .. node_name)
+            transition:advance ()
+          end
           event:stop_processing ()
         end)
       end

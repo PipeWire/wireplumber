@@ -90,6 +90,7 @@ Constant                                     Applies to
 ``Feature.Stream.ACTIVE``                    :ref:`Stream <lua_streams_api>`
 ``Feature.StreamLink.ACTIVE``                :ref:`StreamLink <lua_stream_links_api>`
 ``Feature.ObjectManager.INSTALLED``          :ref:`ObjectManager <lua_object_manager_api>`
+``Feature.LocalModule.LOADED``               :ref:`LocalModule <lua_local_module_api>`
 ============================================ =====================================
 
 The ``Features`` table provides convenient combinations:

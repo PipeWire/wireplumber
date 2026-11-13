@@ -94,3 +94,8 @@ print("Loading module-filter-chain with arguments = ")
 print(args_string)
 
 filter_chain = LocalModule("libpipewire-module-filter-chain", args_string, properties)
+filter_chain:activate(Feature.LocalModule.LOADED, function (_, e)
+  if e then
+    print("Failed to load module-filter-chain: " .. tostring(e))
+  end
+end)

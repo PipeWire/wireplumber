@@ -101,11 +101,11 @@ function CreateLoopback (props, group, target_object, target_stream, direction)
     ["playback.props"] = Json.Object (is_input and device_props or stream_props)
   }
 
-  -- Create module
+  -- Create module, without loading it
   return LocalModule("libpipewire-module-loopback", args:get_data(), {})
 end
 
-SimpleEventHook {
+AsyncEventHook {
   name = "lib/audio-group-utils/create-audio-group-loopback",
   interests = {
     EventInterest {
@@ -114,64 +114,87 @@ SimpleEventHook {
       Constraint { "kind", "=", StreamKind.SUBJECT, type = "gobject" },
     },
   },
-  execute = function (event)
-    local stream = event:get_subject ()
-    local source = event:get_source ()
-    local client_om = source:call ("get-object-manager", "client")
-    local stream_om = source:call ("get-object-manager", "stream")
-    local id = stream.id
-    local stream_props = stream:get_properties ()
-    local stream_name = stream_props["node.name"]
+  steps = {
+    start = {
+      next = "none",
+      execute = function (event, transition)
+        local stream = event:get_subject ()
+        local source = event:get_source ()
+        local client_om = source:call ("get-object-manager", "client")
+        local stream_om = source:call ("get-object-manager", "stream")
+        local id = stream.id
+        local stream_props = stream:get_properties ()
+        local stream_name = stream_props["node.name"]
 
-    -- Only handle plain streams, not monitors or filter streams
-    if stream_props:get_boolean ("stream.monitor") or
-        stream_utils.is_filter_stream (stream, stream_om) then
-      return
-    end
+        -- Only handle plain streams, not monitors or filter streams
+        if stream_props:get_boolean ("stream.monitor") or
+            stream_utils.is_filter_stream (stream, stream_om) then
+          transition:advance ()
+          return
+        end
 
-    -- Get client
-    local client = client_om:lookup {
-        Constraint {  "bound-id", "=", stream_props["client.id"], type = "gobject"}
-    }
-    if client == nil then
-      Log.info (stream,
-          "Cannot get client, not grouping audio stream ".. stream_name)
-      return
-    end
+        -- Get client
+        local client = client_om:lookup {
+            Constraint {  "bound-id", "=", stream_props["client.id"], type = "gobject"}
+        }
+        if client == nil then
+          Log.info (stream,
+              "Cannot get client, not grouping audio stream ".. stream_name)
+          transition:advance ()
+          return
+        end
 
-    -- Get process ID
-    local pid = tonumber (client.properties ["application.process.id"])
-    if pid == nil then
-      Log.info (stream,
-          "Cannot get process ID, not grouping audio stream ".. stream_name)
-      return
-    end
+        -- Get process ID
+        local pid = tonumber (client.properties ["application.process.id"])
+        if pid == nil then
+          Log.info (stream,
+              "Cannot get process ID, not grouping audio stream ".. stream_name)
+          transition:advance ()
+          return
+        end
 
-    -- Get direction and add it to the table
-    local direction = stream:get_direction ()
-    stream_directions [id] = direction
+        -- Get direction and add it to the table
+        local direction = stream:get_direction ()
+        stream_directions [id] = direction
 
-    -- Get group and add it to the table
-    local group, target_object, target_stream = GetStreamAudioGroup (pid)
-    if group == nil then
-      Log.info (stream,
-          "Cannot get audio group, not grouping audio stream " .. stream_name)
-      return
-    end
-    agutils.set_audio_group (stream, group)
+        -- Get group and add it to the table
+        local group, target_object, target_stream = GetStreamAudioGroup (pid)
+        if group == nil then
+          Log.info (stream,
+              "Cannot get audio group, not grouping audio stream " .. stream_name)
+          transition:advance ()
+          return
+        end
+        agutils.set_audio_group (stream, group)
 
-    -- Create group loopback module if it does not exist
-    local m = group_loopback_modules [direction][group]
-    if m == nil then
-      Log.info ("Creating " .. getDirectionString (direction) ..
-          " loopback for audio group " .. group ..
-          (target_object and (" with target object " .. tostring (target_object)) or "") ..
-          ((target_object and target_stream) and (" and target stream " .. tostring (target_stream)) or ""))
-      m = CreateLoopback (stream_props, group, target_object,
-          target_stream, direction)
-      group_loopback_modules [direction][group] = m
-    end
-  end
+        -- Nothing to do if the group loopback module already exists
+        if group_loopback_modules [direction][group] ~= nil then
+          transition:advance ()
+          return
+        end
+
+        -- Create and load the group loopback module
+        Log.info ("Creating " .. getDirectionString (direction) ..
+            " loopback for audio group " .. group ..
+            (target_object and (" with target object " .. tostring (target_object)) or "") ..
+            ((target_object and target_stream) and (" and target stream " .. tostring (target_stream)) or ""))
+        local m = CreateLoopback (stream_props, group, target_object,
+            target_stream, direction)
+        group_loopback_modules [direction][group] = m
+        m:activate (Feature.LocalModule.LOADED, function (_, e)
+          if e then
+            if group_loopback_modules [direction][group] == m then
+              group_loopback_modules [direction][group] = nil
+            end
+            transition:return_error ("failed to load the loopback for audio group " ..
+                group .. ": " .. tostring (e))
+          else
+            transition:advance ()
+          end
+        end)
+      end
+    },
+  },
 }:register ()
 
 

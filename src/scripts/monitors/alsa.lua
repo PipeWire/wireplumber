@@ -546,6 +546,15 @@ function createNode(parent, id, obj_type, factory, properties)
     local loopback = createSplitPCMLoopback (parent, id, obj_type, factory, properties)
     parent:store_managed_object(SPLIT_PCM_OFFSET + id, loopback)
     parent:set_managed_pending(id)
+    loopback:activate(Feature.LocalModule.LOADED, function (m, err)
+      if err then
+        log:warning ("Failed to create ALSA SplitPCM split node " ..
+            tostring (properties["node.name"]) .. ": " .. tostring(err))
+        if parent:get_managed_object(SPLIT_PCM_OFFSET + id) == m then
+          parent:store_managed_object(SPLIT_PCM_OFFSET + id, nil)
+        end
+      end
+    end)
     return
   end
 

@@ -82,71 +82,83 @@ function IsA2dpDuplexProfile (spa_device, profile)
   return false
 end
 
-SimpleEventHook {
+AsyncEventHook {
   name = "monitor/bluez/create-loopback-node",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "create-bluez-device-loopback-node" },
     },
   },
-  execute = function (event)
-    local source = event:get_source ()
-    local spa_device = event:get_subject ()
+  steps = {
+    start = {
+      next = "none",
+      execute = function (event, transition)
+        local spa_device = event:get_subject ()
+        local props = spa_device.properties
+        local device_name = props ["device.name"]
 
-    local device_id = spa_device["bound-id"]
-    local props = spa_device.properties
-    local device_name = props ["device.name"]
+        log:debug (spa_device, "Checking loopbacks on BT device: " .. device_name)
 
-    log:debug (spa_device, "Checking loopbacks on BT device: " .. device_name)
-
-    -- Check if the device supports headset profile
-    local has_headset_profile = false
-    for p in spa_device:iterate_params("EnumProfile") do
-      local profile = cutils.parseParam (p, "EnumProfile")
-      if profile.name:find ("headset") then
-        has_headset_profile = true
-      end
-    end
-
-    if has_headset_profile then
-      -- Always create the source loopback device if autoswitch is enabled.
-      -- Otherwise, only create the source loopback device if the current profile
-      -- is headset, and destroy the source loopback deivce if the current profile
-      -- is A2DP.
-      if Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile") then
-        -- Create source loopback
-        local source_loopback = spa_device:get_managed_object (LOOPBACK_SOURCE_ID)
-        if source_loopback == nil and has_headset_profile then
-          source_loopback = CreateDeviceLoopbackSource (props, device_id)
-          spa_device:store_managed_object(LOOPBACK_SOURCE_ID, source_loopback)
-          log:debug (spa_device, "created loopback source for BT device: " .. device_name)
-        end
-      else
-        -- Check if current profile is headset
-        local is_current_profile_headset = false
-        for p in spa_device:iterate_params("Profile") do
-          local profile = cutils.parseParam (p, "Profile")
-          if profile.name:find ("headset") or
-              IsA2dpDuplexProfile (spa_device, profile) then
-            is_current_profile_headset = true
+        -- Just advance if the device does not support headset profiles
+        local has_headset_profile = false
+        for p in spa_device:iterate_params("EnumProfile") do
+          local profile = cutils.parseParam (p, "EnumProfile")
+          if profile.name:find ("headset") then
+            has_headset_profile = true
           end
-          break
+        end
+        if not has_headset_profile then
+          transition:advance ()
+          return
         end
 
-        if is_current_profile_headset then
-          -- Create source loopback
-          local source_loopback = spa_device:get_managed_object (LOOPBACK_SOURCE_ID)
-          if source_loopback == nil and has_headset_profile then
-            source_loopback = CreateDeviceLoopbackSource (props, device_id)
-            spa_device:store_managed_object(LOOPBACK_SOURCE_ID, source_loopback)
-            log:debug (spa_device, "created loopback source for BT device: " .. device_name)
+        -- Always create the source loopback device if autoswitch is enabled.
+        -- Otherwise, only create the source loopback device if the current
+        -- profile is headset, and destroy the source loopback deivce if the
+        -- current profile is A2DP.
+        if not Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile") then
+          -- Check if current profile is headset
+          local is_current_profile_headset = false
+          for p in spa_device:iterate_params("Profile") do
+            local profile = cutils.parseParam (p, "Profile")
+            if profile.name:find ("headset") or
+                IsA2dpDuplexProfile (spa_device, profile) then
+              is_current_profile_headset = true
+            end
+            break
           end
-        else
+
           -- Destroy source loopback
-          spa_device:store_managed_object(LOOPBACK_SOURCE_ID, nil)
-          log:debug (spa_device, "destroyed loopback source for BT device: " .. device_name)
+          if not is_current_profile_headset then
+            spa_device:store_managed_object(LOOPBACK_SOURCE_ID, nil)
+            log:debug (spa_device, "destroyed loopback source for BT device: " .. device_name)
+            transition:advance ()
+            return
+          end
         end
+
+        -- Nothing to do if the source loopback already exists
+        if spa_device:get_managed_object (LOOPBACK_SOURCE_ID) ~= nil then
+          transition:advance ()
+          return
+        end
+
+        -- Create source loopback
+        local loopback = CreateDeviceLoopbackSource (props, spa_device["bound-id"])
+        spa_device:store_managed_object (LOOPBACK_SOURCE_ID, loopback)
+        loopback:activate (Feature.LocalModule.LOADED, function (m, e)
+          if e then
+            if spa_device:get_managed_object (LOOPBACK_SOURCE_ID) == m then
+              spa_device:store_managed_object (LOOPBACK_SOURCE_ID, nil)
+            end
+            transition:return_error ("failed to create loopback source for BT device " ..
+                device_name .. ": " .. tostring (e))
+          else
+            log:debug (spa_device, "created loopback source for BT device: " .. device_name)
+            transition:advance ()
+          end
+        end)
       end
-    end
-  end
+    },
+  },
 }:register ()

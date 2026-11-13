@@ -105,9 +105,17 @@ AsyncEventHook {
 
         -- FIXME: We should check and wait for the actual set node to be created
         -- before finishing
-        Core.sync (function ()
-          log:info (parent, "Created Set node for BT node " .. node_name)
-          transition:advance ()
+        combine:activate (Feature.LocalModule.LOADED, function (m, e)
+          if e then
+            if parent:get_managed_object (id + COMBINE_OFFSET) == m then
+              parent:store_managed_object (id + COMBINE_OFFSET, nil)
+            end
+            transition:return_error ("Failed to create Set node for BT node " ..
+                node_name .. ": " .. tostring (e))
+          else
+            log:info (parent, "Created Set node for BT node " .. node_name)
+            transition:advance ()
+          end
           event:stop_processing ()
         end)
       end

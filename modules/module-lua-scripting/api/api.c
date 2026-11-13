@@ -2479,15 +2479,6 @@ static const luaL_Reg state_metadata_methods[] = {
 
 /* ImplModule */
 
-static void
-impl_module_load_done (WpObject * m, GAsyncResult * res, gpointer data)
-{
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (m, res, &error))
-    wp_warning_object (m, "%s", error->message);
-}
-
 static int
 impl_module_new (lua_State *L)
 {
@@ -2505,28 +2496,10 @@ impl_module_new (lua_State *L)
     properties = wp_properties_ref (wplua_checkboxed (L, 3,
         WP_TYPE_PROPERTIES));
 
-  WpImplModule *m = wp_impl_module_new (get_wp_core (L),
-     name, args, properties);
-
-  wp_object_activate (WP_OBJECT (m), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
-      (GAsyncReadyCallback) impl_module_load_done, NULL);
-
-  wplua_pushobject (L, m);
+  wplua_pushobject (L, wp_impl_module_new (get_wp_core (L),
+      name, args, properties));
   return 1;
 }
-
-static int
-impl_module_unload (lua_State *L)
-{
-  WpImplModule *m = wplua_checkobject (L, 1, WP_TYPE_IMPL_MODULE);
-  wp_object_deactivate (WP_OBJECT (m), WP_IMPL_MODULE_FEATURE_LOADED);
-  return 0;
-}
-
-static const luaL_Reg impl_module_methods[] = {
-  { "unload", impl_module_unload },
-  { NULL, NULL }
-};
 
 /* WpConf */
 
@@ -4183,7 +4156,7 @@ wp_lua_scripting_api_init (lua_State *L)
   wplua_register_type_methods (L, WP_TYPE_STATE_METADATA,
       state_metadata_new, state_metadata_methods);
   wplua_register_type_methods (L, WP_TYPE_IMPL_MODULE,
-      impl_module_new, impl_module_methods);
+      impl_module_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_EVENT,
       NULL, event_methods);
   wplua_register_type_methods (L, WP_TYPE_EVENT_HOOK,

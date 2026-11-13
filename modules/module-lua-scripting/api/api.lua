@@ -184,6 +184,9 @@ local Feature = {
   ObjectManager = {
     INSTALLED         = (1 << 0),
   },
+  LocalModule = {
+    LOADED            = (1 << 0),
+  },
 }
 
 PERM_R_VAL = 0x100
