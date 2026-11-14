@@ -313,6 +313,275 @@ test_impl_module_unload_in_client_context (TestFixture * f,
   g_assert_cmpuint (d.count, ==, 1);
 }
 
+struct client_lookup {
+  struct pw_context *context;
+  struct module_lookup result;
+};
+
+static void
+do_lookup_client_loopback (gpointer data)
+{
+  struct client_lookup *c = data;
+  c->result = lookup_loopback_module (c->context);
+}
+
+/* the number of loopback modules loaded in the client context */
+static guint
+client_loopback_modules (TestFixture * f)
+{
+  g_autoptr (WpClientContext) ctx = wp_client_context_find (f->base.core);
+  struct client_lookup c = {
+    .context = wp_context_get_pw_context (WP_CONTEXT (ctx)) };
+
+  wp_test_client_context_run (&f->base, do_lookup_client_loopback, &c);
+  return c.result.count;
+}
+
+static void
+on_module_loaded (WpObject * object, GAsyncResult * res, gboolean * done)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean ok = wp_object_activate_finish (object, res, &error);
+  g_assert_no_error (error);
+  g_assert_true (ok);
+  *done = TRUE;
+}
+
+/* Runs @func right after the activation step of an object activated before
+   this is called: both are idle sources of the same priority, which run in the
+   order they were added, and in the same main loop iteration. A result that the
+   loop thread hands over to the main thread can only be dispatched in a later
+   iteration, so @func sees the step's state before any of that */
+static void
+run_after_activation_step (TestFixture * f, GSourceFunc func, gpointer data)
+{
+  g_autoptr (GSource) s = g_idle_source_new ();
+  g_source_set_callback (s, func, data, NULL);
+  g_source_attach (s, f->base.context);
+}
+
+struct async_load_data {
+  WpImplModule *module;
+  gboolean checked;
+};
+
+static gboolean
+check_still_loading (struct async_load_data * d)
+{
+  g_assert_false (wp_object_test_active_features (WP_OBJECT (d->module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+  d->checked = TRUE;
+  return G_SOURCE_REMOVE;
+}
+
+/*
+ * In the client context, the module is loaded on the loop thread without
+ * blocking this one, so the activation step returns before it is loaded.
+ */
+static void
+test_impl_module_load_is_async (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpImplModule) module = NULL;
+  struct async_load_data d = { 0, };
+  gboolean done = FALSE;
+
+  wp_test_client_context_load (&f->base);
+
+  module = wp_impl_module_new (f->base.core, "libpipewire-module-loopback",
+      LOOPBACK_ARGS, NULL);
+  d.module = module;
+  wp_object_activate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
+      (GAsyncReadyCallback) on_module_loaded, &done);
+  run_after_activation_step (f, (GSourceFunc) check_still_loading, &d);
+
+  while (!done)
+    g_main_context_iteration (f->base.context, TRUE);
+
+  g_assert_true (d.checked);
+  g_assert_true (wp_object_test_active_features (WP_OBJECT (module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+  g_assert_cmpuint (client_loopback_modules (f), ==, 1);
+}
+
+static void
+on_module_load_aborted (WpObject * object, GAsyncResult * res, gboolean * done)
+{
+  g_autoptr (GError) error = NULL;
+  g_assert_false (wp_object_activate_finish (object, res, &error));
+  g_assert_nonnull (error);
+  *done = TRUE;
+}
+
+static gboolean
+abort_load (struct async_load_data * d)
+{
+  g_assert_false (wp_object_test_active_features (WP_OBJECT (d->module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+  wp_object_abort_activation (WP_OBJECT (d->module), "test");
+  d->checked = TRUE;
+  return G_SOURCE_REMOVE;
+}
+
+/*
+ * If the activation is aborted while the module is loading, the module is
+ * unloaded as soon as the load result is back, and it can be loaded again.
+ */
+static void
+test_impl_module_load_aborted (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpImplModule) module = NULL;
+  struct async_load_data d = { 0, };
+  gboolean aborted = FALSE;
+  gboolean done = FALSE;
+
+  wp_test_client_context_load (&f->base);
+
+  module = wp_impl_module_new (f->base.core, "libpipewire-module-loopback",
+      LOOPBACK_ARGS, NULL);
+  d.module = module;
+  wp_object_activate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
+      (GAsyncReadyCallback) on_module_load_aborted, &aborted);
+  run_after_activation_step (f, (GSourceFunc) abort_load, &d);
+
+  while (!aborted)
+    g_main_context_iteration (f->base.context, TRUE);
+  g_assert_true (d.checked);
+  g_assert_false (wp_object_test_active_features (WP_OBJECT (module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+
+  /* the load still completes on the loop thread */
+  g_assert_cmpuint (client_loopback_modules (f), ==, 1);
+
+  /* and the module is unloaded once the result is back on this thread */
+  while (client_loopback_modules (f) > 0)
+    g_main_context_iteration (f->base.context, TRUE);
+  g_assert_false (wp_object_test_active_features (WP_OBJECT (module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+
+  wp_object_activate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
+      (GAsyncReadyCallback) on_module_loaded, &done);
+  while (!done)
+    g_main_context_iteration (f->base.context, TRUE);
+  g_assert_true (wp_object_test_active_features (WP_OBJECT (module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+}
+
+struct activation_result {
+  gboolean done;
+  gboolean ok;
+};
+
+static void
+on_activation_result (WpObject * object, GAsyncResult * res,
+    struct activation_result * r)
+{
+  g_autoptr (GError) error = NULL;
+  r->ok = wp_object_activate_finish (object, res, &error);
+  r->done = TRUE;
+}
+
+static void
+activate_twice (TestFixture * f, WpImplModule * module,
+    struct activation_result * r1, struct activation_result * r2)
+{
+  wp_object_activate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
+      (GAsyncReadyCallback) on_activation_result, r1);
+  wp_object_activate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
+      (GAsyncReadyCallback) on_activation_result, r2);
+  while (!r1->done || !r2->done)
+    g_main_context_iteration (f->base.context, TRUE);
+}
+
+/*
+ * Activating the module again while it is loading completes once the module
+ * is loaded, without loading it a second time.
+ */
+static void
+test_impl_module_load_twice (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpImplModule) module = NULL;
+  struct activation_result r1 = { 0, }, r2 = { 0, };
+
+  wp_test_client_context_load (&f->base);
+
+  module = wp_impl_module_new (f->base.core, "libpipewire-module-loopback",
+      LOOPBACK_ARGS, NULL);
+  activate_twice (f, module, &r1, &r2);
+
+  g_assert_true (r1.ok);
+  g_assert_true (r2.ok);
+  g_assert_cmpuint (client_loopback_modules (f), ==, 1);
+  g_assert_true (wp_object_test_active_features (WP_OBJECT (module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+}
+
+/*
+ * When the module fails to load, the activation that is waiting for that load
+ * fails too.
+ */
+static void
+test_impl_module_load_twice_error (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpImplModule) module = NULL;
+  struct activation_result r1 = { 0, }, r2 = { 0, };
+
+  wp_test_client_context_load (&f->base);
+
+  module = wp_impl_module_new (f->base.core,
+      "libpipewire-module-does-not-exist", NULL, NULL);
+  activate_twice (f, module, &r1, &r2);
+
+  g_assert_false (r1.ok);
+  g_assert_false (r2.ok);
+  g_assert_false (wp_object_test_active_features (WP_OBJECT (module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+}
+
+static gboolean
+abort_and_reactivate (struct async_load_data * d)
+{
+  wp_object_abort_activation (WP_OBJECT (d->module), "test");
+  wp_object_activate (WP_OBJECT (d->module), WP_IMPL_MODULE_FEATURE_LOADED,
+      NULL, (GAsyncReadyCallback) on_module_loaded, &d->checked);
+  return G_SOURCE_REMOVE;
+}
+
+/*
+ * An activation that starts while the load of an aborted one is still running
+ * completes successfully, and the module stays loaded.
+ */
+static void
+test_impl_module_load_after_abort (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpImplModule) module = NULL;
+  struct async_load_data d = { 0, };
+  gboolean aborted = FALSE;
+
+  wp_test_client_context_load (&f->base);
+
+  module = wp_impl_module_new (f->base.core, "libpipewire-module-loopback",
+      LOOPBACK_ARGS, NULL);
+  d.module = module;
+  wp_object_activate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
+      (GAsyncReadyCallback) on_module_load_aborted, &aborted);
+  run_after_activation_step (f, (GSourceFunc) abort_and_reactivate, &d);
+
+  /* d.checked is set by on_module_loaded() */
+  while (!d.checked)
+    g_main_context_iteration (f->base.context, TRUE);
+  g_assert_true (aborted);
+  g_assert_true (wp_object_test_active_features (WP_OBJECT (module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+  g_assert_cmpuint (client_loopback_modules (f), ==, 1);
+
+  /* nothing unloads it afterwards */
+  flush_client_thread (f);
+  while (g_main_context_iteration (f->base.context, FALSE));
+  g_assert_true (wp_object_test_active_features (WP_OBJECT (module),
+      WP_IMPL_MODULE_FEATURE_LOADED));
+  g_assert_cmpuint (client_loopback_modules (f), ==, 1);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -336,6 +605,21 @@ main (gint argc, gchar *argv[])
       test_impl_module_teardown);
   g_test_add ("/wp/module/unload-in-client-context", TestFixture, NULL,
       test_impl_module_setup, test_impl_module_unload_in_client_context,
+      test_impl_module_teardown);
+  g_test_add ("/wp/module/load-is-async", TestFixture, NULL,
+      test_impl_module_setup, test_impl_module_load_is_async,
+      test_impl_module_teardown);
+  g_test_add ("/wp/module/load-aborted", TestFixture, NULL,
+      test_impl_module_setup, test_impl_module_load_aborted,
+      test_impl_module_teardown);
+  g_test_add ("/wp/module/load-twice", TestFixture, NULL,
+      test_impl_module_setup, test_impl_module_load_twice,
+      test_impl_module_teardown);
+  g_test_add ("/wp/module/load-twice-error", TestFixture, NULL,
+      test_impl_module_setup, test_impl_module_load_twice_error,
+      test_impl_module_teardown);
+  g_test_add ("/wp/module/load-after-abort", TestFixture, NULL,
+      test_impl_module_setup, test_impl_module_load_after_abort,
       test_impl_module_teardown);
 
   return g_test_run ();

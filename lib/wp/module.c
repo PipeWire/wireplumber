@@ -33,10 +33,24 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-module")
  * `pw_context` that runs on its own thread, so that it is not affected by
  * anything that blocks WirePlumber's main loop. The WpImplModule itself stays
  * on the thread that created it and its API is unchanged; the module's own
- * callbacks, though, run on that other thread. If the component is not loaded
+ * callbacks, though, run on that other thread. Loading the module there does
+ * not block the main loop, but unloading it waits until it is done, so that
+ * it is gone when deactivation returns. If the component is not loaded
  * at the time the module is loaded, the module is loaded in the core's
  * `pw_context` instead.
  */
+
+typedef struct _WpModuleLoadData WpModuleLoadData;
+
+struct _WpModuleLoadData
+{
+  WpImplModule *self;
+  WpTransition *transition;
+  struct pw_context *context;
+  struct pw_properties *props;
+  gboolean loaded;
+  int errsv;
+};
 
 struct _WpImplModule
 {
@@ -53,6 +67,7 @@ struct _WpImplModule
   /* Load info */
   struct pw_impl_module *pw_impl_module;
   struct spa_hook impl_module_listener;
+  WpModuleLoadData *pending_load;
 };
 
 G_DEFINE_TYPE (WpImplModule, wp_impl_module, WP_TYPE_OBJECT);
@@ -82,31 +97,21 @@ static const struct pw_impl_module_events impl_module_events = {
   .free = impl_module_free,
 };
 
-/* loading and destroying the module must happen on the thread of the context
-   that hosts it, because the module's own code may do a blocking invoke on the
-   context's loop, which would release the lock and let the loop thread run the
-   module's callbacks concurrently */
-
-struct load_data {
-  WpImplModule *self;
-  struct pw_context *context;
-  struct pw_properties *props;
-  int errsv;
-};
-
 static void
 do_load (gpointer data)
 {
-  struct load_data *d = data;
+  WpModuleLoadData *d = data;
   WpImplModule *self = d->self;
 
-  self->pw_impl_module =
-    pw_context_load_module (d->context, self->name, self->args, d->props);
+  /* pw_context_load_module() takes ownership of the properties */
+  self->pw_impl_module = pw_context_load_module (d->context, self->name,
+      self->args, g_steal_pointer (&d->props));
 
   /* errno is per-thread, so it must be read on the thread that loaded */
   if (self->pw_impl_module) {
     pw_impl_module_add_listener (self->pw_impl_module,
         &self->impl_module_listener, &impl_module_events, self);
+    d->loaded = TRUE;
   } else {
     d->errsv = errno;
   }
@@ -199,11 +204,90 @@ wp_impl_module_activate_get_next_step (WpObject * object,
 }
 
 static void
+unload_module (WpImplModule * self)
+{
+  if (self->client_ctx)
+    wp_client_context_run_in_thread_sync (self->client_ctx, do_unload, self);
+  else
+    do_unload (self);
+  g_clear_object (&self->client_ctx);
+}
+
+static void
+load_data_free (WpModuleLoadData * d)
+{
+  g_clear_pointer (&d->props, pw_properties_free);
+  g_clear_object (&d->transition);
+  g_clear_object (&d->self);
+  g_free (d);
+}
+
+/* completes the load on this thread; takes ownership of @error, which is set
+   if the result of the load could not be handed back to this thread */
+static void
+finish_load (WpModuleLoadData * d, GError * error)
+{
+  WpImplModule *self = d->self;
+
+  self->pending_load = NULL;
+
+  /* the load failed, or the activation was aborted in the meantime */
+  if (error || !d->loaded || wp_transition_get_completed (d->transition)) {
+    if (d->loaded)
+      unload_module (self);
+    else
+      g_clear_object (&self->client_ctx);
+
+    if (!wp_transition_get_completed (d->transition)) {
+      if (error)
+        g_prefix_error (&error, "failed to load module '%s': ", self->name);
+      else
+        error = g_error_new (WP_DOMAIN_LIBRARY,
+            WP_LIBRARY_ERROR_OPERATION_FAILED, "failed to load module '%s': %s",
+            self->name, g_strerror (d->errsv));
+      wp_transition_return_error (d->transition, g_steal_pointer (&error));
+    }
+
+    g_clear_error (&error);
+    load_data_free (d);
+    return;
+  }
+
+  /* the caller loses the isolation the client context provides if it is not
+     loaded yet, so make it visible which context ended up hosting this */
+  wp_debug_object (self, "loaded '%s' in the %s context", self->name,
+      self->client_ctx ? "client" : "main");
+
+  wp_object_update_features (WP_OBJECT (self),
+      WP_IMPL_MODULE_FEATURE_LOADED, 0);
+  load_data_free (d);
+}
+
+static void
+on_load_done (GObject * source, GAsyncResult * res, gpointer data)
+{
+  GError *error = NULL;
+
+  wp_client_context_run_in_thread_finish (WP_CLIENT_CONTEXT (source), res,
+      &error);
+  finish_load (data, error);
+}
+
+static void
 impl_module_load (WpImplModule * self, WpTransition * transition)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (WpContext) ctx = NULL;
-  struct load_data d = { .self = self };
+  struct pw_context *context;
+  WpModuleLoadData *d;
+
+  /* if a previous activation was aborted while the module was being loaded,
+     take over that load instead of starting a second one */
+  if (self->pending_load) {
+    g_object_unref (self->pending_load->transition);
+    self->pending_load->transition = g_object_ref (transition);
+    return;
+  }
 
   if (!self->name) {
     wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
@@ -215,8 +299,8 @@ impl_module_load (WpImplModule * self, WpTransition * transition)
   if (!ctx)
     ctx = WP_CONTEXT (g_object_ref (wp_core_get_main_context (core)));
 
-  d.context = wp_context_get_pw_context (ctx);
-  if (!d.context) {
+  context = wp_context_get_pw_context (ctx);
+  if (!context) {
     wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
         "failed to load module '%s': no pw_context", self->name));
@@ -226,29 +310,22 @@ impl_module_load (WpImplModule * self, WpTransition * transition)
   if (WP_IS_CLIENT_CONTEXT (ctx))
     self->client_ctx = WP_CLIENT_CONTEXT (g_object_ref (ctx));
 
+  d = g_new0 (WpModuleLoadData, 1);
+  d->self = g_object_ref (self);
+  d->transition = g_object_ref (transition);
+  d->context = context;
   if (self->props)
-    d.props = wp_properties_to_pw_properties (self->props);
+    d->props = wp_properties_to_pw_properties (self->props);
 
-  if (self->client_ctx)
-    wp_client_context_run_in_thread_sync (self->client_ctx, do_load, &d);
-  else
-    do_load (&d);
+  self->pending_load = d;
 
-  if (!self->pw_impl_module) {
-    g_clear_object (&self->client_ctx);
-    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to load module '%s': %s", self->name, g_strerror (d.errsv)));
-    return;
+  if (self->client_ctx) {
+    wp_client_context_run_in_thread (self->client_ctx, do_load, d,
+        on_load_done, d);
+  } else {
+    do_load (d);
+    finish_load (d, NULL);
   }
-
-  /* the caller loses the isolation the client context provides if it is not
-     loaded yet, so make it visible which context ended up hosting this */
-  wp_debug_object (self, "loaded '%s' in the %s context", self->name,
-      self->client_ctx ? "client" : "main");
-
-  wp_object_update_features (WP_OBJECT (self),
-      WP_IMPL_MODULE_FEATURE_LOADED, 0);
 }
 
 static void
@@ -277,11 +354,7 @@ wp_impl_module_deactivate (WpObject * object, WpObjectFeatures features)
   if (!(features & WP_IMPL_MODULE_FEATURE_LOADED))
     return;
 
-  if (self->client_ctx)
-    wp_client_context_run_in_thread_sync (self->client_ctx, do_unload, self);
-  else
-    do_unload (self);
-  g_clear_object (&self->client_ctx);
+  unload_module (self);
 
   wp_object_update_features (object, 0, WP_IMPL_MODULE_FEATURE_LOADED);
 }
