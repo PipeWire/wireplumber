@@ -1202,6 +1202,108 @@ wp_client_context_run_in_thread_sync (WpClientContext * self,
   g_mutex_clear (&d.lock);
 }
 
+typedef struct {
+  WpClientContextFunc callback;
+  gpointer data;
+  gboolean returned;
+} RunInThreadData;
+
+static void
+run_in_thread_return (gpointer data)
+{
+  GTask *task = data;
+  RunInThreadData *d = g_task_get_task_data (task);
+
+  d->returned = TRUE;
+  g_task_return_boolean (task, TRUE);
+}
+
+static void
+run_in_thread_unref (gpointer data)
+{
+  GTask *task = data;
+  RunInThreadData *d = g_task_get_task_data (task);
+
+  /* the queue dropped the result before it could be returned */
+  if (!d->returned)
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "the client context stopped before the result was handed back");
+  g_object_unref (task);
+}
+
+static int
+do_run_in_thread (struct spa_loop *loop, bool async, uint32_t seq,
+    const void *data, size_t size, void *user_data)
+{
+  GTask *task = user_data;
+  RunInThreadData *d = g_task_get_task_data (task);
+
+  d->callback (d->data);
+  wp_client_context_queue_in_main (g_task_get_source_object (task),
+      run_in_thread_return, task, run_in_thread_unref);
+  return 0;
+}
+
+/* Runs \a callback on the loop thread without waiting for it, and then
+   \a ready_callback on the main thread; \a ready_callback is always called,
+   and \a data must stay valid until then. If the context is not running,
+   \a callback runs right away on this thread */
+void
+wp_client_context_run_in_thread (WpClientContext * self,
+    WpClientContextFunc callback, gpointer data,
+    GAsyncReadyCallback ready_callback, gpointer ready_data)
+{
+  GTask *task;
+  RunInThreadData *d;
+  int res;
+
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
+  g_return_if_fail (callback);
+
+  task = g_task_new (self, NULL, ready_callback, ready_data);
+  g_task_set_source_tag (task, wp_client_context_run_in_thread);
+
+  d = g_new0 (RunInThreadData, 1);
+  d->callback = callback;
+  d->data = data;
+  g_task_set_task_data (task, d, g_free);
+
+  if (!g_atomic_int_get (&self->started) ||
+      pw_thread_loop_in_thread (self->thread_loop)) {
+    callback (data);
+    d->returned = TRUE;
+    g_task_return_boolean (task, TRUE);
+    g_object_unref (task);
+    return;
+  }
+
+  /* invoking on the loop from another thread requires holding the lock */
+  pw_thread_loop_lock (self->thread_loop);
+  res = pw_loop_invoke (pw_thread_loop_get_loop (self->thread_loop),
+      do_run_in_thread, SPA_ID_INVALID, NULL, 0, false, task);
+  pw_thread_loop_unlock (self->thread_loop);
+
+  if (res < 0) {
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "failed to invoke on the loop thread: %s", spa_strerror (res));
+    g_object_unref (task);
+  }
+}
+
+gboolean
+wp_client_context_run_in_thread_finish (WpClientContext * self,
+    GAsyncResult * res, GError ** error)
+{
+  g_return_val_if_fail (WP_IS_CLIENT_CONTEXT (self), FALSE);
+  g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
+  g_return_val_if_fail (g_async_result_is_tagged (res,
+      wp_client_context_run_in_thread), FALSE);
+
+  return g_task_propagate_boolean (G_TASK (res), error);
+}
+
 void
 wp_client_context_queue_in_main (WpClientContext * self,
     WpClientContextFunc callback, gpointer data, GDestroyNotify destroy)

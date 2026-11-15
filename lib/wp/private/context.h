@@ -40,6 +40,13 @@ gboolean wp_client_context_in_thread (WpClientContext * self);
 void wp_client_context_run_in_thread_sync (WpClientContext * self,
     WpClientContextFunc callback, gpointer data);
 
+void wp_client_context_run_in_thread (WpClientContext * self,
+    WpClientContextFunc callback, gpointer data,
+    GAsyncReadyCallback ready_callback, gpointer ready_data);
+
+gboolean wp_client_context_run_in_thread_finish (WpClientContext * self,
+    GAsyncResult * res, GError ** error);
+
 void wp_client_context_queue_in_main (WpClientContext * self,
     WpClientContextFunc callback, gpointer data, GDestroyNotify destroy);
 
