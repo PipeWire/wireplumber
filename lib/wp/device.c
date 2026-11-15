@@ -211,6 +211,13 @@ struct _WpSpaDevice
 /* the spa_device lives in the client context when there is one, so it runs on
    another thread; see WpClientContext */
 
+static gboolean
+wp_spa_device_in_client_thread (WpSpaDevice * self)
+{
+  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
+  return ctx && wp_client_context_in_thread (ctx);
+}
+
 /* takes ownership of @data, which must start with a WpSpaDevice* field */
 static void
 wp_spa_device_queue_in_main (WpSpaDevice * self, WpClientContextFunc func,
@@ -299,10 +306,12 @@ static void
 wp_spa_device_finalize (GObject * object)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (object);
+  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
 
-  wp_client_context_run_in_thread (
-      wp_proxy_get_client_context (WP_PROXY (self)),
-      wp_spa_device_clear_handle, self);
+  if (ctx)
+    wp_client_context_run_in_thread (ctx, wp_spa_device_clear_handle, self);
+  else
+    wp_spa_device_clear_handle (self);
 
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->last_enum_params, g_ptr_array_unref);
@@ -418,8 +427,7 @@ spa_device_event_info (void *data, const struct spa_device_info *info)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (data);
 
-  if (wp_client_context_in_thread (
-          wp_proxy_get_client_context (WP_PROXY (self)))) {
+  if (wp_spa_device_in_client_thread (self)) {
     /* the spa_device_info is only valid for the duration of this call */
     DeviceInfoEvent *e = g_new0 (DeviceInfoEvent, 1);
     e->change_mask = info->change_mask;
@@ -580,8 +588,7 @@ spa_device_event_event (void *data, const struct spa_event *event)
 
   wp_trace_boxed (WP_TYPE_SPA_POD, pod, "device event");
 
-  if (wp_client_context_in_thread (
-          wp_proxy_get_client_context (WP_PROXY (self)))) {
+  if (wp_spa_device_in_client_thread (self)) {
     /* the event pod is only valid for the duration of this call */
     DeviceEvent *e = g_new0 (DeviceEvent, 1);
     e->pod = wp_spa_pod_copy (pod);
@@ -651,8 +658,7 @@ spa_device_event_object_info (void *data, uint32_t id,
   WpSpaDevice *self = WP_SPA_DEVICE (data);
   const gchar *type = info ? spa_debug_type_short_name (info->type) : NULL;
 
-  if (wp_client_context_in_thread (
-          wp_proxy_get_client_context (WP_PROXY (self)))) {
+  if (wp_spa_device_in_client_thread (self)) {
     /* the spa_device_object_info is only valid for the duration of this call.
        Note that add/remove pairs for the same id must keep their relative
        order, which the client context's queue guarantees. */
@@ -788,10 +794,13 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
 
   if (features & WP_SPA_DEVICE_FEATURE_ENABLED) {
     WpSpaDevice *self = WP_SPA_DEVICE (object);
+    WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
 
-    wp_client_context_run_in_thread (
-      wp_proxy_get_client_context (WP_PROXY (self)),
-      wp_spa_device_remove_listener, self);
+    if (ctx)
+      wp_client_context_run_in_thread (ctx, wp_spa_device_remove_listener,
+          self);
+    else
+      wp_spa_device_remove_listener (self);
 
     g_clear_pointer (&self->info_params, g_free);
     self->info_n_params = 0;

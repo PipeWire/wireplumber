@@ -1117,21 +1117,22 @@ wp_client_context_stop (WpClientContext * self)
 void
 wp_client_context_lock (WpClientContext * self)
 {
-  if (self)
-    pw_thread_loop_lock (self->thread_loop);
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
+  pw_thread_loop_lock (self->thread_loop);
 }
 
 void
 wp_client_context_unlock (WpClientContext * self)
 {
-  if (self)
-    pw_thread_loop_unlock (self->thread_loop);
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
+  pw_thread_loop_unlock (self->thread_loop);
 }
 
 gboolean
 wp_client_context_in_thread (WpClientContext * self)
 {
-  return self && pw_thread_loop_in_thread (self->thread_loop);
+  g_return_val_if_fail (WP_IS_CLIENT_CONTEXT (self), FALSE);
+  return pw_thread_loop_in_thread (self->thread_loop);
 }
 
 typedef struct {
@@ -1164,10 +1165,11 @@ wp_client_context_run_in_thread (WpClientContext * self,
   RunInThreadData d = { .callback = callback, .data = data, .done = FALSE };
   int res;
 
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
   g_return_if_fail (callback);
 
   /* a stopped context has no thread to run callback or to race with */
-  if (!self || !g_atomic_int_get (&self->started) ||
+  if (!g_atomic_int_get (&self->started) ||
       pw_thread_loop_in_thread (self->thread_loop)) {
     callback (data);
     return;

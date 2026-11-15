@@ -160,7 +160,10 @@ wp_impl_module_constructed (GObject * object)
   if (self->props)
     d.props = wp_properties_to_pw_properties (self->props);
 
-  wp_client_context_run_in_thread (self->ctx, do_load, &d);
+  if (self->ctx)
+    wp_client_context_run_in_thread (self->ctx, do_load, &d);
+  else
+    do_load (&d);
 
   if (self->pw_impl_module) {
     /* the caller loses the isolation the client context provides if it is not
@@ -218,7 +221,8 @@ wp_impl_module_get_property (GObject * object, guint prop_id,
       break;
 
     case PROP_PROPERTIES:
-      wp_client_context_lock (self->ctx);
+      if (self->ctx)
+        wp_client_context_lock (self->ctx);
       if (self->pw_impl_module) {
         const struct pw_properties *props =
           pw_impl_module_get_properties (self->pw_impl_module);
@@ -228,17 +232,21 @@ wp_impl_module_get_property (GObject * object, guint prop_id,
           g_value_take_boxed (value, wp_properties_new_copy (props));
         else
           g_value_set_boxed (value, NULL);
-        wp_client_context_unlock (self->ctx);
+        if (self->ctx)
+          wp_client_context_unlock (self->ctx);
       } else {
-        wp_client_context_unlock (self->ctx);
+        if (self->ctx)
+          wp_client_context_unlock (self->ctx);
         g_value_set_boxed (value, self->props);
       }
       break;
 
     case PROP_PW_IMPL_MODULE:
-      wp_client_context_lock (self->ctx);
+      if (self->ctx)
+        wp_client_context_lock (self->ctx);
       g_value_set_pointer (value, self->pw_impl_module);
-      wp_client_context_unlock (self->ctx);
+      if (self->ctx)
+        wp_client_context_unlock (self->ctx);
       break;
 
     default:
@@ -272,13 +280,16 @@ wp_impl_module_set_property (GObject * object, guint prop_id,
     case PROP_PROPERTIES:
       props = g_value_get_boxed (value);
 
-      wp_client_context_lock (self->ctx);
+      if (self->ctx)
+        wp_client_context_lock (self->ctx);
       if (props && self->pw_impl_module) {
         pw_impl_module_update_properties (self->pw_impl_module,
             wp_properties_peek_dict (props));
-        wp_client_context_unlock (self->ctx);
+        if (self->ctx)
+          wp_client_context_unlock (self->ctx);
       } else {
-        wp_client_context_unlock (self->ctx);
+        if (self->ctx)
+          wp_client_context_unlock (self->ctx);
         if (props)
           self->props = wp_properties_ref (props);
         else
@@ -352,9 +363,11 @@ wp_impl_module_load (WpCore * core, const gchar * name,
         NULL)
       );
 
-  wp_client_context_lock (module->ctx);
+  if (module->ctx)
+    wp_client_context_lock (module->ctx);
   loaded = (module->pw_impl_module != NULL);
-  wp_client_context_unlock (module->ctx);
+  if (module->ctx)
+    wp_client_context_unlock (module->ctx);
 
   if (!loaded) {
     /* Module loading failed, free and return */
@@ -386,5 +399,8 @@ wp_impl_module_unload (WpImplModule * self)
 {
   g_return_if_fail (WP_IS_IMPL_MODULE (self));
 
-  wp_client_context_run_in_thread (self->ctx, do_unload, self);
+  if (self->ctx)
+    wp_client_context_run_in_thread (self->ctx, do_unload, self);
+  else
+    do_unload (self);
 }

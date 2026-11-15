@@ -490,10 +490,12 @@ static void
 wp_impl_node_finalize (GObject * object)
 {
   WpImplNode *self = WP_IMPL_NODE (object);
+  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
 
-  wp_client_context_run_in_thread (
-      wp_proxy_get_client_context (WP_PROXY (self)),
-      wp_impl_node_destroy_node, self);
+  if (ctx)
+    wp_client_context_run_in_thread (ctx, wp_impl_node_destroy_node, self);
+  else
+    wp_impl_node_destroy_node (self);
 
   G_OBJECT_CLASS (wp_impl_node_parent_class)->finalize (object);
 }

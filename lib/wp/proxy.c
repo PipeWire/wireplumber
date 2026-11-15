@@ -139,14 +139,16 @@ void
 wp_proxy_lock (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  wp_client_context_lock (priv->client_ctx);
+  if (priv->client_ctx)
+    wp_client_context_lock (priv->client_ctx);
 }
 
 void
 wp_proxy_unlock (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  wp_client_context_unlock (priv->client_ctx);
+  if (priv->client_ctx)
+    wp_client_context_unlock (priv->client_ctx);
 }
 
 /*
@@ -228,7 +230,7 @@ static inline gboolean
 proxy_event_needs_marshalling (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  return wp_client_context_in_thread (priv->client_ctx);
+  return priv->client_ctx && wp_client_context_in_thread (priv->client_ctx);
 }
 
 static void
