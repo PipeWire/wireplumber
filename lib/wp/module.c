@@ -161,7 +161,7 @@ wp_impl_module_constructed (GObject * object)
     d.props = wp_properties_to_pw_properties (self->props);
 
   if (self->ctx)
-    wp_client_context_run_in_thread (self->ctx, do_load, &d);
+    wp_client_context_run_in_thread_sync (self->ctx, do_load, &d);
   else
     do_load (&d);
 
@@ -400,7 +400,7 @@ wp_impl_module_unload (WpImplModule * self)
   g_return_if_fail (WP_IS_IMPL_MODULE (self));
 
   if (self->ctx)
-    wp_client_context_run_in_thread (self->ctx, do_unload, self);
+    wp_client_context_run_in_thread_sync (self->ctx, do_unload, self);
   else
     do_unload (self);
 }

@@ -493,7 +493,7 @@ wp_impl_node_finalize (GObject * object)
   WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
 
   if (ctx)
-    wp_client_context_run_in_thread (ctx, wp_impl_node_destroy_node, self);
+    wp_client_context_run_in_thread_sync (ctx, wp_impl_node_destroy_node, self);
   else
     wp_impl_node_destroy_node (self);
 

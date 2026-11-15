@@ -967,7 +967,7 @@ on_loop_started (void *data, uint64_t count)
 /*
  * Starts the loop thread and waits until it runs the loop. Until then, the
  * loop is not bound to any thread and invokes on it run on the calling thread,
- * which would defeat wp_client_context_run_in_thread().
+ * which would defeat wp_client_context_run_in_thread_sync().
  */
 static int
 start_loop_thread (WpClientContext * self)
@@ -1141,13 +1141,13 @@ typedef struct {
   GMutex lock;
   GCond cond;
   gboolean done;
-} RunInThreadData;
+} RunInThreadSyncData;
 
 static int
-do_run_in_thread (struct spa_loop *loop, bool async, uint32_t seq,
+do_run_in_thread_sync (struct spa_loop *loop, bool async, uint32_t seq,
     const void *data, size_t size, void *user_data)
 {
-  RunInThreadData *d = user_data;
+  RunInThreadSyncData *d = user_data;
 
   d->callback (d->data);
 
@@ -1159,10 +1159,10 @@ do_run_in_thread (struct spa_loop *loop, bool async, uint32_t seq,
 }
 
 void
-wp_client_context_run_in_thread (WpClientContext * self,
+wp_client_context_run_in_thread_sync (WpClientContext * self,
     WpClientContextFunc callback, gpointer data)
 {
-  RunInThreadData d = { .callback = callback, .data = data, .done = FALSE };
+  RunInThreadSyncData d = { .callback = callback, .data = data, .done = FALSE };
   int res;
 
   g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
@@ -1185,7 +1185,7 @@ wp_client_context_run_in_thread (WpClientContext * self,
   /* invoking on the loop from another thread requires holding the lock */
   pw_thread_loop_lock (self->thread_loop);
   res = pw_loop_invoke (pw_thread_loop_get_loop (self->thread_loop),
-      do_run_in_thread, SPA_ID_INVALID, NULL, 0, false, &d);
+      do_run_in_thread_sync, SPA_ID_INVALID, NULL, 0, false, &d);
   pw_thread_loop_unlock (self->thread_loop);
 
   if (res < 0) {

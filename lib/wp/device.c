@@ -309,7 +309,8 @@ wp_spa_device_finalize (GObject * object)
   WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
 
   if (ctx)
-    wp_client_context_run_in_thread (ctx, wp_spa_device_clear_handle, self);
+    wp_client_context_run_in_thread_sync (ctx, wp_spa_device_clear_handle,
+        self);
   else
     wp_spa_device_clear_handle (self);
 
@@ -797,7 +798,7 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
     WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
 
     if (ctx)
-      wp_client_context_run_in_thread (ctx, wp_spa_device_remove_listener,
+      wp_client_context_run_in_thread_sync (ctx, wp_spa_device_remove_listener,
           self);
     else
       wp_spa_device_remove_listener (self);
