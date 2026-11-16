@@ -98,6 +98,48 @@ server_nodes (TestFixture * f, const gchar * const * names)
   return c.found;
 }
 
+static void
+on_server_globals_changed (void *data, struct pw_global *global)
+{
+  pw_thread_loop_signal (data, false);
+}
+
+static const struct pw_context_events server_context_events = {
+  PW_VERSION_CONTEXT_EVENTS,
+  .global_added = on_server_globals_changed,
+  .global_removed = on_server_globals_changed,
+};
+
+/*
+ * Waits on the server's thread until there are n_expected nodes with the given
+ * names registered there, without iterating our own GMainContext, and returns
+ * how many were found.
+ */
+static guint
+wait_server_nodes (TestFixture * f, const gchar * const * names,
+    guint n_expected)
+{
+  struct pw_thread_loop *loop = f->base.server.thread_loop;
+  struct spa_hook listener;
+  struct node_count c = { .names = names };
+
+  pw_thread_loop_lock (loop);
+  pw_context_add_listener (f->base.server.context, &listener,
+      &server_context_events, loop);
+
+  for (;;) {
+    c.found = 0;
+    pw_context_for_each_global (f->base.server.context, count_nodes, &c);
+    /* any result other than 0 means the wait timed out */
+    if (c.found == n_expected || pw_thread_loop_timed_wait (loop, 5) != 0)
+      break;
+  }
+
+  spa_hook_remove (&listener);
+  pw_thread_loop_unlock (loop);
+  return c.found;
+}
+
 static const gchar * const loopback_node_names[] = {
   "test.client-context.capture", "test.client-context.playback", NULL
 };
@@ -145,8 +187,6 @@ test_load (TestFixture * f, gconstpointer data)
   g_autoptr (WpClientContext) ctx = NULL;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpImplModule) module = NULL;
-  guint found = 0;
-
   ctx = wp_client_context_find (f->base.core);
   g_assert_null (ctx);
 
@@ -162,12 +202,7 @@ test_load (TestFixture * f, gconstpointer data)
       LOOPBACK_ARGS, NULL);
   g_assert_nonnull (module);
 
-  for (guint i = 0; i < 100 && found < 2; i++) {
-    g_usleep (20 * 1000);
-    found = server_nodes (f, loopback_node_names);
-  }
-
-  g_assert_cmpuint (found, ==, 2);
+  g_assert_cmpuint (wait_server_nodes (f, loopback_node_names, 2), ==, 2);
 }
 
 static void
@@ -175,7 +210,6 @@ test_module_runs_while_main_loop_is_blocked (TestFixture * f,
     gconstpointer data)
 {
   g_autoptr (WpImplModule) module = NULL;
-  guint found = 0;
 
   register_client_context (f);
 
@@ -186,12 +220,7 @@ test_module_runs_while_main_loop_is_blocked (TestFixture * f,
   /* From here on we deliberately never iterate the GMainContext, simulating a
      long event-dispatch iteration. Without the client context nothing can
      possibly happen, because the module would share our blocked pw_loop. */
-  for (guint i = 0; i < 100 && found < 2; i++) {
-    g_usleep (20 * 1000);
-    found = server_nodes (f, loopback_node_names);
-  }
-
-  g_assert_cmpuint (found, ==, 2);
+  g_assert_cmpuint (wait_server_nodes (f, loopback_node_names, 2), ==, 2);
 }
 
 /*
@@ -252,51 +281,60 @@ static const struct pw_impl_module_events destroy_events = {
   .destroy = on_module_destroy,
 };
 
-struct add_listener_data {
-  struct destroy_data *d;
+struct invoke_data {
+  spa_invoke_func_t func;
+  void *user_data;
   GMutex lock;
   GCond cond;
   gboolean done;
 };
 
 static int
-do_add_destroy_listener (struct spa_loop *loop, bool async, uint32_t seq,
+do_invoke (struct spa_loop *loop, bool async, uint32_t seq,
     const void *data, size_t size, void *user_data)
 {
-  struct add_listener_data *a = user_data;
+  struct invoke_data *i = user_data;
 
-  pw_impl_module_add_listener (a->d->module, &a->d->listener, &destroy_events,
-      a->d);
+  i->func (loop, async, seq, NULL, 0, i->user_data);
 
-  g_mutex_lock (&a->lock);
-  a->done = TRUE;
-  g_cond_signal (&a->cond);
-  g_mutex_unlock (&a->lock);
+  g_mutex_lock (&i->lock);
+  i->done = TRUE;
+  g_cond_signal (&i->cond);
+  g_mutex_unlock (&i->lock);
   return 0;
 }
 
-/* adds the listener on the loop thread, which owns the module; a blocking
-   invoke cannot be used for this from here, as older PipeWire versions require
-   the caller of a blocking invoke to hold the thread loop's lock */
+/* runs func on the loop thread and waits for it; a blocking invoke cannot be
+   used for this from here, as older PipeWire versions require the caller of a
+   blocking invoke to hold the thread loop's lock */
 static void
-add_destroy_listener (struct destroy_data *d)
+invoke_and_wait (struct pw_loop *loop, spa_invoke_func_t func,
+    void *user_data)
 {
-  struct pw_context *context = pw_impl_module_get_context (d->module);
-  struct add_listener_data a = { .d = d, .done = FALSE };
+  struct invoke_data i = { .func = func, .user_data = user_data };
 
-  g_mutex_init (&a.lock);
-  g_cond_init (&a.cond);
+  g_mutex_init (&i.lock);
+  g_cond_init (&i.cond);
 
-  pw_loop_invoke (pw_context_get_main_loop (context), do_add_destroy_listener,
-      SPA_ID_INVALID, NULL, 0, false, &a);
+  pw_loop_invoke (loop, do_invoke, SPA_ID_INVALID, NULL, 0, false, &i);
 
-  g_mutex_lock (&a.lock);
-  while (!a.done)
-    g_cond_wait (&a.cond, &a.lock);
-  g_mutex_unlock (&a.lock);
+  g_mutex_lock (&i.lock);
+  while (!i.done)
+    g_cond_wait (&i.cond, &i.lock);
+  g_mutex_unlock (&i.lock);
 
-  g_cond_clear (&a.cond);
-  g_mutex_clear (&a.lock);
+  g_cond_clear (&i.cond);
+  g_mutex_clear (&i.lock);
+}
+
+static int
+do_add_destroy_listener (struct spa_loop *loop, bool async, uint32_t seq,
+    const void *data, size_t size, void *user_data)
+{
+  struct destroy_data *d = user_data;
+
+  pw_impl_module_add_listener (d->module, &d->listener, &destroy_events, d);
+  return 0;
 }
 
 /*
@@ -309,10 +347,15 @@ add_destroy_listener (struct destroy_data *d)
 static void
 test_module_unload_in_client_context (TestFixture * f, gconstpointer data)
 {
+  g_autoptr (WpClientContext) ctx = NULL;
   g_autoptr (WpImplModule) module = NULL;
   struct destroy_data d = { 0, };
+  struct pw_loop *loop;
 
   register_client_context (f);
+  ctx = wp_client_context_find (f->base.core);
+  loop = pw_context_get_main_loop (
+      wp_context_get_pw_context (WP_CONTEXT (ctx)));
 
   module = wp_impl_module_load (f->base.core, "libpipewire-module-loopback",
       LOOPBACK_ARGS, NULL);
@@ -320,16 +363,18 @@ test_module_unload_in_client_context (TestFixture * f, gconstpointer data)
 
   g_object_get (module, "pw-impl-module", &d.module, NULL);
   g_assert_nonnull (d.module);
-  add_destroy_listener (&d);
+  /* the loop thread owns the module */
+  invoke_and_wait (loop, do_add_destroy_listener, &d);
 
   wp_impl_module_unload (module);
 
   g_assert_cmpuint (d.count, ==, 1);
   g_assert_false (pthread_equal (d.thread, pthread_self ()));
 
-  /* give the loop thread the chance to run any leftover scheduled destroy */
-  for (guint i = 0; i < 10; i++)
-    g_usleep (10 * 1000);
+  /* a scheduled destroy runs from the loop's next iteration, possibly after
+     the first no-op in that same iteration, but always before the second */
+  invoke_and_wait (loop, do_nothing, NULL);
+  invoke_and_wait (loop, do_nothing, NULL);
   g_assert_cmpuint (d.count, ==, 1);
 }
 
@@ -386,11 +431,7 @@ test_local_node_in_client_context (TestFixture * f, gconstpointer data)
      thread, without deadlocking */
   g_object_unref (node);
 
-  while (g_main_context_iteration (f->base.context, FALSE));
-  for (guint i = 0; i < 100 && server_nodes (f, local_node_names) > 0; i++)
-    g_usleep (20 * 1000);
-
-  g_assert_cmpuint (server_nodes (f, local_node_names), ==, 0);
+  g_assert_cmpuint (wait_server_nodes (f, local_node_names, 0), ==, 0);
 }
 
 gint

@@ -872,6 +872,12 @@ struct _WpClientContext
 
   struct pw_thread_loop *thread_loop;
 
+  /* calls to run on the loop thread, protected by thread_queue_lock; an
+     event source runs them once the loop's current callback has returned */
+  GMutex thread_queue_lock;
+  GQueue thread_queue;
+  struct spa_source *thread_queue_event;
+
   /* queue of calls to be dispatched on the main thread;
      protected by queue_lock, which may be taken from any thread */
   GMutex queue_lock;
@@ -945,6 +951,57 @@ static GSourceFuncs queue_source_funcs = {
   NULL
 };
 
+/* loop thread queue, see wp_client_context_queue_in_thread() */
+
+typedef struct {
+  WpClientContextFunc callback;
+  gpointer data;
+} ThreadQueueItem;
+
+static gboolean
+thread_queue_run_one (WpClientContext * self)
+{
+  ThreadQueueItem *item;
+
+  g_mutex_lock (&self->thread_queue_lock);
+  item = g_queue_pop_head (&self->thread_queue);
+  g_mutex_unlock (&self->thread_queue_lock);
+
+  if (!item)
+    return FALSE;
+
+  item->callback (item->data);
+  g_free (item);
+  return TRUE;
+}
+
+static void
+on_thread_queue_event (void *data, uint64_t count)
+{
+  WpClientContext *self = data;
+  while (thread_queue_run_one (self));
+}
+
+/* Queues \a callback to run on the loop thread at the top level of the loop
+   iteration; unlike pw_loop_invoke(), it never runs nested in another callback
+   that makes an invoke on the loop thread */
+static void
+wp_client_context_queue_in_thread (WpClientContext * self,
+    WpClientContextFunc callback, gpointer data)
+{
+  ThreadQueueItem *item = g_new0 (ThreadQueueItem, 1);
+
+  item->callback = callback;
+  item->data = data;
+
+  g_mutex_lock (&self->thread_queue_lock);
+  g_queue_push_tail (&self->thread_queue, item);
+  g_mutex_unlock (&self->thread_queue_lock);
+
+  pw_loop_signal_event (pw_thread_loop_get_loop (self->thread_loop),
+      self->thread_queue_event);
+}
+
 static void
 on_connection_disconnected (WpConnection * connection, WpClientContext * self)
 {
@@ -966,8 +1023,8 @@ on_loop_started (void *data, uint64_t count)
 
 /*
  * Starts the loop thread and waits until it runs the loop. Until then, the
- * loop is not bound to any thread and invokes on it run on the calling thread,
- * which would defeat wp_client_context_run_in_thread_sync().
+ * loop is not bound to any thread and invokes on it run on the calling thread
+ * instead of on the loop thread.
  */
 static int
 start_loop_thread (WpClientContext * self)
@@ -1030,7 +1087,7 @@ wp_client_context_start (WpClientContext * self, GError ** error)
   if (g_atomic_int_get (&self->started))
     return TRUE;
 
-  if (!self->thread_loop) {
+  if (!self->thread_loop || !self->thread_queue_event) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "failed to get the client context thread loop");
     return FALSE;
@@ -1104,6 +1161,9 @@ wp_client_context_stop (WpClientContext * self)
     pw_thread_loop_stop (self->thread_loop);
   g_atomic_int_set (&self->started, FALSE);
 
+  /* run any pending calls */
+  while (thread_queue_run_one (self));
+
   /* only the main thread writes stopping, so it can be read without the lock */
   if (!self->stopping)
     wp_client_context_stop_queue (self);
@@ -1143,11 +1203,10 @@ typedef struct {
   gboolean done;
 } RunInThreadSyncData;
 
-static int
-do_run_in_thread_sync (struct spa_loop *loop, bool async, uint32_t seq,
-    const void *data, size_t size, void *user_data)
+static void
+do_run_in_thread_sync (gpointer data)
 {
-  RunInThreadSyncData *d = user_data;
+  RunInThreadSyncData *d = data;
 
   d->callback (d->data);
 
@@ -1155,7 +1214,6 @@ do_run_in_thread_sync (struct spa_loop *loop, bool async, uint32_t seq,
   d->done = TRUE;
   g_cond_signal (&d->cond);
   g_mutex_unlock (&d->lock);
-  return 0;
 }
 
 void
@@ -1163,7 +1221,6 @@ wp_client_context_run_in_thread_sync (WpClientContext * self,
     WpClientContextFunc callback, gpointer data)
 {
   RunInThreadSyncData d = { .callback = callback, .data = data, .done = FALSE };
-  int res;
 
   g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
   g_return_if_fail (callback);
@@ -1175,28 +1232,15 @@ wp_client_context_run_in_thread_sync (WpClientContext * self,
     return;
   }
 
-  /* wait for completion ourselves instead of doing a blocking invoke: the loop
-     acks a blocking invoke as soon as it flushes its queue again, which
-     \a callback does if it makes an invoke of its own, and then we would
-     return while \a callback is still running */
   g_mutex_init (&d.lock);
   g_cond_init (&d.cond);
 
-  /* invoking on the loop from another thread requires holding the lock */
-  pw_thread_loop_lock (self->thread_loop);
-  res = pw_loop_invoke (pw_thread_loop_get_loop (self->thread_loop),
-      do_run_in_thread_sync, SPA_ID_INVALID, NULL, 0, false, &d);
-  pw_thread_loop_unlock (self->thread_loop);
+  wp_client_context_queue_in_thread (self, do_run_in_thread_sync, &d);
 
-  if (res < 0) {
-    wp_critical_object (self, "failed to invoke on the loop thread: %s",
-        spa_strerror (res));
-  } else {
-    g_mutex_lock (&d.lock);
-    while (!d.done)
-      g_cond_wait (&d.cond, &d.lock);
-    g_mutex_unlock (&d.lock);
-  }
+  g_mutex_lock (&d.lock);
+  while (!d.done)
+    g_cond_wait (&d.cond, &d.lock);
+  g_mutex_unlock (&d.lock);
 
   g_cond_clear (&d.cond);
   g_mutex_clear (&d.lock);
@@ -1232,17 +1276,15 @@ run_in_thread_unref (gpointer data)
   g_object_unref (task);
 }
 
-static int
-do_run_in_thread (struct spa_loop *loop, bool async, uint32_t seq,
-    const void *data, size_t size, void *user_data)
+static void
+do_run_in_thread (gpointer data)
 {
-  GTask *task = user_data;
+  GTask *task = data;
   RunInThreadData *d = g_task_get_task_data (task);
 
   d->callback (d->data);
   wp_client_context_queue_in_main (g_task_get_source_object (task),
       run_in_thread_return, task, run_in_thread_unref);
-  return 0;
 }
 
 /* Runs \a callback on the loop thread without waiting for it, and then
@@ -1256,7 +1298,6 @@ wp_client_context_run_in_thread (WpClientContext * self,
 {
   GTask *task;
   RunInThreadData *d;
-  int res;
 
   g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
   g_return_if_fail (callback);
@@ -1278,18 +1319,7 @@ wp_client_context_run_in_thread (WpClientContext * self,
     return;
   }
 
-  /* invoking on the loop from another thread requires holding the lock */
-  pw_thread_loop_lock (self->thread_loop);
-  res = pw_loop_invoke (pw_thread_loop_get_loop (self->thread_loop),
-      do_run_in_thread, SPA_ID_INVALID, NULL, 0, false, task);
-  pw_thread_loop_unlock (self->thread_loop);
-
-  if (res < 0) {
-    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to invoke on the loop thread: %s", spa_strerror (res));
-    g_object_unref (task);
-  }
+  wp_client_context_queue_in_thread (self, do_run_in_thread, task);
 }
 
 gboolean
@@ -1340,6 +1370,8 @@ wp_client_context_get_pw_loop (WpContext * ctx)
 static void
 wp_client_context_init (WpClientContext * self)
 {
+  g_mutex_init (&self->thread_queue_lock);
+  g_queue_init (&self->thread_queue);
   g_mutex_init (&self->queue_lock);
   g_queue_init (&self->queue);
   self->stopping = TRUE;
@@ -1353,6 +1385,12 @@ wp_client_context_constructed (GObject * object)
 
   /* wp_client_context_start() reports the error if this fails */
   self->thread_loop = pw_thread_loop_new ("wp-client", NULL);
+
+  /* the loop thread is not running yet, so this needs no locking */
+  if (self->thread_loop)
+    self->thread_queue_event = pw_loop_add_event (
+        pw_thread_loop_get_loop (self->thread_loop), on_thread_queue_event,
+        self);
 
   /* this creates the pw_context and the core connection */
   G_OBJECT_CLASS (wp_client_context_parent_class)->constructed (object);
@@ -1392,7 +1430,12 @@ wp_client_context_finalize (GObject * object)
 {
   WpClientContext *self = WP_CLIENT_CONTEXT (object);
 
+  if (self->thread_queue_event)
+    pw_loop_destroy_source (pw_thread_loop_get_loop (self->thread_loop),
+        self->thread_queue_event);
+
   g_clear_pointer (&self->thread_loop, pw_thread_loop_destroy);
+  g_mutex_clear (&self->thread_queue_lock);
   g_mutex_clear (&self->queue_lock);
 
   G_OBJECT_CLASS (wp_client_context_parent_class)->finalize (object);
