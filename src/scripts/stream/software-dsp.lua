@@ -84,6 +84,8 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "stream/dsp/hide-parent-from-new-client",
+  -- Hide the nodes before select-access grants the client its permissions
+  before = "client/select-access-trigger",
   interests = {
     EventInterest {
       Constraint  { "event.type", "=", "client-added" },
