@@ -32,6 +32,13 @@ test(
 )
 
 test(
+  'wp/module',
+  executable('test-module', 'module.c',
+      dependencies: common_deps),
+  env: common_env,
+)
+
+test(
   'wp/permission-manager',
   executable('test-permission-manager', 'permission-manager.c',
       dependencies: common_deps),

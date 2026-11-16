@@ -6,36 +6,13 @@
  */
 
 #include "../common/base-test-fixture.h"
+#include "../common/client-context-utils.h"
 
 #include <pipewire/global.h>
-#include <pipewire/impl-module.h>
-
-#include <pthread.h>
-
-/*
- * PipeWire modules that WirePlumber loads in-process must not depend on
- * WirePlumber's GMainContext being iterated: that context also dispatches the
- * event dispatcher, whose hooks are Lua and can run for a long time, and
- * GSource priorities do not preempt. A loopback that only gets to negotiate its
- * streams once a hook returns loses the first audio periods.
- *
- * These tests load a real loopback module and then block the main thread
- * entirely, the way a long event-dispatch iteration would. The module is
- * expected to connect and export its two nodes anyway, because it lives in the
- * client context, on its own thread.
- */
 
 #define LOOPBACK_ARGS \
-  "{ audio.channels = 2 " \
-  "  capture.props = { " \
-  "    node.name = \"test.client-context.capture\" " \
-  "    media.class = \"Audio/Sink\" " \
-  "  } " \
-  "  playback.props = { " \
-  "    node.name = \"test.client-context.playback\" " \
-  "    node.passive = true " \
-  "  } " \
-  "}"
+  "{ capture.props = { node.name = \"test.client-context.capture\" } " \
+  "  playback.props = { node.name = \"test.client-context.playback\" } }"
 
 typedef struct {
   WpBaseTestFixture base;
@@ -45,220 +22,12 @@ static void
 test_client_context_setup (TestFixture * f, gconstpointer data)
 {
   wp_base_test_fixture_setup (&f->base, 0);
-
-  /* the loopback module's streams export a local pw_impl_node through the
-     client-node factory; the test server's daemon config already provides it */
 }
 
 static void
 test_client_context_teardown (TestFixture * f, gconstpointer data)
 {
   wp_base_test_fixture_teardown (&f->base);
-}
-
-struct node_count {
-  const gchar * const *names;
-  guint found;
-};
-
-static int
-count_nodes (void *data, struct pw_global *global)
-{
-  struct node_count *c = data;
-  const struct pw_properties *props;
-  const gchar *name;
-
-  if (!spa_streq (pw_global_get_type (global), PW_TYPE_INTERFACE_Node))
-    return 0;
-
-  props = pw_global_get_properties (global);
-  name = props ? pw_properties_get (props, PW_KEY_NODE_NAME) : NULL;
-
-  for (guint i = 0; c->names[i]; i++) {
-    if (spa_streq (name, c->names[i]))
-      c->found++;
-  }
-
-  return 0;
-}
-
-/*
- * Counts nodes on the server side, without ever iterating our own
- * GMainContext, i.e. exactly what a blocked WirePlumber main loop can see.
- */
-static guint
-server_nodes (TestFixture * f, const gchar * const * names)
-{
-  g_autoptr (WpTestServerLocker) lock =
-      wp_test_server_locker_new (&f->base.server);
-  struct node_count c = { .names = names, .found = 0 };
-
-  pw_context_for_each_global (f->base.server.context, count_nodes, &c);
-
-  return c.found;
-}
-
-static void
-on_server_globals_changed (void *data, struct pw_global *global)
-{
-  pw_thread_loop_signal (data, false);
-}
-
-static const struct pw_context_events server_context_events = {
-  PW_VERSION_CONTEXT_EVENTS,
-  .global_added = on_server_globals_changed,
-  .global_removed = on_server_globals_changed,
-};
-
-/*
- * Waits on the server's thread until there are n_expected nodes with the given
- * names registered there, without iterating our own GMainContext, and returns
- * how many were found.
- */
-static guint
-wait_server_nodes (TestFixture * f, const gchar * const * names,
-    guint n_expected)
-{
-  struct pw_thread_loop *loop = f->base.server.thread_loop;
-  struct spa_hook listener;
-  struct node_count c = { .names = names };
-
-  pw_thread_loop_lock (loop);
-  pw_context_add_listener (f->base.server.context, &listener,
-      &server_context_events, loop);
-
-  for (;;) {
-    c.found = 0;
-    pw_context_for_each_global (f->base.server.context, count_nodes, &c);
-    /* any result other than 0 means the wait timed out */
-    if (c.found == n_expected || pw_thread_loop_timed_wait (loop, 5) != 0)
-      break;
-  }
-
-  spa_hook_remove (&listener);
-  pw_thread_loop_unlock (loop);
-  return c.found;
-}
-
-static const gchar * const loopback_node_names[] = {
-  "test.client-context.capture", "test.client-context.playback", NULL
-};
-
-static const gchar * const local_node_names[] = {
-  "test.client-context.localnode", NULL
-};
-
-struct module_lookup {
-  struct pw_impl_module *module;
-  guint count;
-};
-
-static int
-find_loopback_module (void *data, struct pw_global *global)
-{
-  struct module_lookup *l = data;
-  const struct pw_properties *props;
-
-  if (!spa_streq (pw_global_get_type (global), PW_TYPE_INTERFACE_Module))
-    return 0;
-
-  props = pw_global_get_properties (global);
-  if (props && spa_streq (pw_properties_get (props, PW_KEY_MODULE_NAME),
-          "libpipewire-module-loopback")) {
-    l->module = pw_global_get_object (global);
-    l->count++;
-  }
-  return 0;
-}
-
-/* must run on the thread of the context */
-static struct module_lookup
-lookup_loopback_module (struct pw_context *context)
-{
-  struct module_lookup l = { NULL, 0 };
-  pw_context_for_each_global (context, find_loopback_module, &l);
-  return l;
-}
-
-struct run_on_loop_data {
-  void (*func) (gpointer data);
-  gpointer data;
-  GMutex lock;
-  GCond cond;
-  gboolean done;
-};
-
-static int
-do_run_on_loop (struct spa_loop *loop, bool async, uint32_t seq,
-    const void *data, size_t size, void *user_data)
-{
-  struct run_on_loop_data *r = user_data;
-
-  r->func (r->data);
-
-  g_mutex_lock (&r->lock);
-  r->done = TRUE;
-  g_cond_signal (&r->cond);
-  g_mutex_unlock (&r->lock);
-  return 0;
-}
-
-/* runs @func on the client context's thread, which owns its pw_context, and
-   waits for it; a blocking invoke cannot be used for this from here, as older
-   PipeWire versions require the caller to hold the thread loop's lock */
-static void
-run_on_client_loop (TestFixture * f, void (*func) (gpointer), gpointer data)
-{
-  g_autoptr (WpClientContext) ctx = wp_client_context_find (f->base.core);
-  struct pw_context *context = wp_context_get_pw_context (WP_CONTEXT (ctx));
-  struct run_on_loop_data r = { .func = func, .data = data, .done = FALSE };
-
-  g_mutex_init (&r.lock);
-  g_cond_init (&r.cond);
-
-  pw_loop_invoke (pw_context_get_main_loop (context), do_run_on_loop,
-      SPA_ID_INVALID, NULL, 0, false, &r);
-
-  g_mutex_lock (&r.lock);
-  while (!r.done)
-    g_cond_wait (&r.cond, &r.lock);
-  g_mutex_unlock (&r.lock);
-
-  g_cond_clear (&r.cond);
-  g_mutex_clear (&r.lock);
-}
-
-static void
-on_component_loaded (WpCore * core, GAsyncResult * res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-
-  g_assert_true (wp_core_load_component_finish (core, res, &error));
-  g_assert_no_error (error);
-  g_main_loop_quit (f->base.loop);
-}
-
-static void
-register_client_context (TestFixture * f)
-{
-  /* the main context has no spa-libs or modules to inherit, because the
-     fixture creates the core without a WpConf */
-  g_autoptr (WpSpaJson) args = wp_spa_json_new_from_string (
-      "{"
-      "  context.spa-libs = {"
-      "    audio.convert.* = audioconvert/libspa-audioconvert"
-      "    support.*       = support/libspa-support"
-      "  }"
-      "  context.modules = ["
-      "    { name = libpipewire-module-protocol-native }"
-      "    { name = libpipewire-module-client-node }"
-      "    { name = libpipewire-module-adapter }"
-      "  ]"
-      "}");
-
-  wp_core_load_component (f->base.core, "client-context", "built-in", args,
-      NULL, NULL, (GAsyncReadyCallback) on_component_loaded, f);
-  g_main_loop_run (f->base.loop);
 }
 
 static void
@@ -271,6 +40,84 @@ on_object_activated (WpObject * object, GAsyncResult * res, TestFixture * f)
   g_main_loop_quit (f->base.loop);
 }
 
+/*
+ * Loading the client-context component registers a client context on the core,
+ * which wp_client_context_find() then returns, with its own connection.
+ */
+static void
+test_load (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpClientContext) ctx = NULL;
+  g_autoptr (WpCore) core = NULL;
+
+  ctx = wp_client_context_find (f->base.core);
+  g_assert_null (ctx);
+
+  wp_test_client_context_load (&f->base);
+
+  ctx = wp_client_context_find (f->base.core);
+  g_assert_nonnull (ctx);
+  core = wp_context_get_core (WP_CONTEXT (ctx));
+  g_assert_true (core == f->base.core);
+  g_assert_nonnull (wp_context_get_pw_core (WP_CONTEXT (ctx)));
+}
+
+static int
+count_loopback_node (void *data, struct pw_global *global)
+{
+  guint *found = data;
+  const struct pw_properties *props;
+  const gchar *name;
+
+  if (!spa_streq (pw_global_get_type (global), PW_TYPE_INTERFACE_Node))
+    return 0;
+
+  props = pw_global_get_properties (global);
+  name = props ? pw_properties_get (props, PW_KEY_NODE_NAME) : NULL;
+  if (spa_streq (name, "test.client-context.capture") ||
+      spa_streq (name, "test.client-context.playback"))
+    (*found)++;
+  return 0;
+}
+
+static void
+on_server_global_added (void *data, struct pw_global *global)
+{
+  pw_thread_loop_signal (data, false);
+}
+
+static const struct pw_context_events server_context_events = {
+  PW_VERSION_CONTEXT_EVENTS,
+  .global_added = on_server_global_added,
+};
+
+/* waits on the server's thread until both loopback nodes are registered there,
+   without iterating the main loop, and returns how many were found */
+static guint
+wait_server_loopback_nodes (TestFixture * f)
+{
+  struct pw_thread_loop *loop = f->base.server.thread_loop;
+  struct spa_hook listener;
+  guint found;
+
+  pw_thread_loop_lock (loop);
+  pw_context_add_listener (f->base.server.context, &listener,
+      &server_context_events, loop);
+
+  for (;;) {
+    found = 0;
+    pw_context_for_each_global (f->base.server.context, count_loopback_node,
+        &found);
+    /* any result other than 0 means the wait timed out */
+    if (found >= 2 || pw_thread_loop_timed_wait (loop, 5) != 0)
+      break;
+  }
+
+  spa_hook_remove (&listener);
+  pw_thread_loop_unlock (loop);
+  return found;
+}
+
 static void
 on_module_loaded (WpObject * object, GAsyncResult * res, gboolean * done)
 {
@@ -281,171 +128,36 @@ on_module_loaded (WpObject * object, GAsyncResult * res, gboolean * done)
   *done = TRUE;
 }
 
-static WpImplModule *
-load_loopback (TestFixture * f)
+/*
+ * PipeWire modules that WirePlumber loads in-process must not depend on
+ * WirePlumber's GMainContext being iterated: that context also dispatches the
+ * event dispatcher, whose hooks are Lua and can run for a long time, and
+ * GSource priorities do not preempt. A loopback that only gets to negotiate its
+ * streams once a hook returns loses the first audio periods.
+ *
+ * This test loads a real loopback module and then blocks the main thread
+ * entirely, the way a long event-dispatch iteration would. The module is
+ * expected to connect and export its two nodes anyway, because it lives in the
+ * client context, on its own thread.
+ */
+static void
+test_runs_while_main_loop_is_blocked (TestFixture * f, gconstpointer data)
 {
-  WpImplModule *module = wp_impl_module_new (f->base.core,
+  g_autoptr (WpImplModule) module = wp_impl_module_new (f->base.core,
       "libpipewire-module-loopback", LOOPBACK_ARGS, NULL);
   gboolean done = FALSE;
+
+  wp_test_client_context_load (&f->base);
 
   wp_object_activate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED, NULL,
       (GAsyncReadyCallback) on_module_loaded, &done);
   while (!done)
     g_main_context_iteration (f->base.context, TRUE);
 
-  g_assert_true (wp_object_test_active_features (WP_OBJECT (module),
-      WP_IMPL_MODULE_FEATURE_LOADED));
-  return module;
-}
-
-static void
-test_load (TestFixture * f, gconstpointer data)
-{
-  g_autoptr (WpClientContext) ctx = NULL;
-  g_autoptr (WpCore) core = NULL;
-  g_autoptr (WpImplModule) module = NULL;
-  ctx = wp_client_context_find (f->base.core);
-  g_assert_null (ctx);
-
-  register_client_context (f);
-
-  ctx = wp_client_context_find (f->base.core);
-  g_assert_nonnull (ctx);
-  core = wp_context_get_core (WP_CONTEXT (ctx));
-  g_assert_true (core == f->base.core);
-  g_assert_nonnull (wp_context_get_pw_core (WP_CONTEXT (ctx)));
-
-  module = load_loopback (f);
-
-  g_assert_cmpuint (wait_server_nodes (f, loopback_node_names, 2), ==, 2);
-}
-
-static void
-test_module_runs_while_main_loop_is_blocked (TestFixture * f,
-    gconstpointer data)
-{
-  g_autoptr (WpImplModule) module = NULL;
-
-  register_client_context (f);
-
-  module = load_loopback (f);
-
   /* From here on we deliberately never iterate the GMainContext, simulating a
      long event-dispatch iteration. Without the client context nothing can
      possibly happen, because the module would share our blocked pw_loop. */
-  g_assert_cmpuint (wait_server_nodes (f, loopback_node_names, 2), ==, 2);
-}
-
-/*
- * Without a client context, module loading must keep working the
- * way it always has, in the core's own pw_context.
- */
-static void
-test_module_fallback_to_main_context (TestFixture * f, gconstpointer data)
-{
-  g_autoptr (WpImplModule) module = NULL;
-  WpMainContext *wp_ctx = wp_core_get_main_context (f->base.core);
-  struct module_lookup l;
-
-  module = load_loopback (f);
-
-  /* the main context runs on this thread */
-  l = lookup_loopback_module (
-      wp_context_get_pw_context (WP_CONTEXT (wp_ctx)));
-  g_assert_cmpuint (l.count, ==, 1);
-}
-
-struct destroy_data {
-  struct pw_impl_module *module;
-  struct spa_hook listener;
-  pthread_t thread;
-  guint count;
-};
-
-static int
-do_nothing (struct spa_loop *loop, bool async, uint32_t seq,
-    const void *data, size_t size, void *user_data)
-{
-  return 0;
-}
-
-/* behaves like module-filter-chain with an LV2 plugin in its graph: its streams
-   schedule the destruction of the module while it is being destroyed, and then
-   the LV2 plugin's cleanup does a blocking invoke on the context's main loop */
-static void
-on_module_destroy (void *data)
-{
-  struct destroy_data *d = data;
-  struct pw_context *context = pw_impl_module_get_context (d->module);
-
-  d->thread = pthread_self ();
-  d->count++;
-
-  pw_impl_module_schedule_destroy (d->module);
-  pw_loop_invoke (pw_context_get_main_loop (context), do_nothing, 0, NULL, 0,
-      true, NULL);
-}
-
-static void
-run_nothing (gpointer data)
-{
-}
-
-static const struct pw_impl_module_events destroy_events = {
-  PW_VERSION_IMPL_MODULE_EVENTS,
-  .destroy = on_module_destroy,
-};
-
-struct add_listener_data {
-  struct pw_context *context;
-  struct destroy_data *d;
-};
-
-static void
-do_add_destroy_listener (gpointer data)
-{
-  struct add_listener_data *a = data;
-
-  a->d->module = lookup_loopback_module (a->context).module;
-  if (a->d->module)
-    pw_impl_module_add_listener (a->d->module, &a->d->listener,
-        &destroy_events, a->d);
-}
-
-/*
- * The module must be destroyed on the client context's thread. When it is
- * destroyed from the main thread instead, a blocking invoke on the context's
- * loop from within the module's teardown releases the loop lock, and the loop
- * thread then runs the destroy that the module has scheduled for itself,
- * destroying (and unloading) it a second time underneath the first one.
- */
-static void
-test_module_unload_in_client_context (TestFixture * f, gconstpointer data)
-{
-  g_autoptr (WpImplModule) module = NULL;
-  g_autoptr (WpClientContext) ctx = NULL;
-  struct destroy_data d = { 0, };
-  struct add_listener_data a = { .d = &d };
-
-  register_client_context (f);
-
-  module = load_loopback (f);
-
-  ctx = wp_client_context_find (f->base.core);
-  a.context = wp_context_get_pw_context (WP_CONTEXT (ctx));
-  run_on_client_loop (f, do_add_destroy_listener, &a);
-  g_assert_nonnull (d.module);
-
-  wp_object_deactivate (WP_OBJECT (module), WP_IMPL_MODULE_FEATURE_LOADED);
-
-  g_assert_cmpuint (d.count, ==, 1);
-  g_assert_false (pthread_equal (d.thread, pthread_self ()));
-
-  /* a scheduled destroy runs from the loop's next iteration, possibly after
-     the first no-op in that same iteration, but always before the second */
-  run_on_client_loop (f, run_nothing, NULL);
-  run_on_client_loop (f, run_nothing, NULL);
-  g_assert_cmpuint (d.count, ==, 1);
+  g_assert_cmpuint (wait_server_loopback_nodes (f), ==, 2);
 }
 
 /*
@@ -456,11 +168,12 @@ test_module_unload_in_client_context (TestFixture * f, gconstpointer data)
 static void
 test_local_node_in_client_context (TestFixture * f, gconstpointer data)
 {
+  g_autoptr (WpObjectManager) om = NULL;
   WpImplNode *node = NULL;
   struct pw_impl_node *pw_node = NULL;
   guint bound_id;
 
-  register_client_context (f);
+  wp_test_client_context_load (&f->base);
 
   node = wp_impl_node_new_from_pw_factory (f->base.core, "adapter",
       wp_properties_new (
@@ -485,13 +198,25 @@ test_local_node_in_client_context (TestFixture * f, gconstpointer data)
 
   bound_id = wp_proxy_get_bound_id (WP_PROXY (node));
   g_assert_cmpuint (bound_id, !=, SPA_ID_INVALID);
-  g_assert_cmpuint (server_nodes (f, local_node_names), ==, 1);
+
+  /* the exported node becomes visible through the main core's registry; the
+     global arrives on the main connection, possibly after the "bound" event
+     came back on the client context's one */
+  om = wp_object_manager_new (f->base.core);
+  wp_object_manager_add_interest (om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_NODE_NAME, "=s",
+      "test.client-context.localnode", NULL);
+  test_ensure_object_manager_is_installed (om, f->base.loop);
+  while (wp_object_manager_get_n_objects (om) < 1)
+    g_main_context_iteration (f->base.context, TRUE);
+  g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 1);
 
   /* destroying it must unexport and destroy the pw_impl_node on the other
      thread, without deadlocking */
   g_object_unref (node);
 
-  g_assert_cmpuint (wait_server_nodes (f, local_node_names, 0), ==, 0);
+  while (wp_object_manager_get_n_objects (om) > 0)
+    g_main_context_iteration (f->base.context, TRUE);
 }
 
 gint
@@ -503,19 +228,10 @@ main (gint argc, gchar *argv[])
   g_test_add ("/wp/client-context/load", TestFixture, NULL,
       test_client_context_setup, test_load,
       test_client_context_teardown);
-  g_test_add ("/wp/client-context/module-runs-while-main-loop-is-blocked",
-      TestFixture, NULL,
-      test_client_context_setup, test_module_runs_while_main_loop_is_blocked,
-      test_client_context_teardown);
 
-  g_test_add ("/wp/client-context/module-fallback-to-main-context",
+  g_test_add ("/wp/client-context/runs-while-main-loop-is-blocked",
       TestFixture, NULL,
-      test_client_context_setup, test_module_fallback_to_main_context,
-      test_client_context_teardown);
-
-  g_test_add ("/wp/client-context/module-unload",
-      TestFixture, NULL,
-      test_client_context_setup, test_module_unload_in_client_context,
+      test_client_context_setup, test_runs_while_main_loop_is_blocked,
       test_client_context_teardown);
 
   g_test_add ("/wp/client-context/local-node",

@@ -193,6 +193,37 @@ test_load_failure (TestFixture *f, gconstpointer data)
 }
 
 static void
+on_pw_module_client_failed (WpCore * core, GAsyncResult * res, TestFixture *f)
+{
+  gboolean loaded;
+  g_autoptr (GError) error = NULL;
+
+  loaded = wp_core_load_component_finish (core, res, &error);
+  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_assert_false (loaded);
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
+test_pw_module_client (TestFixture *f, gconstpointer data)
+{
+  g_autoptr (WpSpaJson) args = wp_spa_json_new_from_string (
+      "{ capture.props = { node.name = \"test.comploader.capture\" } "
+      "  playback.props = { node.name = \"test.comploader.playback\" } }");
+
+  wp_core_load_component (f->base.core, "libpipewire-module-loopback",
+      "pw-module-client", args, NULL, NULL,
+      (GAsyncReadyCallback) on_component_loaded, f);
+  g_main_loop_run (f->base.loop);
+
+  wp_core_load_component (f->base.core, "libpipewire-module-does-not-exist",
+      "pw-module-client", NULL, NULL, NULL,
+      (GAsyncReadyCallback) on_pw_module_client_failed, f);
+  g_main_loop_run (f->base.loop);
+}
+
+static void
 test_dependencies_setup (TestFixture *f, gconstpointer data)
 {
   f->base.conf_file =
@@ -332,6 +363,8 @@ main (gint argc, gchar *argv[])
       test_setup, test_load, test_teardown);
   g_test_add ("/wp/comploader/load_failure", TestFixture, NULL,
       test_setup, test_load_failure, test_teardown);
+  g_test_add ("/wp/comploader/pw_module_client", TestFixture, NULL,
+      test_setup, test_pw_module_client, test_teardown);
   g_test_add ("/wp/comploader/dependencies", TestFixture, NULL,
       test_dependencies_setup, test_dependencies, test_teardown);
   g_test_add ("/wp/comploader/deactivate_components", TestFixture, NULL,
