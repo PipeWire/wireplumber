@@ -14,6 +14,7 @@ wp_lib_sources = files(
   'event-hook.c',
   'factory.c',
   'global-proxy.c',
+  'internal-comp-loader.c',
   'iterator.c',
   'json-utils.c',
   'link.c',
@@ -44,10 +45,6 @@ wp_lib_sources = files(
   'stream-link-manager.c',
   'transition.c',
   'wp.c',
-)
-
-wp_lib_priv_sources = files(
-  'private/internal-comp-loader.c',
 )
 
 wp_lib_headers = files(
@@ -136,7 +133,7 @@ wpbuildbasedirs = configure_file (
 )
 
 wp_lib = library('wireplumber-' + wireplumber_api_version,
-  wp_lib_sources, wp_lib_priv_sources, wpenums_c, wpenums_h, wpversion, wpbuildbasedirs,
+  wp_lib_sources, wpenums_c, wpenums_h, wpversion, wpbuildbasedirs,
   c_args : [
     '-DBUILDING_WP',
   ],

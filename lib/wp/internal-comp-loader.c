@@ -6,10 +6,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "internal-comp-loader.h"
+#include "private/internal-comp-loader.h"
 #include "wp.h"
-#include "registry.h"
-#include "context.h"
+#include "private/registry.h"
+#include "private/context.h"
 
 #include <pipewire/impl.h>
 
