@@ -6,11 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <libintl.h>
 #include <glib/gstdio.h>
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 #include <wplua/wplua.h>
-#include <libintl.h>
 
 #define WP_LOCAL_LOG_TOPIC log_topic_lua_scripting
 WP_LOG_TOPIC_EXTERN (log_topic_lua_scripting)

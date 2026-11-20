@@ -6,10 +6,10 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <libintl.h>
 #include <wp/wp.h>
 #include <stdio.h>
 #include <locale.h>
-#include <libintl.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
 #include <spa/param/param.h>

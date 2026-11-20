@@ -6,9 +6,9 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <libintl.h>
 #include "wp.h"
 #include <pipewire/pipewire.h>
-#include <libintl.h>
 #include "wpbuildbasedirs.h"
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp")
