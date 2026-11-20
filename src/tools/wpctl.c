@@ -236,7 +236,7 @@ translate_id (WpPlugin *def_streams_api, guint64 id, guint32 *res,
        currently SPA_ID_INVALID == G_MAXUINT32. */
     if ((id <= 0 || id >= G_MAXUINT32) && id != SPA_ID_INVALID) {
       g_set_error (error, wpctl_error_domain_quark(), 0,
-          "'%ld' is not a valid ID", id);
+          "'%" G_GUINT64_FORMAT "' is not a valid ID", id);
       return FALSE;
     }
 
@@ -2613,7 +2613,7 @@ clear_default_parse_positional (gint argc, gchar ** argv, GError **error)
     long id = strtol (argv[2], NULL, 10);
     if (id < 0 || id >= (long)G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES)) {
       g_set_error (error, wpctl_error_domain_quark(), 0,
-          "The setting ID value must be between 0 and %ld inclusive",
+          "The setting ID value must be between 0 and %zu inclusive",
               G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES) - 1);
       return FALSE;
     }
