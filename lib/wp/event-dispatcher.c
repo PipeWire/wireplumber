@@ -564,50 +564,6 @@ wp_event_dispatcher_unregister_hook (WpEventDispatcher * self,
   g_ptr_array_remove (self->undefined_hooks, hook);
 }
 
-static void
-add_unique (GPtrArray *array, WpEventHook * hook)
-{
-  for (guint i = 0; i < array->len; i++)
-    if (g_ptr_array_index (array, i) == hook)
-      return;
-  g_ptr_array_add (array, g_object_ref (hook));
-}
-
-/*!
- * \brief Returns an iterator to iterate over all the registered hooks
- * \deprecated Use \ref wp_event_dispatcher_new_hooks_for_event_type_iterator
- * instead.
- * \ingroup wpeventdispatcher
- *
- * \param self the event dispatcher
- * \return (transfer full): a new iterator
- */
-WpIterator *
-wp_event_dispatcher_new_hooks_iterator (WpEventDispatcher * self)
-{
-  GPtrArray *items = g_ptr_array_new_with_free_func (g_object_unref);
-  GHashTableIter iter;
-  gpointer value;
-
-  /* Add all defined hooks */
-  g_hash_table_iter_init (&iter, self->defined_hooks);
-  while (g_hash_table_iter_next (&iter, NULL, &value)) {
-    GPtrArray *hooks = value;
-    for (guint i = 0; i < hooks->len; i++) {
-      WpEventHook *hook = g_ptr_array_index (hooks, i);
-      add_unique (items, hook);
-    }
-  }
-
-  /* Add all undefined hooks */
-  for (guint i = 0; i < self->undefined_hooks->len; i++) {
-    WpEventHook *hook = g_ptr_array_index (self->undefined_hooks, i);
-    add_unique (items, hook);
-  }
-
-  return wp_iterator_new_ptr_array (items, WP_TYPE_EVENT_HOOK);
-}
-
 /*!
  * \brief Returns an iterator to iterate over the registered hooks for a
  * particular event type.

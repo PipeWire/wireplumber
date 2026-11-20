@@ -937,41 +937,6 @@ wp_log_writer_default (GLogLevelFlags log_level_flags,
 /*!
  * \brief Used internally by the debug logging macros. Avoid using it directly.
  *
- * \deprecated Use \ref wp_logt_checked instead.
- *
- * This assumes that the arguments are correct and that the log_topic is
- * enabled for the given log_level. No additional checks are performed.
- * \ingroup wplog
- */
-void
-wp_log_checked (
-    const gchar *log_topic,
-    GLogLevelFlags log_level_flags,
-    const gchar *file,
-    const gchar *line,
-    const gchar *func,
-    GType object_type,
-    gconstpointer object,
-    const gchar *message_format,
-    ...)
-{
-  WpLogFields lf = {0};
-  g_autofree gchar *message = NULL;
-  va_list args;
-
-  va_start (args, message_format);
-  message = g_strdup_vprintf (message_format, args);
-  va_end (args);
-
-  wp_log_fields_init (&lf, log_topic, level_index_from_flags (log_level_flags),
-      wp_want_debug_log (NULL),
-      file, line, func, object_type, object, message);
-  wp_log_fields_log (&lf);
-}
-
-/*!
- * \brief Used internally by the debug logging macros. Avoid using it directly.
- *
  * This assumes that the arguments are correct and that the log_topic is
  * enabled for the given log_level. No additional checks are performed.
  * \ingroup wplog

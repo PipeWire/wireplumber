@@ -120,12 +120,6 @@ GLogWriterOutput wp_log_writer_default (GLogLevelFlags log_level,
     const GLogField *fields, gsize n_fields, gpointer user_data);
 
 WP_API
-void wp_log_checked (const gchar *log_topic, GLogLevelFlags log_level,
-    const gchar *file, const gchar *line, const gchar *func,
-    GType object_type, gconstpointer object,
-    const gchar *message_format, ...) G_GNUC_PRINTF (8, 9) G_GNUC_DEPRECATED_FOR (wp_logt_checked);
-
-WP_API
 void wp_logt_checked (const WpLogTopic *topic, GLogLevelFlags log_level,
     const gchar *file, const gchar *line, const gchar *func,
     GType object_type, gconstpointer object,
