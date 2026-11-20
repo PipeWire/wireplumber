@@ -7,7 +7,6 @@
  */
 
 #include <fcntl.h>
-#include <sys/inotify.h>
 
 #include "../common/base-test-fixture.h"
 
