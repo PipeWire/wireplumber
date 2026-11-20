@@ -10,6 +10,11 @@
 #include "wp.h"
 #include <pipewire/pipewire.h>
 #include <spa/support/log.h>
+#if defined(__FreeBSD__)
+#include <pthread_np.h>
+#elif defined(__NetBSD__)
+#include <lwp.h>
+#endif
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-log")
 
@@ -791,7 +796,17 @@ wp_log_fields_write_to_journal (WpLogFields *lf)
   g_autofree gchar *full_message = NULL;
   const gchar *message = lf->message ? lf->message : "";
   g_autofree gchar *pid = g_strdup_printf("%d", getpid());
+#if defined(HAS_GETTID)
   g_autofree gchar *tid = g_strdup_printf("%d", gettid());
+#elif defined(__FreeBSD__)
+  g_autofree gchar *tid = g_strdup_printf("%d", pthread_getthreadid_np());
+#elif defined(__OpenBSD__)
+  g_autofree gchar *tid = g_strdup_printf("%d", getthrid());
+#elif defined(__NetBSD__)
+  g_autofree gchar *tid = g_strdup_printf("%d", (int) _lwp_self());
+#else
+  const gchar *tid = NULL;
+#endif
 #ifdef HAS_SHORT_NAME
   const gchar *syslog_identifier = program_invocation_short_name;
 #else
@@ -819,7 +834,8 @@ wp_log_fields_write_to_journal (WpLogFields *lf)
   }
 
   fields[n_fields++] = (GLogField) { "SYSLOG_PID", pid, -1 };
-  fields[n_fields++] = (GLogField) { "TID", tid, -1 };
+  if (tid)
+    fields[n_fields++] = (GLogField) { "TID", tid, -1 };
   fields[n_fields++] = (GLogField) { "SYSLOG_IDENTIFIER", syslog_identifier, -1 };
   fields[n_fields++] = (GLogField) { "SYSLOG_FACILITY", "3", -1 };
   fields[n_fields++] = (GLogField) { "PRIORITY", log_level_info[lf->log_level].priority, -1 };

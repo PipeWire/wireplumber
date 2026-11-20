@@ -53,6 +53,13 @@ if cc.compiles(check_short_name, name : 'check short_name')
   )
 endif
 
+if cc.has_function('gettid', prefix : '#define _GNU_SOURCE\n#include <unistd.h>')
+  add_project_arguments([
+      '-DHAS_GETTID',
+    ], language: 'c'
+  )
+endif
+
 build_modules = get_option('modules')
 build_daemon = get_option('daemon')
 if build_daemon and not build_modules
