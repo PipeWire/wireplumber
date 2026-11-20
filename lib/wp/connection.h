@@ -20,6 +20,7 @@ struct pw_core;
 /*!
  * \brief The WpConnection GType
  * \ingroup wpconnection
+ * \since 0.6.0
  */
 #define WP_TYPE_CONNECTION (wp_connection_get_type ())
 WP_API

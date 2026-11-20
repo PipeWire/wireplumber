@@ -17,6 +17,7 @@ G_BEGIN_DECLS
 /*!
  * \brief Flags to be used as WpObjectFeatures on WpStreamLinkManager.
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  */
 typedef enum { /*< flags >*/
   /*! Loads the stream link manager */
@@ -26,6 +27,7 @@ typedef enum { /*< flags >*/
 /*!
  * \brief The WpStreamLinkManager GType
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  */
 #define WP_TYPE_STREAM_LINK_MANAGER (wp_stream_link_manager_get_type ())
 WP_API

@@ -347,6 +347,7 @@ wp_connection_disconnect (WpConnection * self)
  * \brief Gets the core that uses the connection
  *
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns (transfer full) (nullable): the core that uses \a self, or NULL if
  *   that core is gone
@@ -362,6 +363,7 @@ wp_connection_get_core (WpConnection * self)
  * \brief Gets the internal PipeWire core of the connection
  *
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns (transfer none) (nullable): the internal pw_core object,
  *   or NULL if the connection is not connected to PipeWire
@@ -378,6 +380,7 @@ wp_connection_get_pw_core (WpConnection * self)
  * of this connection being connected to the PipeWire daemon
  *
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns the bound id of this client
  */
@@ -396,6 +399,7 @@ wp_connection_get_own_bound_id (WpConnection * self)
  * \brief Gets the cookie of the connection's PipeWire instance
  *
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns The cookie of the PipeWire instance that \a self is connected to.
  *     The cookie is a unique random number for identifying an instance of
@@ -412,6 +416,7 @@ wp_connection_get_remote_cookie (WpConnection * self)
 /*!
  * \brief Gets the name of the connection's PipeWire instance
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns The name of the PipeWire instance that \a self is connected to
  */
@@ -426,6 +431,7 @@ wp_connection_get_remote_name (WpConnection * self)
 /*!
  * \brief Gets the user name of the connection's PipeWire instance
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns The name of the user that started the PipeWire instance that
  *     \a self is connected to
@@ -441,6 +447,7 @@ wp_connection_get_remote_user_name (WpConnection * self)
 /*!
  * \brief Gets the host name of the connection's PipeWire instance
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns The name of the host where the PipeWire instance that
  *     \a self is connected to is running on
@@ -456,6 +463,7 @@ wp_connection_get_remote_host_name (WpConnection * self)
 /*!
  * \brief Gets the version of the connection's PipeWire instance
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns The version of the PipeWire instance that \a self is connected to
  */
@@ -470,6 +478,7 @@ wp_connection_get_remote_version (WpConnection * self)
 /*!
  * \brief Gets the properties of the connection's PipeWire instance
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns (transfer full): the properties of the PipeWire instance that
  *     \a self is connected to
@@ -485,6 +494,7 @@ wp_connection_get_remote_properties (WpConnection * self)
 /*!
  * \brief Gets the properties of the connection
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \returns (transfer full): the properties of \a self
  */
@@ -527,6 +537,7 @@ wp_connection_get_properties (WpConnection * self)
  * pw_context_connect() when connecting.
  *
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \param updates (transfer full): updates to apply to the properties of
  *    \a self; this does not need to include properties that have not changed
@@ -562,6 +573,7 @@ wp_connection_update_properties (WpConnection * self, WpProperties * updates)
  * whether the operation completed successfully or if an error occurred.
  *
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \param cancellable (nullable): a GCancellable to cancel the operation
  * \param callback (scope async)(closure user_data): a function to call when the operation is done
@@ -604,6 +616,7 @@ invoke_closure (GObject * obj, GAsyncResult * res, gpointer data)
  * whether the operation completed successfully or if an error occurred.
  *
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \param cancellable (nullable): a GCancellable to cancel the operation
  * \param closure (transfer floating): a closure to invoke when the operation
@@ -659,6 +672,7 @@ wp_connection_sync_closure (WpConnection * self, GCancellable * cancellable,
  * operation.
  *
  * \ingroup wpconnection
+ * \since 0.6.0
  * \param self the connection
  * \param res a GAsyncResult
  * \param error (out) (optional): the error that occurred, if any

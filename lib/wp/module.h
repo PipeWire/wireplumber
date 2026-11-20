@@ -19,6 +19,7 @@ G_BEGIN_DECLS
 /*!
  * \brief Flags to be used as WpObjectFeatures on WpImplModule.
  * \ingroup wpimplmodule
+ * \since 0.6.0
  */
 typedef enum { /*< flags >*/
   /*! Loads the PipeWire module */

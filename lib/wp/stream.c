@@ -516,6 +516,7 @@ wp_stream_class_init (WpStreamClass * klass)
 /*!
  * \brief Gets the node this stream belongs to
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (transfer full): the node this stream belongs to
  */
@@ -534,6 +535,7 @@ wp_stream_get_node (WpStream *self)
 /*!
  * \brief Gets the stream properties
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (transfer full): the stream properties
  */
@@ -553,6 +555,7 @@ wp_stream_get_properties (WpStream * self)
 /*!
  * \brief Gets the value of a single stream property
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param key the property name
  * \returns (transfer none) (nullable): the property value, or NULL if not set
@@ -572,6 +575,7 @@ wp_stream_object_get_property (WpStream * self, const gchar * key)
 /*!
  * \brief Gets the stream direction
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns the stream direction
  */
@@ -590,6 +594,7 @@ wp_stream_get_direction (WpStream * self)
 /*!
  * \brief Gets the stream port group
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (nullable): the stream port group
  */
@@ -608,6 +613,7 @@ wp_stream_get_port_group (WpStream *self)
 /*!
  * \brief Gets the stream creation time in microseconds.
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns the stream creation time in microseconds.
  */
@@ -626,6 +632,7 @@ wp_stream_get_creation_time (WpStream *self)
 /*!
  * \brief Gets the node's bound id this stream belongs to
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns node's bound id this stream belongs to
  */
@@ -650,6 +657,7 @@ wp_stream_get_node_bound_id (WpStream * self)
 /*!
  * \brief Gets the stream's kind value
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns the stream's kind value
  */
@@ -672,6 +680,7 @@ wp_stream_get_kind (WpStream *self)
 /*!
  * \brief Gets the stream's shape value
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns the stream's shape value
  */
@@ -705,6 +714,7 @@ wp_stream_get_shape (WpStream *self)
  * \brief Checks whether the stream supports a common format with another stream
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param other the other stream
  * \param encoded_only (out) (nullable): whether the only common format is an
@@ -725,6 +735,7 @@ wp_stream_is_compatible (WpStream * self, WpStream *other,
 /*!
  * \brief Gets the number of supported raw formats
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns the number of supported raw formats
  */
@@ -740,6 +751,7 @@ wp_stream_get_supported_raw_format_count (WpStream *self)
 /*!
  * \brief Gets the number of supported encoded formats
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns the number of supported encoded formats
  */
@@ -755,6 +767,7 @@ wp_stream_get_supported_enc_format_count (WpStream *self)
 /*!
  * \brief Creates an iterator over the supported raw formats
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (transfer full): a WpIterator over WpSpaPod raw format objects
  */
@@ -770,6 +783,7 @@ wp_stream_new_supported_raw_format_iterator (WpStream *self)
 /*!
  * \brief Creates an iterator over the supported encoded formats
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (transfer full): a WpIterator over WpSpaPod encoded format objects
  */
@@ -784,6 +798,7 @@ wp_stream_new_supported_enc_format_iterator (WpStream *self)
 
 /*!
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns TRUE if the stream is exclusive, FALSE otherwise
  */
@@ -799,6 +814,7 @@ wp_stream_is_exclusive (WpStream *self)
 /*!
  * \brief Checks if the stream has the given port ID or not
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param port_id the port ID to check
  * \returns TRUE if the stream has the port, FALSE otherwise
@@ -830,6 +846,7 @@ wp_stream_has_port (WpStream *self, guint32 port_id)
 /*!
  * \brief Checks if the stream has the given monitor port ID or not
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param port_id the monitor port ID to check
  * \returns TRUE if the stream has the monitor port, FALSE otherwise
@@ -861,6 +878,7 @@ wp_stream_has_monitor_port (WpStream *self, guint32 port_id)
 /*!
  * \brief Checks if the stream has the given control port ID or not
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param port_id the control port ID to check
  * \returns TRUE if the stream has the control port, FALSE otherwise
@@ -892,6 +910,7 @@ wp_stream_has_control_port (WpStream *self, guint32 port_id)
 /*!
  * \brief Gets the streams's total number of non-monitor and non-control ports
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns The total number of non-monitor and non-control ports
  */
@@ -919,6 +938,7 @@ wp_stream_get_ports_count (WpStream *self)
 /*!
  * \brief Gets the stream's total number of monitor ports
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns The total number of ports
  */
@@ -946,6 +966,7 @@ wp_stream_get_monitor_ports_count (WpStream *self)
 /*!
  * \brief Gets the stream's total number of control ports
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns The total number of ports
  */
@@ -973,6 +994,7 @@ wp_stream_get_control_ports_count (WpStream *self)
 /*!
  * \brief Iterates through all the stream non-monitor and non-control ports.
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (transfer full): a WpIterator that iterates over all the stream
  *   ports that are not monitor or control ports.
@@ -1000,6 +1022,7 @@ wp_stream_new_ports_iterator (WpStream *self)
 /*!
  * \brief Iterates through all the stream monitor ports.
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (transfer full): a WpIterator that iterates over all the stream
  *   monitor ports.
@@ -1026,6 +1049,7 @@ wp_stream_new_monitor_ports_iterator (WpStream *self)
 /*!
  * \brief Iterates through all the stream control ports.
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (transfer full): a WpIterator that iterates over all the stream
  *   control ports.
@@ -1057,6 +1081,7 @@ wp_stream_new_control_ports_iterator (WpStream *self)
  * port group, or all of them if the stream has no port group.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param id the param id to enumerate, either "Props" or "PropInfo"
  * \returns (transfer full) (nullable): an iterator over the cached params,
@@ -1093,6 +1118,7 @@ wp_stream_enum_params_sync (WpStream *self, const gchar * id)
  * See wp_stream_set_props_param_array()
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param first_prop the name of the first property, such as "volume"
  * \param ... the value of the first property as a (transfer none) WpSpaPod,
@@ -1115,6 +1141,7 @@ wp_stream_set_props_param (WpStream * self, const gchar *first_prop, ...)
  * \brief The va_list version of wp_stream_set_props_param()
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param first_prop the name of the first property, such as "volume"
  * \param args the value of the first property as a (transfer none) WpSpaPod,
@@ -1145,6 +1172,7 @@ wp_stream_set_props_param_valist (WpStream * self,
  * only applies the props to this stream.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param n_props the number of properties
  * \param names (array length=n_props): the names of the properties, such as
@@ -2325,6 +2353,7 @@ wp_audio_stream_new (WpNode *node, WpProperties *props, WpDirection dir,
  * \brief Gets the stream ports format
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (transfer full): the stream port's format
  */
@@ -2340,6 +2369,7 @@ wp_audio_stream_get_ports_format (WpAudioStream * self)
  * \brief Gets the stream ports mode
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns (transfer none): the stream port's mode
  */
@@ -2364,6 +2394,7 @@ wp_audio_stream_get_ports_mode (WpAudioStream * self)
  * \brief Checks whether the monitor ports are enabled or not.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns TRUE if the monitor ports are enabled, FALSE otherwise
  */
@@ -2379,6 +2410,7 @@ wp_audio_stream_has_monitor_ports_enabled (WpAudioStream * self)
  * \brief Checks whether the control ports are enabled or not.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns TRUE if the control ports are enabled, FALSE otherwise
  */
@@ -2399,6 +2431,7 @@ wp_audio_stream_has_control_ports_enabled (WpAudioStream * self)
  * state is notified through the "ports-state" property.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \returns the state of the stream ports
  */
@@ -2554,6 +2587,7 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
  * signals to know if the pending configuration was successfully or not.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param format (transfer none): the format
  * \param mode: the mode
@@ -2702,6 +2736,7 @@ wp_audio_stream_resolve_ports_config (WpAudioStream * self, WpCore * core,
  * case while policy scripts are still selecting a link target.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param peer (transfer none) (nullable): the stream that self would be linked
  *   with, or NULL to ask about the default configuration
@@ -2748,6 +2783,7 @@ wp_audio_stream_is_monitorable (WpAudioStream * self,
  * given, the default configuration will be used.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param props (transfer full) (nullable): the properties, or NULL to use the
  * default configuration.
@@ -2801,6 +2837,7 @@ wp_audio_stream_configure_ports_with_props (WpAudioStream * self,
  * \brief Configures the ports using the same configuration as another stream.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param stream (transfer none): the other stream
  * \returns TRUE if the ports will be re-configured, FALSE otherwise
@@ -2876,6 +2913,7 @@ wp_audio_stream_is_dont_remix (WpAudioStream * self)
  * taken from the other stream.
  *
  * \ingroup wpstream
+ * \since 0.6.0
  * \param self the stream
  * \param peer (transfer none): the stream to link with
  * \returns TRUE if the ports will be re-configured, FALSE otherwise

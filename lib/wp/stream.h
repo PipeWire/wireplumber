@@ -20,6 +20,7 @@ G_BEGIN_DECLS
 /*!
  * \brief The different kinds a stream can be
  * \ingroup wpstream
+ * \since 0.6.0
  */
 typedef enum {
   WP_STREAM_KIND_UNKNOWN,
@@ -30,6 +31,7 @@ typedef enum {
 /*!
  * \brief The different shapes a stream can have
  * \ingroup wpstream
+ * \since 0.6.0
  */
 typedef enum {
   WP_STREAM_SHAPE_UNKNOWN,
@@ -42,6 +44,7 @@ typedef enum {
 /*!
  * \brief The states of the ports of an audio stream
  * \ingroup wpstream
+ * \since 0.6.0
  */
 typedef enum {
   /*! the ports were never configured */
@@ -55,6 +58,7 @@ typedef enum {
 /*!
  * \brief Flags to be used as WpObjectFeatures on WpStream.
  * \ingroup wpstream
+ * \since 0.6.0
  */
 typedef enum { /*< flags >*/
   /*! Activates the stream */
@@ -64,6 +68,7 @@ typedef enum { /*< flags >*/
 /*!
  * \brief The WpStream GType
  * \ingroup wpstream
+ * \since 0.6.0
  */
 #define WP_TYPE_STREAM (wp_stream_get_type ())
 WP_API
@@ -186,6 +191,7 @@ gboolean wp_stream_set_props_param_array (WpStream * self, guint n_props,
 /*!
  * \brief The WpAudioStream GType
  * \ingroup wpstream
+ * \since 0.6.0
  */
 #define WP_TYPE_AUDIO_STREAM (wp_audio_stream_get_type ())
 WP_API
@@ -231,6 +237,7 @@ gboolean wp_audio_stream_configure_ports_for_peer (WpAudioStream * self,
 /*!
  * \brief The WpVideoStream GType
  * \ingroup wpstream
+ * \since 0.6.0
  */
 #define WP_TYPE_VIDEO_STREAM (wp_video_stream_get_type ())
 WP_API

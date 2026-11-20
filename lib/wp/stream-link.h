@@ -19,6 +19,7 @@ G_BEGIN_DECLS
 /*!
  * \brief Flags to be used as WpObjectFeatures on WpStreamLink.
  * \ingroup wpstreamlink
+ * \since 0.6.0
  */
 typedef enum { /*< flags >*/
   /*! Loads the stream link */
@@ -28,6 +29,7 @@ typedef enum { /*< flags >*/
 /*!
  * \brief The WpStreamLink GType
  * \ingroup wpstreamlink
+ * \since 0.6.0
  */
 #define WP_TYPE_STREAM_LINK (wp_stream_link_get_type ())
 WP_API
@@ -74,6 +76,7 @@ gboolean wp_stream_link_reconfigure_ports (WpStreamLink *self);
 /*!
  * \brief The WpAudioStreamLink GType
  * \ingroup wpstreamlink
+ * \since 0.6.0
  */
 #define WP_TYPE_AUDIO_STREAM_LINK (wp_audio_stream_link_get_type ())
 WP_API
@@ -84,6 +87,7 @@ G_DECLARE_FINAL_TYPE (WpAudioStreamLink, wp_audio_stream_link, WP,
 /*!
  * \brief The WpVideoStreamLink GType
  * \ingroup wpstreamlink
+ * \since 0.6.0
  */
 #define WP_TYPE_VIDEO_STREAM_LINK (wp_video_stream_link_get_type ())
 WP_API

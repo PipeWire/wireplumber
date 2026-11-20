@@ -35,9 +35,6 @@ typedef enum { /*< flags >*/
 WP_API
 G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, WpObject)
 
-
-/* Basic */
-
 WP_API
 WpCore * wp_core_new (GMainContext * context, WpConf * conf,
     WpProperties * properties);

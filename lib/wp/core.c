@@ -476,6 +476,7 @@ wp_core_get_conf (WpCore * self)
  * \brief Gets the main context of the core
  *
  * \ingroup wpcore
+ * \since 0.6.0
  * \param self the core
  * \returns (transfer none): the main context of \a self
  */
@@ -493,6 +494,7 @@ wp_core_get_main_context (WpCore * self)
  * returned by wp_core_get_main_context().
  *
  * \ingroup wpcore
+ * \since 0.6.0
  * \param self the core
  * \returns (transfer none): the connection of the main context of \a self
  */
@@ -507,6 +509,7 @@ wp_core_get_connection (WpCore * self)
  * \brief Gets the registry of the core
  *
  * \ingroup wpcore
+ * \since 0.6.0
  * \param self the core
  * \returns (transfer none): the registry of \a self
  */

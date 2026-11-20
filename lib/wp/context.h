@@ -29,6 +29,7 @@ typedef struct _WpConnection WpConnection;
 /*!
  * \brief The WpContext GType
  * \ingroup wpcontext
+ * \since 0.6.0
  */
 #define WP_TYPE_CONTEXT (wp_context_get_type ())
 WP_API
@@ -88,6 +89,7 @@ void wp_context_timeout_add_closure (WpContext * self, GSource **source,
 /*!
  * \brief The WpMainContext GType
  * \ingroup wpcontext
+ * \since 0.6.0
  */
 #define WP_TYPE_MAIN_CONTEXT (wp_main_context_get_type ())
 WP_API
@@ -100,6 +102,7 @@ WpConnection * wp_main_context_get_connection (WpMainContext * self);
 /*!
  * \brief The WpClientContext GType
  * \ingroup wpcontext
+ * \since 0.6.0
  */
 #define WP_TYPE_CLIENT_CONTEXT (wp_client_context_get_type ())
 WP_API

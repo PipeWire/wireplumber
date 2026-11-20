@@ -443,6 +443,7 @@ wp_conf_get_name (WpConf * self)
  * unique logical "section.name".
  *
  * \ingroup wpconf
+ * \since 0.6.0
  * \param self the configuration
  * \param mode the information to list
  * \returns (transfer full): an iterator of WpSpaJson items
@@ -492,6 +493,7 @@ wp_conf_new_sections_iterator (WpConf * self, WpConfSectionMode mode)
  * Each iterator item is a WpSpaJson object containing "section.location".
  *
  * \ingroup wpconf
+ * \since 0.6.0
  * \param self the configuration
  * \returns (transfer full): an iterator of WpSpaJson items
  */

@@ -312,6 +312,7 @@ wp_registry_new (WpCore * core)
  * \brief Gets the core of the registry
  *
  * \ingroup wpregistry
+ * \since 0.6.0
  * \param self the registry
  * \returns (transfer full) (nullable): the core of \a self, or NULL if that
  *   core is gone
@@ -658,6 +659,7 @@ wp_registry_remove_object_manager (WpRegistry * self, WpObjectManager * om)
  * \brief Finds a registered object
  *
  * \ingroup wpregistry
+ * \since 0.6.0
  * \param self the registry
  * \param func (scope call): a function that takes the object being searched
  *   as the first argument and \a data as the second. it should return TRUE if
@@ -692,6 +694,7 @@ wp_registry_find_object (WpRegistry * self, GEqualFunc func,
  * is removed.
  *
  * \ingroup wpregistry
+ * \since 0.6.0
  * \param self the registry
  * \param obj (transfer full) (type GObject*): the object to register
  */
@@ -718,6 +721,7 @@ wp_registry_register_object (WpRegistry * self, gpointer obj)
  * \brief Detaches and unrefs the specified object from this registry.
  *
  * \ingroup wpregistry
+ * \since 0.6.0
  * \param self the registry
  * \param obj (transfer none) (type GObject*): a pointer to the object to remove
  */
@@ -737,6 +741,7 @@ wp_registry_remove_object (WpRegistry * self, gpointer obj)
  * \brief Test if a global feature is provided
  *
  * \ingroup wpregistry
+ * \since 0.6.0
  * \param self the registry
  * \param feature the feature name
  * \returns TRUE if the feature is provided, FALSE otherwise

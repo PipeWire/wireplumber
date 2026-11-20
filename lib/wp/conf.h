@@ -25,6 +25,7 @@ G_DECLARE_FINAL_TYPE (WpConf, wp_conf, WP, CONF, GObject)
 
 /*!
  * \ingroup wpconf
+ * \since 0.6.0
  * Selects which sections wp_conf_new_sections_iterator() returns.
  */
 typedef enum {

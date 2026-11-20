@@ -19,6 +19,7 @@ typedef struct _WpCore WpCore;
 /*!
  * \brief The WpRegistry GType
  * \ingroup wpregistry
+ * \since 0.6.0
  */
 #define WP_TYPE_REGISTRY (wp_registry_get_type ())
 WP_API

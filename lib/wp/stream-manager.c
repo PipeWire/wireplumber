@@ -617,6 +617,7 @@ wp_stream_manager_class_init (WpStreamManagerClass * klass)
 /*!
  * \brief Constructs a new stream manager object
  * \ingroup wpstreammanager
+ * \since 0.6.0
  * \param core the core associated with the stream manager
  * \returns (transfer full): the new WpStreamManager
  */

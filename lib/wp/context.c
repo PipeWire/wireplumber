@@ -302,6 +302,7 @@ error:
  * \brief Gets the GMainContext of the context
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \returns (transfer none) (nullable): the GMainContext that is in
  *   use by this context for events
@@ -319,6 +320,7 @@ wp_context_get_g_main_context (WpContext * self)
  * \brief Gets the "context.spa-libs" description of the context
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \returns (transfer none) (nullable): the "context.spa-libs" description of
  *   \a self
@@ -336,6 +338,7 @@ wp_context_get_spa_libs (WpContext * self)
  * \brief Gets the "context.modules" description of the context
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \returns (transfer none) (nullable): the "context.modules" description of
  *   \a self
@@ -353,6 +356,7 @@ wp_context_get_modules (WpContext * self)
  * \brief Gets the properties of the context
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \returns (transfer full): the properties of \a self
  */
@@ -373,6 +377,7 @@ wp_context_get_properties (WpContext * self)
  * \brief Gets the internal PipeWire context
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \returns (transfer none): the internal pw_context object
  */
@@ -389,6 +394,7 @@ wp_context_get_pw_context (WpContext * self)
  * \brief Gets the virtual machine type of the context
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \returns (transfer full) (nullable): a comma separated string with all the
  *   virtual machine types that this context matches, or NULL if the context is
@@ -477,6 +483,7 @@ wp_context_get_vm_type (WpContext * self)
  * context.
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \param source (out) (optional): the source
  * \param function (scope notified)(closure data)(destroy destroy): the function to call
@@ -508,6 +515,7 @@ wp_context_idle_add (WpContext * self, GSource **source,
  * a GClosure instead of a C callback.
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \param source (out) (optional): the source
  * \param closure the closure to invoke
@@ -543,6 +551,7 @@ wp_context_idle_add_closure (WpContext * self, GSource **source,
  * default context.
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \param source (out) (optional): the source
  * \param timeout_ms the timeout in milliseconds
@@ -575,6 +584,7 @@ wp_context_timeout_add (WpContext * self, GSource **source,
  * specify a GClosure instead of a C callback.
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \param source (out) (optional): the source
  * \param timeout_ms the timeout in milliseconds
@@ -601,6 +611,7 @@ wp_context_timeout_add_closure (WpContext * self, GSource **source,
  * \brief Gets the connection of the context to PipeWire
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \returns (transfer none) (nullable): the internal pw_core object, or NULL if
  *   the context is not connected to PipeWire
@@ -618,6 +629,7 @@ wp_context_get_pw_core (WpContext * self)
  * \brief Gets the core of the context
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \returns (transfer full) (nullable): the core of \a self, or NULL if that
  *   core is gone
@@ -805,6 +817,7 @@ wp_main_context_new (WpCore * core, GMainContext * g_main_context,
  * \brief Gets the connection of the context to PipeWire
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param self the context
  * \returns (transfer none): the connection of \a self
  */
@@ -1467,6 +1480,7 @@ find_client_context_func (gpointer object, gpointer data)
  * this process: WpImplModule, WpImplNode and WpSpaDevice.
  *
  * \ingroup wpcontext
+ * \since 0.6.0
  * \param core the WpCore
  * \returns (transfer full) (nullable): the client context of \a core, or NULL
  *   if the "client-context" component is not loaded

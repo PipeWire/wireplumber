@@ -468,6 +468,7 @@ wp_stream_link_manager_class_init (WpStreamLinkManagerClass * klass)
 /*!
  * \brief Constructs a new stream link manager object
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param core the core associated with the stream link manager
  * \param name the name of stream link manager
  * \returns (transfer full): the new WpStreamLinkManager
@@ -501,6 +502,7 @@ find_stream_link_manager_func (gpointer g_object, gpointer name)
  * \brief Finds a registered WpStreamLinkManager object by name
  *
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param core the WpCore
  * \param name (nullable): the name of stream link manager; NULL returns the
  *    first settings object that is found.
@@ -522,6 +524,7 @@ wp_stream_link_manager_find (WpCore * core, const gchar * name)
 /*!
  * \brief Gets the name of the stream link manager
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param self the stream link manager
  * \returns the name of the stream link manager
  */
@@ -537,6 +540,7 @@ wp_stream_link_manager_get_name (WpStreamLinkManager *self)
  * \brief Finds the WpStreamLink for the given output and input streams.
  *
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param self the stream link manager
  * \param output (transfer none): the output stream
  * \param input (transfer none): the input stream
@@ -638,6 +642,7 @@ create_link (WpStreamLinkManager *self, WpStream *output, WpStream *input,
  * activating it if they want to start processing right away.
  *
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param self the stream link manager
  * \param output (transfer none): the output stream
  * \param input (transfer none): the input stream
@@ -669,6 +674,7 @@ wp_stream_link_manager_create_link (WpStreamLinkManager *self, WpStream *output,
  * linked, as with wp_stream_link_manager_create_link().
  *
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param self the stream link manager
  * \param subject (transfer none): the stream that asks for the link
  * \param target (transfer none): the stream it wants to be linked to
@@ -702,6 +708,7 @@ wp_stream_link_manager_link (WpStreamLinkManager *self, WpStream *subject,
  * wp_stream_link_manager_unlink() to unlink an established link.
  *
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param self the stream link manager
  * \param link (transfer none): the stream link to destroy; must not be active
  */
@@ -741,6 +748,7 @@ wp_stream_link_manager_remove_link (WpStreamLinkManager *self,
  * adopted from the graph have no subject and are left alone as well.
  *
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param self the stream link manager
  * \param stream (transfer none): the stream to be unlinked
  * \returns TRUE if the stream had links to remove, FALSE otherwise
@@ -761,6 +769,7 @@ wp_stream_link_manager_unlink (WpStreamLinkManager *self, WpStream *stream)
 /*!
  * \brief Gets the total number of peer streams the given stream has
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param self the stream link manager
  * \param stream (transfer none): the stream
  * \returns The total number of peer streams the given stream has
@@ -781,6 +790,7 @@ wp_stream_link_manager_get_peers_count (WpStreamLinkManager *self,
 /*!
  * \brief Iterates through all the peer streams the given stream has.
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param self the stream link manager
  * \param stream (transfer none): the stream
  * \returns (transfer full): a WpIterator that iterates over all the peer
@@ -799,6 +809,7 @@ wp_stream_link_manager_new_peers_iterator (WpStreamLinkManager *self,
 /*!
  * \brief Iterates through all the stream links the given stream belongs to.
  * \ingroup wpstreamlinkmanager
+ * \since 0.6.0
  * \param self the stream link manager
  * \param stream (transfer none): the stream
  * \returns (transfer full): a WpIterator that iterates over all the stream

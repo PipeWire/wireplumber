@@ -19,6 +19,7 @@ G_BEGIN_DECLS
 /*!
  * \brief Flags to be used as WpObjectFeatures on WpObjectManager.
  * \ingroup wpobjectmanager
+ * \since 0.6.0
  */
 typedef enum { /*< flags >*/
   /*! the object manager is installed and its initial objects are ready */

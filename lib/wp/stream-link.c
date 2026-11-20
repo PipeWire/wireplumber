@@ -903,6 +903,7 @@ wp_stream_link_class_init (WpStreamLinkClass * klass)
 /*!
  * \brief Gets the output stream of the stream link
  * \ingroup wpstreamlink
+ * \since 0.6.0
  * \param self the stream link
  * \param is_monitor (out) (optional): if the output stream is a monitor or not
  * \returns (transfer full): the output stream
@@ -925,6 +926,7 @@ wp_stream_link_get_output_stream (WpStreamLink *self, gboolean *is_monitor)
 /*!
  * \brief Gets the input stream of the stream link
  * \ingroup wpstreamlink
+ * \since 0.6.0
  * \param self the stream link
  * \returns (transfer full): the input stream
  */
@@ -948,6 +950,7 @@ wp_stream_link_get_input_stream (WpStreamLink *self)
  * adopted by the WpStreamLinkManager have no subject.
  *
  * \ingroup wpstreamlink
+ * \since 0.6.0
  * \param self the stream link
  * \returns (transfer full) (nullable): the subject stream
  */
@@ -966,6 +969,7 @@ wp_stream_link_get_subject_stream (WpStreamLink *self)
 /*!
  * \brief Gets the total number of pipewire links
  * \ingroup wpstreamlink
+ * \since 0.6.0
  * \param self the stream link
  * \returns the total number of pipewire links
  */
@@ -985,6 +989,7 @@ wp_stream_link_get_links_count (WpStreamLink *self)
 /*!
  * \brief Iterates through all the pipewire link objects that link both streams.
  * \ingroup wpstreamlink
+ * \since 0.6.0
  * \param self the stream link
  * \returns (transfer full): a WpIterator that iterates over all the pipewire
  *   link objects that link both streams.
@@ -1034,6 +1039,7 @@ wp_stream_link_is_reconfiguring (WpStreamLink *self)
  * type needs no port configuration.
  *
  * \ingroup wpstreamlink
+ * \since 0.6.0
  * \param self the stream link
  * \returns TRUE if the ports of both streams are being configured again
  */

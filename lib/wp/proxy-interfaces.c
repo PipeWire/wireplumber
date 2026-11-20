@@ -320,6 +320,7 @@ wp_pipewire_object_set_param (WpPipewireObject * self, const gchar * id,
  * request is handled synchronously and a rejection is reported here.
  *
  * \ingroup wppipewireobject
+ * \since 0.6.0
  * \param self the pipewire object
  * \param id the parameter id to set
  * \param flags optional flags or 0
