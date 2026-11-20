@@ -26,6 +26,7 @@ wp_lib_sources = files(
   'object-interest.c',
   'object-manager.c',
   'permission-manager.c',
+  'pipewire-object-mixin.c',
   'plugin.c',
   'port.c',
   'proc-utils.c',
@@ -46,7 +47,6 @@ wp_lib_sources = files(
 )
 
 wp_lib_priv_sources = files(
-  'private/pipewire-object-mixin.c',
   'private/internal-comp-loader.c',
 )
 
