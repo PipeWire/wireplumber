@@ -2341,8 +2341,8 @@ get_route_prepare (WpCtl *self, GError **error)
 static void
 get_route_run (WpCtl *self)
 {
-  g_autoptr (WpPlugin) def_nodes_api =
-      wp_plugin_find (self->core, "default-nodes-api");
+  g_autoptr (WpPlugin) def_streams_api =
+      wp_plugin_find (self->core, "default-streams-api");
   g_autoptr (WpDevice) device = NULL;
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpIterator) it = NULL;
@@ -2354,7 +2354,7 @@ get_route_run (WpCtl *self)
   gint32 active_profile = -1;
   guint shown = 0;
 
-  if (!translate_id (def_nodes_api, cmdline.get_route.id, &id, &error)) {
+  if (!translate_id (def_streams_api, cmdline.get_route.id, &id, &error)) {
     fprintf (stderr, "ID error: %s\n", error->message);
     goto fail;
   }
