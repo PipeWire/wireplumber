@@ -20,8 +20,11 @@ AmbientCapabilities=CAP_SYS_NICE
 ExecStart=@WP_BINARY@ -p %i
 Restart=on-failure
 User=pipewire
+StateDirectory=wireplumber
+StateDirectoryMode=0700
 Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
 Environment=GIO_USE_VFS=local
+Environment=WIREPLUMBER_STATE_DIR=%S/wireplumber
 
 [Install]
 WantedBy=pipewire.service

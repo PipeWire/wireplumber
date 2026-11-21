@@ -204,6 +204,11 @@ are stored directly in the directory it names:
 Setting ``$XDG_STATE_HOME`` instead moves the state directory together with
 the state directories of all other applications.
 
+The system-wide ``wireplumber.service`` and ``wireplumber@.service`` systemd
+units use this variable, together with ``StateDirectory=wireplumber``, so that
+WirePlumber running as a system service keeps its state in
+``/var/lib/wireplumber``, whatever the home directory of its user.
+
 Every state file is a plain text file in the ``.ini``-like *key file* format
 and is named after the component that owns it. Each of them is written by a
 single script, which is loaded by the feature listed below, and most of them

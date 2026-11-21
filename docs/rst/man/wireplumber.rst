@@ -115,7 +115,8 @@ The remaining locations are not searched in any order:
   Saved state: default streams, device profiles and routes, stream properties
   and settings that were changed at runtime. This is
   ``~/.local/state/wireplumber/`` unless *$XDG_STATE_HOME* is set.
-  *$WIREPLUMBER_STATE_DIR*, when set, is used instead.
+  *$WIREPLUMBER_STATE_DIR*, when set, is used instead; the system-wide systemd
+  units set it to ``/var/lib/wireplumber/``.
 
 EXIT STATUS
 -----------
