@@ -3048,15 +3048,6 @@ systemctl_user (const gchar *action, const gchar *service)
   return TRUE;
 }
 
-static gchar *
-reset_get_state_dir (const gchar *subdir)
-{
-  const gchar *base = g_getenv ("XDG_STATE_HOME");
-  if (base)
-    return g_build_filename (base, subdir, NULL);
-  return g_build_filename (g_get_home_dir (), ".local", "state", subdir, NULL);
-}
-
 static gboolean
 reset_parse_positional (gint argc, gchar ** argv, GError **error)
 {
@@ -3078,7 +3069,7 @@ reset_run (WpCtl * self)
   gboolean yes = cmdline.reset.yes;
   gboolean do_restart = !cmdline.reset.no_restart && !dry_run;
 
-  g_autofree gchar *wp_state_dir = reset_get_state_dir ("wireplumber");
+  g_autofree gchar *wp_state_dir = wp_base_dirs_get_state_dir ();
   g_autofree gchar *wp_config_dir = remove_wp_config ?
       g_build_filename (g_get_user_config_dir (), "wireplumber", NULL) : NULL;
   g_autofree gchar *pw_config_dir = remove_pw_config ?

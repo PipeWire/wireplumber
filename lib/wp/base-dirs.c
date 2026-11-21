@@ -366,3 +366,32 @@ wp_base_dirs_new_files_iterator (WpBaseDirsFlags flags,
   it_data->idx = 0;
   return g_steal_pointer (&it);
 }
+
+/*!
+ * \brief Gets the directory where WirePlumber stores its state
+ *
+ * This is \c $WIREPLUMBER_STATE_DIR if it is set and not empty, or else the
+ * "wireplumber" subdirectory of \c $XDG_STATE_HOME, or of \c ~/.local/state
+ * if \c $XDG_STATE_HOME is not set or empty. The directory may not exist yet.
+ *
+ * \ingroup wpbasedirs
+ * \returns (transfer full): a newly allocated string with the path of the
+ *   state directory
+ * \since 0.6.0
+ */
+gchar *
+wp_base_dirs_get_state_dir (void)
+{
+  const gchar *env_dir = g_getenv ("WIREPLUMBER_STATE_DIR");
+  const gchar *base;
+  g_autofree gchar *default_base = NULL;
+
+  if (env_dir && env_dir[0] != '\0')
+    return g_strdup (env_dir);
+
+  base = g_getenv ("XDG_STATE_HOME");
+  if (!base || base[0] == '\0')
+    base = default_base = g_build_filename (g_get_home_dir (), ".local",
+        "state", NULL);
+  return g_build_filename (base, "wireplumber", NULL);
+}

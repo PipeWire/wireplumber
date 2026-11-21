@@ -84,6 +84,9 @@ WP_API
 WpIterator * wp_base_dirs_new_files_iterator (WpBaseDirsFlags flags,
     const gchar * subdir, const gchar * suffix);
 
+WP_API
+gchar * wp_base_dirs_get_state_dir (void);
+
 G_END_DECLS
 
 #endif

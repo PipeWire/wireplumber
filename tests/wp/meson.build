@@ -101,12 +101,15 @@ test(
   env: common_env,
 )
 
-test(
-  'wp/state',
-  executable('test-state', 'state.c',
-      dependencies: common_deps),
-  env: common_env,
-)
+test_state = executable('test-state', 'state.c',
+    dependencies: common_deps)
+
+test('wp/state', test_state, env: common_env)
+
+state_dir_env = common_env
+state_dir_env.set('WIREPLUMBER_STATE_DIR',
+    meson.current_build_dir() / 'state-dir')
+test('wp/state-dir', test_state, env: state_dir_env)
 
 test(
   'wp/settings',

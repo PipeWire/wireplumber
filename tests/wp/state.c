@@ -202,6 +202,19 @@ test_state_escaped (void)
   wp_state_clear (state);
 }
 
+static void
+test_state_location (void)
+{
+  g_autoptr (WpState) state = wp_state_new ("location");
+  const gchar *env_dir = g_getenv ("WIREPLUMBER_STATE_DIR");
+  g_autofree gchar *expected = env_dir ?
+      g_build_filename (env_dir, "location", NULL) :
+      g_build_filename (g_getenv ("XDG_STATE_HOME"), "wireplumber",
+          "location", NULL);
+
+  g_assert_cmpstr (wp_state_get_location (state), ==, expected);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -212,6 +225,7 @@ main (int argc, char *argv[])
   g_test_add_func ("/wp/state/empty", test_state_empty);
   g_test_add_func ("/wp/state/spaces", test_state_spaces);
   g_test_add_func ("/wp/state/escaped", test_state_escaped);
+  g_test_add_func ("/wp/state/location", test_state_location);
 
   return g_test_run ();
 }

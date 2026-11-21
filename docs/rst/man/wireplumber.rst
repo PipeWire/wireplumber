@@ -55,6 +55,9 @@ ENVIRONMENT
 **WIREPLUMBER_MODULE_DIR**
   Overrides the directory that is searched first for modules.
 
+**WIREPLUMBER_STATE_DIR**
+  Overrides the directory where state files are saved.
+
 See :ref:`daemon_file_locations` for the full search order of each of these.
 
 FILES
@@ -112,6 +115,7 @@ The remaining locations are not searched in any order:
   Saved state: default streams, device profiles and routes, stream properties
   and settings that were changed at runtime. This is
   ``~/.local/state/wireplumber/`` unless *$XDG_STATE_HOME* is set.
+  *$WIREPLUMBER_STATE_DIR*, when set, is used instead.
 
 EXIT STATUS
 -----------

@@ -310,7 +310,8 @@ reset
 
 Resets WirePlumber (and optionally PipeWire) to defaults by removing state and
 configuration files. By default, only the WirePlumber state directory
-(``~/.local/state/wireplumber``) is removed. WirePlumber is automatically
+(``~/.local/state/wireplumber``, or ``$WIREPLUMBER_STATE_DIR`` if set) is
+removed. WirePlumber is automatically
 stopped before removal and restarted afterwards, unless **--no-restart** is
 given. A confirmation prompt is shown before any files are deleted, unless
 **--yes** is given.

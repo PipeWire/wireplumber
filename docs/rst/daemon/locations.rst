@@ -191,10 +191,18 @@ per-user directory:
 `XDG Base Directory Specification <https://specifications.freedesktop.org/basedir-spec/latest/index.html>`_,
 so in a typical setup this is ``~/.local/state/wireplumber``. The directory is
 created automatically the first time something needs to be saved. Unlike the
-locations described above, this is a single directory and not a search path,
-and there is no WirePlumber-specific environment variable to override it;
-setting ``$XDG_STATE_HOME`` moves it, together with the state directories of
-all other applications.
+locations described above, this is a single directory and not a search path.
+
+It is also possible to override the state directory by setting the
+``WIREPLUMBER_STATE_DIR`` environment variable, in which case the state files
+are stored directly in the directory it names:
+
+.. code-block:: bash
+
+   WIREPLUMBER_STATE_DIR=/var/lib/wireplumber wireplumber
+
+Setting ``$XDG_STATE_HOME`` instead moves the state directory together with
+the state directories of all other applications.
 
 Every state file is a plain text file in the ``.ini``-like *key file* format
 and is named after the component that owns it. Each of them is written by a
@@ -325,7 +333,8 @@ components keep the state that they have loaded in memory and write it back out
 whenever it changes, which would bring back the deleted entries.
 
 The ``wpctl reset`` command takes care of this: it stops the daemon, deletes
-``$XDG_STATE_HOME/wireplumber`` and starts the daemon again. It can optionally
+the state directory described above (``$WIREPLUMBER_STATE_DIR`` if it is set in
+its environment) and starts the daemon again. It can optionally
 delete the user's configuration files as well, and it can be asked to only
 report what it would delete, without deleting anything:
 
