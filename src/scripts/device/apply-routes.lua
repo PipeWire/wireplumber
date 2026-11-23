@@ -10,7 +10,7 @@
 --
 -- Set the Route param as part of the "select-routes" event run
 
-devinfo = require ("device-info-cache")
+dutils = require ("device-utils")
 log = Log.open_topic ("s-device")
 
 AsyncEventHook {
@@ -30,7 +30,7 @@ AsyncEventHook {
         local device = event:get_subject ()
         local selected_routes = event:get_data ("selected-routes")
 
-        local dev_info = devinfo:get_device_info (device)
+        local dev_info = dutils:get_device_info (device)
         assert (dev_info)
 
         if not selected_routes then
@@ -47,7 +47,7 @@ AsyncEventHook {
           local props = route.props or {}
 
           -- replace with the full route info
-          local route_info = devinfo.find_route_info (dev_info, route)
+          local route_info = dutils.find_route_info (dev_info, route)
           if not route_info then
             goto skip_route
           end

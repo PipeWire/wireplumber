@@ -14,7 +14,7 @@
 --
 
 cutils = require ("common-utils")
-devinfo = require ("device-info-cache")
+dutils = require ("device-utils")
 log = Log.open_topic ("s-device")
 
 -- the state storage
@@ -38,7 +38,7 @@ find_stored_routes_hook = SimpleEventHook {
     local active_ids = event_properties ["profile.active-device-ids"]
     local selected_routes = event:get_data ("selected-routes") or Properties()
 
-    local dev_info = devinfo:get_device_info (device)
+    local dev_info = dutils:get_device_info (device)
     assert (dev_info)
 
     -- get the stored routes for this profile
@@ -111,7 +111,7 @@ apply_route_props_hook = SimpleEventHook {
     local selected_routes = event:get_data ("selected-routes") or Properties()
     local new_selected_routes = {}
 
-    local dev_info = devinfo:get_device_info (device)
+    local dev_info = dutils:get_device_info (device)
     assert (dev_info)
 
     if selected_routes:get_count () == 0 then
@@ -123,7 +123,7 @@ apply_route_props_hook = SimpleEventHook {
        -- JSON to lua table
       route = Json.Raw (route):parse ()
 
-      local route_info = devinfo.find_route_info (dev_info, route, false)
+      local route_info = dutils.find_route_info (dev_info, route, false)
       local props = getStoredRouteProps (dev_info, route_info)
 
       -- convert arrays to Json
@@ -183,7 +183,7 @@ store_or_restore_routes_hook = AsyncEventHook {
             return
           end
 
-          local dev_info = devinfo:get_device_info (device)
+          local dev_info = dutils:get_device_info (device)
           if not dev_info then
             transition:advance ()
             return
@@ -200,7 +200,7 @@ store_or_restore_routes_hook = AsyncEventHook {
             end
 
             -- find cached route information
-            local route_info = devinfo.find_route_info (dev_info, route, true)
+            local route_info = dutils.find_route_info (dev_info, route, true)
             if not route_info then
               goto skip_enum_route
             end
@@ -229,7 +229,7 @@ store_or_restore_routes_hook = AsyncEventHook {
 
             -- get cached route info and at the same time
             -- ensure that the route is also in EnumRoute
-            local route_info = devinfo.find_route_info (dev_info, route, false)
+            local route_info = dutils.find_route_info (dev_info, route, false)
             if not route_info then
               goto skip_route
             end

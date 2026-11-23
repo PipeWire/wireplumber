@@ -11,7 +11,7 @@
 -- find the best route for a given device_id, based on availability and priority
 
 cutils = require ("common-utils")
-devinfo = require ("device-info-cache")
+dutils = require ("device-utils")
 log = Log.open_topic ("s-device")
 
 SimpleEventHook {
@@ -29,7 +29,7 @@ SimpleEventHook {
     local active_ids = event_properties ["profile.active-device-ids"]
     local selected_routes = event:get_data ("selected-routes") or Properties()
 
-    local dev_info = devinfo:get_device_info (device)
+    local dev_info = dutils:get_device_info (device)
     assert (dev_info)
 
     -- active IDs are exchanged in JSON format

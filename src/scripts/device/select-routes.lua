@@ -13,7 +13,7 @@
 -- for the given device configuration, if it has changed
 
 cutils = require ("common-utils")
-devinfo = require ("device-info-cache")
+dutils = require ("device-utils")
 log = Log.open_topic ("s-device")
 
 SimpleEventHook {
@@ -32,7 +32,7 @@ SimpleEventHook {
     local source = event:get_source ()
     local device = event:get_subject ()
 
-    local dev_info = devinfo:get_device_info (device)
+    local dev_info = dutils:get_device_info (device)
     if not dev_info then
       return
     end
@@ -55,7 +55,7 @@ SimpleEventHook {
       end
 
       -- find cached route information
-      local route_info = devinfo.find_route_info (dev_info, route, true)
+      local route_info = dutils.find_route_info (dev_info, route, true)
 
       -- update properties
       route_info.prev_available = route_info.available

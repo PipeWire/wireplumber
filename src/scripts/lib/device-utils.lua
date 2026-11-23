@@ -10,7 +10,7 @@ local module = {
 }
 
 SimpleEventHook {
-  name = "lib/device-info-cache/cleanup",
+  name = "lib/device-utils/cleanup-device-info",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-removed" },
