@@ -245,10 +245,10 @@ wp_lua_scripting_component_loader_init (WpComponentLoaderInterface * iface)
   iface->load_finish = wp_lua_scripting_plugin_load_finish;
 }
 
-WP_PLUGIN_EXPORT GObject *
+WP_PLUGIN_EXPORT WpPlugin *
 wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
-  return G_OBJECT (g_object_new (wp_lua_scripting_plugin_get_type (),
+  return WP_PLUGIN (g_object_new (wp_lua_scripting_plugin_get_type (),
       "name", "lua-scripting",
       "core", core,
       NULL));

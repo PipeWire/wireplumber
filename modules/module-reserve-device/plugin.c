@@ -255,10 +255,10 @@ wp_reserve_device_plugin_class_init (WpReserveDevicePluginClass * klass)
 
 }
 
-WP_PLUGIN_EXPORT GObject *
+WP_PLUGIN_EXPORT WpPlugin *
 wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
-  return G_OBJECT (g_object_new (wp_reserve_device_plugin_get_type (),
+  return WP_PLUGIN (g_object_new (wp_reserve_device_plugin_get_type (),
       "name", "reserve-device",
       "core", core,
       NULL));

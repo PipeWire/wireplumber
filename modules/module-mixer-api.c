@@ -659,10 +659,10 @@ wp_mixer_api_class_init (WpMixerApiClass * klass)
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, WP_TYPE_STREAM);
 }
 
-WP_PLUGIN_EXPORT GObject *
+WP_PLUGIN_EXPORT WpPlugin *
 wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
-  return G_OBJECT (g_object_new (wp_mixer_api_get_type (),
+  return WP_PLUGIN (g_object_new (wp_mixer_api_get_type (),
       "name", "mixer-api",
       "core", core,
       NULL));

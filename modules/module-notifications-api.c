@@ -141,10 +141,10 @@ wp_notifications_plugin_class_init (WpNotificationsPluginClass * klass)
       2, G_TYPE_STRING, G_TYPE_STRING);
 }
 
-WP_PLUGIN_EXPORT GObject *
+WP_PLUGIN_EXPORT WpPlugin *
 wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
-  return G_OBJECT (g_object_new (
+  return WP_PLUGIN (g_object_new (
       wp_notifications_plugin_get_type(),
       "name", "notifications-api",
       "core", core,

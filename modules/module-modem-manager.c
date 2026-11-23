@@ -412,11 +412,11 @@ wp_modem_manager_class_init (WpModemManagerClass * klass)
                                             0);
 }
 
-WP_PLUGIN_EXPORT GObject *
+WP_PLUGIN_EXPORT WpPlugin *
 wireplumber__module_init (WpCore * core, WpSpaJson * json, GError ** err)
 {
-  return g_object_new (wp_modem_manager_get_type (),
-                       "name", "modem-manager",
-                       "core", core,
-                       NULL);
+  return WP_PLUGIN (g_object_new (wp_modem_manager_get_type (),
+      "name", "modem-manager",
+      "core", core,
+      NULL));
 }

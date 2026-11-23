@@ -556,10 +556,10 @@ wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
       NULL, NULL, NULL, G_TYPE_NONE, 1, TYPE_RESCAN_CONTEXT);
 }
 
-WP_PLUGIN_EXPORT GObject *
+WP_PLUGIN_EXPORT WpPlugin *
 wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
-  return G_OBJECT (g_object_new (wp_standard_event_source_get_type (),
+  return WP_PLUGIN (g_object_new (wp_standard_event_source_get_type (),
       "name", "standard-event-source",
       "core", core,
       NULL));

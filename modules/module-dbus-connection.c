@@ -257,7 +257,7 @@ wp_dbus_connection_class_init (WpDBusConnectionClass * klass)
   g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
-WP_PLUGIN_EXPORT GObject *
+WP_PLUGIN_EXPORT WpPlugin *
 wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
   g_autofree gchar *plugin_name = NULL;
@@ -269,7 +269,7 @@ wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
         "bus.system", "b", &is_system_bus,
         NULL);
 
-  return G_OBJECT (g_object_new (
+  return WP_PLUGIN (g_object_new (
       wp_dbus_connection_get_type(),
       "name", plugin_name ? plugin_name : "dbus-connection",
       "core", core,

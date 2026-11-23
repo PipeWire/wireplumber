@@ -891,7 +891,7 @@ G_DEFINE_TYPE_WITH_CODE (WpInternalCompLoader, wp_internal_comp_loader,
                             wp_internal_comp_loader_iface_init))
 
 #define WP_MODULE_INIT_SYMBOL "wireplumber__module_init"
-typedef GObject * (*WpModuleInitFunc) (WpCore *, WpSpaJson *, GError **);
+typedef WpPlugin * (*WpModuleInitFunc) (WpCore *, WpSpaJson *, GError **);
 
 static void
 wp_internal_comp_loader_init (WpInternalCompLoader * self)
@@ -910,6 +910,7 @@ load_module (WpCore * core, const gchar * module_name, WpSpaJson * args,
   g_autofree gchar *module_path = NULL;
   GModule *gmodule;
   gpointer module_init;
+  WpPlugin *plugin;
 
   module_path = wp_base_dirs_find_file (WP_BASE_DIRS_MODULE, NULL, module_name);
   if (!module_path) {
@@ -935,7 +936,13 @@ load_module (WpCore * core, const gchar * module_name, WpSpaJson * args,
     return NULL;
   }
 
-  return ((WpModuleInitFunc) module_init) (core, args, error);
+  plugin = ((WpModuleInitFunc) module_init) (core, args, error);
+  if (plugin && !WP_IS_PLUGIN (plugin)) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "Module %s did not return a WpPlugin object", module_path);
+    g_clear_object (&plugin);
+  }
+  return G_OBJECT (plugin);
 }
 
 static gboolean

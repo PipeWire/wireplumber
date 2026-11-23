@@ -150,10 +150,10 @@ wp_logind_class_init (WpLogindClass * klass)
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
-WP_PLUGIN_EXPORT GObject *
+WP_PLUGIN_EXPORT WpPlugin *
 wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
-  return G_OBJECT (g_object_new (wp_logind_get_type (),
+  return WP_PLUGIN (g_object_new (wp_logind_get_type (),
       "name", NAME,
       "core", core,
       NULL));
