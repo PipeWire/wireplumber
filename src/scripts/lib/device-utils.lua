@@ -4,6 +4,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
+local cutils = require ("common-utils")
+
 local module = {
   -- table of device info
   dev_infos = {},
@@ -69,6 +71,13 @@ function module.find_route_info (dev_info, route, return_new)
     }
   end
   return ri
+end
+
+-- Devices with "bluetooth.disable-autoswitch" set opt out of the global
+-- autoswitch setting
+function module.is_bluetooth_autoswitch_enabled (device)
+  return Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile") and
+      not cutils.parseBool (device.properties ["bluetooth.disable-autoswitch"])
 end
 
 return module

@@ -37,6 +37,9 @@ previous section: :ref:`config_configuration_option_types`.
    Headset mode has considerably lower audio quality than A2DP, which is why
    the switch is only made while a capture stream is actually present.
 
+   Individual devices can opt out by setting the ``bluetooth.disable-autoswitch``
+   device property to ``true`` in ``monitor.bluez.rules``.
+
    :Default value: ``true``
 
 .. describe:: bluetooth.autoswitch-switch-timeout

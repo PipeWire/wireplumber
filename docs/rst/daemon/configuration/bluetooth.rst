@@ -280,6 +280,17 @@ Device properties
    :Default value: ``auto``
    :Type: string
 
+.. describe:: bluetooth.disable-autoswitch
+
+   Set to ``true`` to disable autoswitching to the headset profile for this
+   device only, while keeping it enabled for other devices. Unlike the
+   properties above, this one is implemented by WirePlumber.
+
+   :Default value: ``false``
+   :Type: boolean
+   :See also: ``bluetooth.autoswitch-to-headset-profile`` in
+              :ref:`config_settings`
+
 .. note::
 
    The initially activated profile of a Bluetooth device cannot be set with a

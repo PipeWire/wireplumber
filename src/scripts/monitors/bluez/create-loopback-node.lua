@@ -6,6 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 cutils = require ("common-utils")
+dutils = require ("device-utils")
 mutils = require ("monitor-utils")
 
 log = Log.open_topic ("s-monitors-bluez")
@@ -116,7 +117,7 @@ AsyncEventHook {
         -- Otherwise, only create the source loopback device if the current
         -- profile is headset, and destroy the source loopback deivce if the
         -- current profile is A2DP.
-        if not Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile") then
+        if not dutils.is_bluetooth_autoswitch_enabled (spa_device) then
           -- Check if current profile is headset
           local is_current_profile_headset = false
           for p in spa_device:iterate_params("Profile") do

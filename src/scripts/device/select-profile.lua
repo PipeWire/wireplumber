@@ -7,6 +7,7 @@
 -- raise select-profile events when devices are added or their profiles change.
 
 cutils = require ("common-utils")
+dutils = require ("device-utils")
 log = Log.open_topic ("s-device")
 
 SimpleEventHook {
@@ -34,7 +35,7 @@ SimpleEventHook {
   execute = function (event)
     local device = event:get_subject ()
     if device.properties ["device.api"] == "bluez5" and
-        Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile") then
+        dutils.is_bluetooth_autoswitch_enabled (device) then
       return
     end
 

@@ -26,6 +26,7 @@
 -- settings file: bluetooth.conf
 
 cutils = require ("common-utils")
+dutils = require ("device-utils")
 stream_utils = require ("stream-utils")
 log = Log.open_topic ("s-device")
 persistent_storage_hooks_registered = false
@@ -446,6 +447,7 @@ local evaluate_bluetooth_profiles_hook = SimpleEventHook {
   execute = function (event)
     local source = event:get_source ()
     local stream_om = source:call ("get-object-manager", "stream")
+    local device_om = source:call ("get-object-manager", "device")
     local needs_headset_profile = {}
 
     -- Evaluate all bluetooth loopback source streams, and switch to headset
@@ -461,11 +463,19 @@ local evaluate_bluetooth_profiles_hook = SimpleEventHook {
     for bt_stream in stream_om:iterate (bt_loopback_source_interest) do
       local bt_node = bt_stream:get_node ()
       local bt_dev_id = bt_stream:get_property ("device.id")
+      local device = device_om:lookup {
+          Constraint { "bound-id", "=", bt_dev_id, type = "gobject" }
+      }
+      if device == nil or
+          not dutils.is_bluetooth_autoswitch_enabled (device) then
+        goto continue
+      end
       if not needs_headset_profile [bt_dev_id] then
         local is_running = bt_node ~= nil and bt_node["state"] == "running"
         local is_linked = isBluetoothLoopbackSourceStreamLinked (bt_stream, stream_om)
         needs_headset_profile [bt_dev_id] = is_running and is_linked
       end
+      ::continue::
     end
 
     -- Switch or retores the profile
@@ -610,6 +620,10 @@ local device_enumprofile_changed_hook = SimpleEventHook {
     local device = event:get_subject ()
     local stream_om = source:call ("get-object-manager", "stream")
     local dev_id = tostring (device["bound-id"])
+
+    if not dutils.is_bluetooth_autoswitch_enabled (device) then
+      return
+    end
 
     if switch_timeout_source[dev_id] ~= nil then
       return
