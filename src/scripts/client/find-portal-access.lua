@@ -155,7 +155,7 @@ end)
 -- Listen for changes and update permissions when that happens
 if pps_plugin ~= nil then
   pps_plugin:connect("changed", function (p, table, id, deleted, permissions)
-    if table == "devices" or id == "camera" then
+    if table == "devices" and id == "camera" then
       cached_camera_permissions = permissions
       camera_permissions_loaded = true
       portal_pm:update_permissions ()
