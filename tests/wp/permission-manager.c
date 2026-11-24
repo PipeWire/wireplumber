@@ -136,6 +136,74 @@ test_permission_manager_default (TestFixture * f, gconstpointer data)
   g_assert_cmphex (get_permissions (f, sm_id), ==, PW_PERM_R | PW_PERM_X);
 }
 
+static void
+test_permission_manager_port_inherit (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpNode) node = NULL;
+  g_autoptr (WpObjectManager) om = NULL;
+  g_autoptr (WpPermissionManager) pm = NULL;
+  g_autoptr (WpPort) port = NULL;
+  guint32 node_id, port_id;
+
+  {
+    g_autoptr (WpTestServerLocker) lock =
+        wp_test_server_locker_new (&f->base.server);
+
+    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
+            "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
+    if (!test_is_spa_lib_installed (&f->base, "audiotestsrc")) {
+      g_test_skip ("The pipewire audiotestsrc factory was not found");
+      return;
+    }
+    g_assert_nonnull (pw_context_load_module (f->base.server.context,
+            "libpipewire-module-spa-node-factory", NULL, NULL));
+  }
+
+  /* spa-node-factory exposes the ports right away, like camera nodes */
+  node = wp_node_new_from_factory (f->base.core, "spa-node-factory",
+      wp_properties_new (
+          "factory.name", "audiotestsrc",
+          "node.name", "Test Source",
+          NULL));
+  g_assert_nonnull (node);
+  wp_object_activate (WP_OBJECT (node), WP_PROXY_FEATURE_BOUND, NULL,
+      (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+  node_id = wp_proxy_get_bound_id (WP_PROXY (node));
+
+  om = wp_object_manager_new (f->base.core);
+  wp_object_manager_add_interest (om, WP_TYPE_PORT,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "node.id", "=u", node_id, NULL);
+  wp_object_manager_request_object_features (om, WP_TYPE_PORT,
+      WP_PROXY_FEATURE_BOUND);
+  test_ensure_object_manager_is_installed (om, f->base.loop);
+  port = wp_object_manager_lookup (om, WP_TYPE_PORT, NULL);
+  g_assert_nonnull (port);
+  port_id = wp_proxy_get_bound_id (WP_PROXY (port));
+
+  /* hide everything, like the camera portal does */
+  wp_client_update_permissions (f->client, 2,
+      PW_ID_ANY, 0, PW_ID_CORE, PW_PERM_ALL);
+  sync_core (f);
+
+  /* only the node is of interest */
+  pm = wp_permission_manager_new (f->base.core);
+  wp_permission_manager_set_default_permissions (pm, PW_PERM_INVALID);
+  wp_permission_manager_add_interest_match_simple (pm, PW_PERM_R | PW_PERM_X,
+      wp_object_interest_new (WP_TYPE_NODE,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", node_id, NULL));
+  wp_object_activate (WP_OBJECT (pm), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+
+  wp_client_attach_permission_manager (f->client, pm);
+  sync_core (f);
+
+  /* the port gets the permissions of its node */
+  g_assert_cmphex (get_permissions (f, node_id), ==, PW_PERM_R | PW_PERM_X);
+  g_assert_cmphex (get_permissions (f, port_id), ==, PW_PERM_R | PW_PERM_X);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -149,6 +217,10 @@ main (gint argc, gchar *argv[])
   g_test_add ("/wp/permission-manager/default", TestFixture, NULL,
       test_permission_manager_setup,
       test_permission_manager_default,
+      test_permission_manager_teardown);
+  g_test_add ("/wp/permission-manager/port-inherit", TestFixture, NULL,
+      test_permission_manager_setup,
+      test_permission_manager_port_inherit,
       test_permission_manager_teardown);
 
   return g_test_run ();

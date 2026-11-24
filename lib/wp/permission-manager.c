@@ -8,12 +8,15 @@
 
 #include <pipewire/permission.h>
 #include <pipewire/pipewire.h>
+#include <spa/utils/string.h>
 
 #include "private/permission-manager.h"
 #include "permission-manager.h"
 #include "proxy-interfaces.h"
 #include "object-manager.h"
 #include "json-utils.h"
+#include "node.h"
+#include "port.h"
 #include "error.h"
 #include "core.h"
 #include "log.h"
@@ -27,6 +30,9 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-permission-manager")
  * The WpPermissionManager class is in charge of updating automatically
  * permissions on interested objects every time they are added or removed for
  * a particular client.
+ *
+ * Ports that are not matched themselves inherit the permissions of their
+ * node, so that granting or revoking access to a node also covers its ports.
  *
  * WpPermissionManager API.
  *
@@ -290,6 +296,18 @@ get_matched_object_permissions (WpPermissionManager *self, PermissionMatch *m,
   return FALSE;
 }
 
+static guint32
+get_port_node_id (WpGlobalProxy *port)
+{
+  g_autoptr (WpProperties) props = wp_global_proxy_get_global_properties (port);
+  const gchar *str = props ? wp_properties_get (props, PW_KEY_NODE_ID) : NULL;
+  guint32 id;
+
+  if (!str || !spa_atou32 (str, &id, 10))
+    return SPA_ID_INVALID;
+  return id;
+}
+
 static GArray *
 build_permissions_array (WpPermissionManager *self, WpClient *client)
 {
@@ -343,6 +361,30 @@ build_permissions_array (WpPermissionManager *self, WpClient *client)
     }
   }
 
+  /* Give unmatched ports the permissions of their node */
+  g_clear_pointer (&it, wp_iterator_unref);
+  it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_PORT, NULL);
+  for (; wp_iterator_next (it, &value); g_value_unset (&value)) {
+    WpGlobalProxy *port = g_value_get_object (&value);
+    guint32 port_id = wp_proxy_get_bound_id (WP_PROXY (port));
+    guint32 node_id = get_port_node_id (port);
+    struct pw_permission *node_perm = NULL;
+    gboolean port_matched = FALSE;
+
+    for (guint i = 0; i < arr->len; i++) {
+      struct pw_permission *p = &g_array_index (arr, struct pw_permission, i);
+      if (p->id == port_id)
+        port_matched = TRUE;
+      else if (p->id == node_id)
+        node_perm = p;
+    }
+
+    if (!port_matched && node_perm) {
+      struct pw_permission port_perm = { port_id, node_perm->permissions };
+      g_array_append_val (arr, port_perm);
+    }
+  }
+
   return arr;
 }
 
@@ -390,6 +432,15 @@ has_object_match (WpPermissionManager *self, WpGlobalProxy *object)
 {
   GHashTableIter iter;
   PermissionMatch *m = NULL;
+
+  /* Ports inherit the permissions of their node */
+  if (WP_IS_PORT (object)) {
+    g_autoptr (WpGlobalProxy) node = wp_object_manager_lookup (self->om,
+        WP_TYPE_NODE, WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u",
+        get_port_node_id (object), NULL);
+    if (node && has_object_match (self, node))
+      return TRUE;
+  }
 
   g_hash_table_iter_init (&iter, self->matches);
   while (g_hash_table_iter_next (&iter, NULL, (gpointer *)&m)) {
