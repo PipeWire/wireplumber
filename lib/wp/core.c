@@ -10,7 +10,6 @@
 #include "private/connection.h"
 #include "private/context.h"
 #include "private/registry.h"
-#include "private/internal-comp-loader.h"
 #include "private/component-loader.h"
 
 #include <pipewire/pipewire.h>

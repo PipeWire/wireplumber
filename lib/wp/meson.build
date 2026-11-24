@@ -14,7 +14,6 @@ wp_lib_sources = files(
   'event-hook.c',
   'factory.c',
   'global-proxy.c',
-  'internal-comp-loader.c',
   'iterator.c',
   'json-utils.c',
   'link.c',

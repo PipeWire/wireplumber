@@ -13,6 +13,16 @@
 
 G_BEGIN_DECLS
 
+/* Internal Comp Loader */
+
+#define WP_TYPE_INTERNAL_COMP_LOADER (wp_internal_comp_loader_get_type ())
+WP_API
+G_DECLARE_FINAL_TYPE (WpInternalCompLoader, wp_internal_comp_loader,
+                      WP, INTERNAL_COMP_LOADER, GObject)
+
+
+/* Component Loader */
+
 WpComponentLoader * wp_component_loader_find (WpCore * core,
     const gchar * type);
 
