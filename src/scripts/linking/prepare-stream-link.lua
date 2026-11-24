@@ -139,11 +139,13 @@ SimpleEventHook {
         log:debug (stream, "... sent client error with message: " .. message)
       end
 
-      -- request client to destroy node
+      -- request client to destroy node, unless it is already gone
       if destroy_node then
         local node = stream:get_node ()
-        node:request_destroy ()
-        log:info (stream, "... requested destroy node")
+        if node then
+          node:request_destroy ()
+          log:info (stream, "... requested destroy node")
+        end
       end
     end
 
