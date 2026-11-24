@@ -436,6 +436,115 @@ test_registry_node_removed_unbound (TestFixture *f, gconstpointer data)
   assert_request_destroy_does_nothing (f, WP_GLOBAL_PROXY (node), client_node);
 }
 
+/* a new object manager on our core must expose the same node */
+static void
+assert_node_exposed (TestFixture *f, WpNode *node)
+{
+  g_autoptr (WpObjectManager) om = wp_object_manager_new ();
+  g_autoptr (WpNode) found = NULL;
+
+  install_node_om (f, om);
+  g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 1);
+  found = wp_object_manager_lookup (om, WP_TYPE_NODE, NULL);
+  g_assert_true (found == node);
+}
+
+static void
+test_registry_node_bind_again (TestFixture *f, gconstpointer data)
+{
+  g_autoptr (WpNode) client_node = NULL;
+  g_autoptr (WpNode) node = NULL;
+
+  if (!load_audiotestsrc_adapter (f))
+    return;
+
+  client_node = create_client_node (f);
+  install_node_om (f, f->om);
+  g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 1);
+  node = wp_object_manager_lookup (f->om, WP_TYPE_NODE, NULL);
+  g_assert_nonnull (node);
+
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+
+  wp_object_deactivate (WP_OBJECT (node), WP_PROXY_FEATURE_BOUND);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==, 0);
+  g_assert_null (wp_proxy_get_pw_proxy (WP_PROXY (node)));
+
+  /* the node is still on the registry, so it can be bound again */
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  g_assert_cmpuint (wp_proxy_get_bound_id (WP_PROXY (node)), ==,
+      wp_proxy_get_bound_id (WP_PROXY (client_node)));
+
+  assert_node_exposed (f, node);
+}
+
+static void
+activate_bind_error_cb (WpObject * object, GAsyncResult * res,
+    WpBaseTestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  g_assert_false (wp_object_activate_finish (object, res, &error));
+  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT);
+
+  g_main_loop_quit (f->loop);
+}
+
+static void
+test_registry_node_removed (TestFixture *f, gconstpointer data)
+{
+  g_autoptr (WpNode) client_node = NULL;
+  g_autoptr (WpNode) node = NULL;
+  g_autoptr (WpNode) new_node = NULL;
+  guint32 id;
+
+  if (!load_audiotestsrc_adapter (f))
+    return;
+
+  client_node = create_client_node (f);
+  install_node_om (f, f->om);
+  g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 1);
+  node = wp_object_manager_lookup (f->om, WP_TYPE_NODE, NULL);
+  g_assert_nonnull (node);
+
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+  id = wp_proxy_get_bound_id (WP_PROXY (node));
+  wp_object_deactivate (WP_OBJECT (node), WP_PROXY_FEATURE_BOUND);
+
+  /* destroy the node while its proxy is not bound */
+  g_clear_object (&client_node);
+  wait_for_n_objects (f, 0);
+
+  /* another node, which can get the same id */
+  client_node = create_client_node (f);
+  wait_for_n_objects (f, 1);
+  new_node = wp_object_manager_lookup (f->om, WP_TYPE_NODE, NULL);
+  g_assert_true (new_node != node);
+  g_test_message ("removed node id: %u, new node id: %u", id,
+      wp_proxy_get_bound_id (WP_PROXY (client_node)));
+
+  /* the proxy of the removed node must not be bound to anything */
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) activate_bind_error_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==, 0);
+  g_assert_null (wp_proxy_get_pw_proxy (WP_PROXY (node)));
+  assert_request_destroy_does_nothing (f, WP_GLOBAL_PROXY (node), client_node);
+
+  wp_object_activate (WP_OBJECT (new_node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+  g_assert_cmpuint (wp_proxy_get_bound_id (WP_PROXY (new_node)), ==,
+      wp_proxy_get_bound_id (WP_PROXY (client_node)));
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -452,6 +561,12 @@ main (gint argc, gchar *argv[])
       test_proxy_setup, test_enum_params_error, test_proxy_teardown);
   g_test_add ("/wp/proxy/registry_node_removed_unbound", TestFixture, NULL,
       test_proxy_setup_client_core, test_registry_node_removed_unbound,
+      test_proxy_teardown);
+  g_test_add ("/wp/proxy/registry_node_bind_again", TestFixture, NULL,
+      test_proxy_setup_client_core, test_registry_node_bind_again,
+      test_proxy_teardown);
+  g_test_add ("/wp/proxy/registry_node_removed", TestFixture, NULL,
+      test_proxy_setup_client_core, test_registry_node_removed,
       test_proxy_teardown);
   return g_test_run ();
 }
