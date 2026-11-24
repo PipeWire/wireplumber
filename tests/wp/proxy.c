@@ -545,6 +545,66 @@ test_registry_node_removed (TestFixture *f, gconstpointer data)
       wp_proxy_get_bound_id (WP_PROXY (client_node)));
 }
 
+static void
+cancel_on_bound (WpProxy *proxy, guint32 id, GCancellable *cancellable)
+{
+  g_assert_false (wp_object_get_active_features (WP_OBJECT (proxy)) &
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO);
+  g_cancellable_cancel (cancellable);
+}
+
+static void
+activate_cancelled_cb (WpObject * object, GAsyncResult * res,
+    WpBaseTestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  g_assert_false (wp_object_activate_finish (object, res, &error));
+  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
+
+  g_main_loop_quit (f->loop);
+}
+
+/* data: the requested features, with WP_PROXY_FEATURE_BOUND either requested
+   or only a dependency of WP_PIPEWIRE_OBJECT_FEATURE_INFO */
+static void
+test_registry_node_cancel_bound (TestFixture *f, gconstpointer data)
+{
+  WpObjectFeatures features = GPOINTER_TO_UINT (data);
+  g_autoptr (WpNode) client_node = NULL;
+  g_autoptr (WpNode) node = NULL;
+  g_autoptr (GCancellable) cancellable = g_cancellable_new ();
+  gulong handler;
+
+  if (!load_audiotestsrc_adapter (f))
+    return;
+
+  client_node = create_client_node (f);
+  install_node_om (f, f->om);
+  g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 1);
+  node = wp_object_manager_lookup (f->om, WP_TYPE_NODE, NULL);
+  g_assert_nonnull (node);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==, 0);
+
+  /* cancel once the node is bound, before its info arrives */
+  handler = g_signal_connect (node, "bound", G_CALLBACK (cancel_on_bound),
+      cancellable);
+  wp_object_activate (WP_OBJECT (node), features, cancellable,
+      (GAsyncReadyCallback) activate_cancelled_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+  g_signal_handler_disconnect (node, handler);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==, 0);
+  g_assert_null (wp_proxy_get_pw_proxy (WP_PROXY (node)));
+
+  /* the node can still be activated */
+  wp_object_activate (WP_OBJECT (node), features, NULL,
+      (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+
+  assert_node_exposed (f, node);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -568,5 +628,14 @@ main (gint argc, gchar *argv[])
   g_test_add ("/wp/proxy/registry_node_removed", TestFixture, NULL,
       test_proxy_setup_client_core, test_registry_node_removed,
       test_proxy_teardown);
+  g_test_add ("/wp/proxy/registry_node_cancel_bound_dependency", TestFixture,
+      GUINT_TO_POINTER (WP_PIPEWIRE_OBJECT_FEATURE_INFO),
+      test_proxy_setup_client_core, test_registry_node_cancel_bound,
+      test_proxy_teardown);
+  g_test_add ("/wp/proxy/registry_node_cancel_bound_requested", TestFixture,
+      GUINT_TO_POINTER (WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL),
+      test_proxy_setup_client_core, test_registry_node_cancel_bound,
+      test_proxy_teardown);
+
   return g_test_run ();
 }

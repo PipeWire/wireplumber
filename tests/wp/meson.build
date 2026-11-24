@@ -46,6 +46,13 @@ test(
 )
 
 test(
+  'wp/object',
+  executable('test-object', 'object.c',
+      dependencies: common_deps),
+  env: common_env,
+)
+
+test(
   'wp/object-interest',
   executable('test-object-interest', 'object-interest.c',
       dependencies: common_deps),
