@@ -267,6 +267,12 @@ wp_global_proxy_destroyed (WpProxy * proxy)
   WpGlobalProxyPrivate *priv =
       wp_global_proxy_get_instance_private (self);
 
+  /* The registry's proxy for a global can be bound again; the registry
+     clears global->proxy when the global is removed */
+  if (priv->global && priv->global->proxy == self &&
+      !(priv->global->flags & WP_GLOBAL_FLAG_OWNED_BY_PROXY))
+    return;
+
   if (priv->global && priv->global->proxy &&
       (priv->global->flags & WP_GLOBAL_FLAG_OWNED_BY_PROXY)) {
    /* We can end up here as a result of _request_destroy() followed by
