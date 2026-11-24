@@ -12,12 +12,23 @@ typedef struct {
   WpBaseTestFixture base;
   /* the object manager that listens for proxies */
   WpObjectManager *om;
+  /* the number of objects that wait_for_n_objects() waits for */
+  guint n_objects;
 } TestFixture;
 
 static void
 test_proxy_setup (TestFixture *self, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&self->base, 0);
+  self->om = wp_object_manager_new ();
+}
+
+/* for tests with a node that another client creates, which this core only
+   sees on its registry */
+static void
+test_proxy_setup_client_core (TestFixture *self, gconstpointer user_data)
+{
+  wp_base_test_fixture_setup (&self->base, WP_BASE_TEST_FLAG_CLIENT_CORE);
   self->om = wp_object_manager_new ();
 }
 
@@ -288,6 +299,143 @@ test_enum_params_error (TestFixture *f, gconstpointer data)
   g_main_loop_run (f->base.loop);
 }
 
+#define REGISTRY_NODE_NAME "test.registry.node"
+
+static gboolean
+load_audiotestsrc_adapter (TestFixture *f)
+{
+  g_autoptr (WpTestServerLocker) lock =
+      wp_test_server_locker_new (&f->base.server);
+
+  g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
+          "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
+  if (!test_is_spa_lib_installed (&f->base, "audiotestsrc")) {
+    g_test_skip ("The pipewire audiotestsrc factory was not found");
+    return FALSE;
+  }
+  g_assert_nonnull (pw_context_load_module (f->base.server.context,
+          "libpipewire-module-adapter", NULL, NULL));
+  return TRUE;
+}
+
+/* creates a node from the client core and waits until our core knows it */
+static WpNode *
+create_client_node (TestFixture *f)
+{
+  g_autoptr (WpNode) node = wp_node_new_from_factory (f->base.client_core,
+      "adapter",
+      wp_properties_new (
+          "factory.name", "audiotestsrc",
+          PW_KEY_NODE_NAME, REGISTRY_NODE_NAME,
+          NULL));
+  g_assert_nonnull (node);
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+
+  wp_core_sync (f->base.core, NULL,
+      (GAsyncReadyCallback) test_core_done_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+
+  return g_steal_pointer (&node);
+}
+
+static void
+install_node_om (TestFixture *f, WpObjectManager *om)
+{
+  wp_object_manager_add_interest (om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_NODE_NAME, "=s",
+      REGISTRY_NODE_NAME, NULL);
+  test_ensure_object_manager_is_installed (om, f->base.core, f->base.loop);
+}
+
+static void
+on_objects_changed (WpObjectManager *om, TestFixture *f)
+{
+  if (wp_object_manager_get_n_objects (om) == f->n_objects)
+    g_main_loop_quit (f->base.loop);
+}
+
+static void
+wait_for_n_objects (TestFixture *f, guint n_objects)
+{
+  if (wp_object_manager_get_n_objects (f->om) != n_objects) {
+    gulong handler;
+
+    f->n_objects = n_objects;
+    handler = g_signal_connect (f->om, "objects-changed",
+        G_CALLBACK (on_objects_changed), f);
+    g_main_loop_run (f->base.loop);
+    g_signal_handler_disconnect (f->om, handler);
+  }
+  g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, n_objects);
+}
+
+static void
+on_core_error (void *data, uint32_t id, int seq, int res, const char *message)
+{
+  guint *n_errors = data;
+
+  g_test_message ("core error on id %u: %d (%s)", id, res, message);
+  (*n_errors)++;
+}
+
+static const struct pw_core_events core_error_events = {
+  PW_VERSION_CORE_EVENTS,
+  .error = on_core_error,
+};
+
+/* the global of the proxy is gone: requesting its destruction must neither
+   cause an error nor destroy another object */
+static void
+assert_request_destroy_does_nothing (TestFixture *f, WpGlobalProxy *proxy,
+    WpNode *client_node)
+{
+  struct spa_hook listener = { 0 };
+  guint n_errors = 0;
+
+  pw_core_add_listener (wp_core_get_pw_core (f->base.core), &listener,
+      &core_error_events, &n_errors);
+  wp_global_proxy_request_destroy (proxy);
+  wp_core_sync (f->base.core, NULL,
+      (GAsyncReadyCallback) test_core_done_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+  spa_hook_remove (&listener);
+  g_assert_cmpuint (n_errors, ==, 0);
+
+  wp_core_sync (f->base.client_core, NULL,
+      (GAsyncReadyCallback) test_core_done_cb, &f->base);
+  g_main_loop_run (f->base.loop);
+  g_assert_true (wp_object_get_active_features (WP_OBJECT (client_node)) &
+      WP_PROXY_FEATURE_BOUND);
+  g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 1);
+}
+
+static void
+test_registry_node_removed_unbound (TestFixture *f, gconstpointer data)
+{
+  g_autoptr (WpNode) client_node = NULL;
+  g_autoptr (WpNode) node = NULL;
+
+  if (!load_audiotestsrc_adapter (f))
+    return;
+
+  client_node = create_client_node (f);
+  install_node_om (f, f->om);
+  g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 1);
+  node = wp_object_manager_lookup (f->om, WP_TYPE_NODE, NULL);
+  g_assert_nonnull (node);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==, 0);
+
+  /* destroy the node, whose proxy was never bound */
+  g_clear_object (&client_node);
+  wait_for_n_objects (f, 0);
+
+  client_node = create_client_node (f);
+  wait_for_n_objects (f, 1);
+  assert_request_destroy_does_nothing (f, WP_GLOBAL_PROXY (node), client_node);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -302,6 +450,8 @@ main (gint argc, gchar *argv[])
       test_proxy_setup, test_link_error, test_proxy_teardown);
   g_test_add ("/wp/proxy/enum_params_error", TestFixture, NULL,
       test_proxy_setup, test_enum_params_error, test_proxy_teardown);
-
+  g_test_add ("/wp/proxy/registry_node_removed_unbound", TestFixture, NULL,
+      test_proxy_setup_client_core, test_registry_node_removed_unbound,
+      test_proxy_teardown);
   return g_test_run ();
 }
