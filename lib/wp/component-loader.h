@@ -40,15 +40,6 @@ struct _WpComponentLoaderInterface
   WP_PADDING(5)
 };
 
-WP_API
-void wp_core_load_component (WpCore * self, const gchar * component,
-    const gchar * type, WpSpaJson * args, const gchar * provides,
-    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data);
-
-WP_API
-gboolean wp_core_load_component_finish (WpCore * self, GAsyncResult * res,
-    GError ** error);
-
 G_END_DECLS
 
 #endif

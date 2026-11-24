@@ -13,6 +13,7 @@
 #include "context.h"
 #include "connection.h"
 #include "registry.h"
+#include "spa-json.h"
 
 G_BEGIN_DECLS
 
@@ -50,6 +51,15 @@ WpConnection * wp_core_get_connection (WpCore * self);
 
 WP_API
 WpRegistry * wp_core_get_registry (WpCore * self);
+
+WP_API
+void wp_core_load_component (WpCore * self, const gchar * component,
+    const gchar * type, WpSpaJson * args, const gchar * provides,
+    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data);
+
+WP_API
+gboolean wp_core_load_component_finish (WpCore * self, GAsyncResult * res,
+    GError ** error);
 
 G_END_DECLS
 
