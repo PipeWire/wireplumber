@@ -24,6 +24,7 @@ struct _WpFeatureActivationTransition
 {
   WpTransition parent;
   WpObjectFeatures missing;
+  WpObjectFeatures active_at_start;
 };
 
 G_DEFINE_TYPE (WpFeatureActivationTransition,
@@ -34,6 +35,8 @@ static void
 wp_feature_activation_transition_init (
     WpFeatureActivationTransition * transition)
 {
+  /* a transition that has not started yet has not activated anything */
+  transition->active_at_start = WP_OBJECT_FEATURES_ALL;
 }
 
 static WpObjectFeatures
@@ -59,6 +62,9 @@ wp_feature_activation_transition_get_next_step (
   WpFeatureActivationTransition *self =
       WP_FEATURE_ACTIVATION_TRANSITION (transition);
   WpObject *object = wp_transition_get_source_object (transition);
+
+  if (step == WP_TRANSITION_STEP_NONE)
+    self->active_at_start = wp_object_get_active_features (object);
 
   self->missing =
       wp_feature_activation_transition_calc_missing_features (self, object);
@@ -91,6 +97,16 @@ wp_feature_activation_transition_execute_step (
 
   WP_OBJECT_GET_CLASS (object)->activate_execute_step (object, self, step,
       self->missing);
+
+  /* A failed or cancelled activation must not leave behind the features it
+     activated, including those it activated as dependencies of the requested
+     ones: the caller only gets the error */
+  if (step == WP_TRANSITION_STEP_ERROR) {
+    WpObjectFeatures activated =
+        wp_object_get_active_features (object) & ~self->active_at_start;
+    if (activated)
+      wp_object_deactivate (object, activated);
+  }
 }
 
 static void
