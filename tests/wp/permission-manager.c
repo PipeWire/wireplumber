@@ -100,9 +100,7 @@ attach_permission_manager (TestFixture * f, guint32 default_perms)
   wp_permission_manager_add_interest_match_simple (pm, PW_PERM_ALL,
       wp_object_interest_new (WP_TYPE_CLIENT,
           WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", client_id, NULL));
-  wp_object_activate (WP_OBJECT (pm), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (pm), WP_OBJECT_FEATURES_ALL);
 
   wp_client_attach_permission_manager (f->client, pm);
   sync_core (f);
@@ -166,9 +164,7 @@ test_permission_manager_port_inherit (TestFixture * f, gconstpointer data)
           "node.name", "Test Source",
           NULL));
   g_assert_nonnull (node);
-  wp_object_activate (WP_OBJECT (node), WP_PROXY_FEATURE_BOUND, NULL,
-      (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (node), WP_PROXY_FEATURE_BOUND);
   node_id = wp_proxy_get_bound_id (WP_PROXY (node));
 
   om = wp_object_manager_new (f->base.core);
@@ -192,9 +188,7 @@ test_permission_manager_port_inherit (TestFixture * f, gconstpointer data)
   wp_permission_manager_add_interest_match_simple (pm, PW_PERM_R | PW_PERM_X,
       wp_object_interest_new (WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", node_id, NULL));
-  wp_object_activate (WP_OBJECT (pm), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (pm), WP_OBJECT_FEATURES_ALL);
 
   wp_client_attach_permission_manager (f->client, pm);
   sync_core (f);

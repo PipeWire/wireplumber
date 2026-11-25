@@ -62,12 +62,38 @@ disconnected_callback (WpConnection *connection, WpBaseTestFixture * self)
 }
 
 static void
-on_core_connected (WpObject * core, GAsyncResult * res, WpBaseTestFixture * self)
+test_object_activate_done (WpObject * object, GAsyncResult * res,
+    GAsyncResult ** out)
+{
+  *out = g_object_ref (res);
+}
+
+/* activates @object and waits for the result, which may already be available
+   when wp_object_activate() returns */
+static G_GNUC_UNUSED gboolean
+test_object_activate_full (GMainContext * context, WpObject * object,
+    WpObjectFeatures features, GCancellable * cancellable, GError ** error)
+{
+  g_autoptr (GAsyncResult) res = NULL;
+
+  wp_object_activate (object, features, cancellable,
+      (GAsyncReadyCallback) test_object_activate_done, &res);
+  while (!res && !g_test_failed ())
+    g_main_context_iteration (context, TRUE);
+  g_assert_nonnull (res);
+
+  return wp_object_activate_finish (object, res, error);
+}
+
+static G_GNUC_UNUSED void
+test_object_activate (WpBaseTestFixture * f, WpObject * object,
+    WpObjectFeatures features)
 {
   g_autoptr (GError) error = NULL;
-  wp_object_activate_finish (core, res, &error);
+  gboolean ret =
+      test_object_activate_full (f->context, object, features, NULL, &error);
   g_assert_no_error (error);
-  g_main_loop_quit (self->loop);
+  g_assert_true (ret);
 }
 
 static void
@@ -108,9 +134,8 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
       (GCallback) disconnected_callback, self);
 
   if (!(flags & WP_BASE_TEST_FLAG_DONT_CONNECT)) {
-    wp_object_activate (WP_OBJECT (self->core), WP_CORE_FEATURE_CONNECTED, NULL,
-        (GAsyncReadyCallback) on_core_connected, self);
-    g_main_loop_run (self->loop);
+    test_object_activate (self, WP_OBJECT (self->core),
+        WP_CORE_FEATURE_CONNECTED);
     g_assert_true (wp_object_test_active_features (WP_OBJECT (self->core),
         WP_CORE_FEATURE_CONNECTED));
   }
@@ -124,9 +149,8 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
         (GCallback) disconnected_callback, self);
 
     if (!(flags & WP_BASE_TEST_FLAG_DONT_CONNECT)) {
-      wp_object_activate (WP_OBJECT (self->client_core), WP_CORE_FEATURE_CONNECTED,
-          NULL, (GAsyncReadyCallback) on_core_connected, self);
-      g_main_loop_run (self->loop);
+      test_object_activate (self, WP_OBJECT (self->client_core),
+          WP_CORE_FEATURE_CONNECTED);
       g_assert_true (wp_object_test_active_features (
         WP_OBJECT (self->client_core), WP_CORE_FEATURE_CONNECTED));
     }
@@ -184,29 +208,14 @@ wp_base_test_fixture_teardown (WpBaseTestFixture * self)
   wp_test_server_teardown (&self->server);
 }
 
-static G_GNUC_UNUSED void
-test_object_activate_finish_cb (WpObject * object, GAsyncResult * res,
-    WpBaseTestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  gboolean augment_ret = wp_object_activate_finish (object, res, &error);
-  g_assert_no_error (error);
-  g_assert_true (augment_ret);
-
-  g_main_loop_quit (f->loop);
-}
-
 static void
 test_object_manager_installed (WpObjectManager * om, GAsyncResult * res,
-    GMainLoop * loop)
+    gpointer data)
 {
   g_autoptr (GError) error = NULL;
   gboolean ret = wp_object_activate_finish (WP_OBJECT (om), res, &error);
   g_assert_no_error (error);
   g_assert_true (ret);
-
-  if (loop)
-    g_main_loop_quit (loop);
 }
 
 /* installs the object manager without waiting for it */
@@ -221,9 +230,11 @@ static G_GNUC_UNUSED void
 test_ensure_object_manager_is_installed (WpObjectManager * om,
     GMainLoop * loop)
 {
-  wp_object_activate (WP_OBJECT (om), WP_OBJECT_MANAGER_FEATURE_INSTALLED,
-      NULL, (GAsyncReadyCallback) test_object_manager_installed, loop);
-  g_main_loop_run (loop);
+  g_autoptr (GError) error = NULL;
+  gboolean ret = test_object_activate_full (g_main_loop_get_context (loop),
+      WP_OBJECT (om), WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL, &error);
+  g_assert_no_error (error);
+  g_assert_true (ret);
 }
 
 static G_GNUC_UNUSED gboolean

@@ -198,13 +198,12 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_assert_false (wp_iterator_next (iter, &val));
   }
 
-  /* do export */
+  /* do export and run until objects are created and features are cached */
+  fixture->n_events = 0;
   wp_object_activate (WP_OBJECT (metadata), WP_OBJECT_FEATURES_ALL, NULL,
       (GAsyncReadyCallback) test_metadata_basic_export_done, fixture);
-
-  /* run until objects are created and features are cached */
-  fixture->n_events = 0;
-  g_main_loop_run (fixture->base.loop);
+  if (fixture->n_events < 3)
+    g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (fixture->n_events, ==, 3);
   g_assert_nonnull (fixture->impl_metadata);
   g_assert_nonnull (fixture->proxy_metadata);

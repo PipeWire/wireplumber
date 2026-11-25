@@ -262,24 +262,12 @@ test_dependencies (TestFixture *f, gconstpointer data)
 }
 
 static void
-on_core_activated (WpObject * core, GAsyncResult * res, TestFixture *f)
-{
-  g_autoptr (GError) error = NULL;
-
-  g_assert_true (wp_object_activate_finish (core, res, &error));
-  g_assert_no_error (error);
-
-  g_main_loop_quit (f->base.loop);
-}
-
-static void
 activate_components (TestFixture *f)
 {
   wp_connection_update_properties (wp_core_get_connection (f->base.core),
       wp_properties_new ("wireplumber.profile", "test", NULL));
-  wp_object_activate (WP_OBJECT (f->base.core), WP_CORE_FEATURE_COMPONENTS,
-      NULL, (GAsyncReadyCallback) on_core_activated, f);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (f->base.core),
+      WP_CORE_FEATURE_COMPONENTS);
 
   g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, "one");
   g_assert_nonnull (plugin);

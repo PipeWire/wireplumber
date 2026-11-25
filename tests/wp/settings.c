@@ -102,27 +102,12 @@ test_parsing_teardown (TestSettingsFixture *self, gconstpointer user_data)
 }
 
 static void
-on_metadata_persistent_activated (WpMetadata * m, GAsyncResult * res,
-    gpointer user_data)
+set_metadata_items (WpMetadata * m, WpProperties * props)
 {
-  TestSettingsFixture *self = user_data;
-
-  g_assert_true (wp_object_activate_finish (WP_OBJECT (m), res, NULL));
-
-  g_main_loop_quit (self->base.loop);
-}
-
-static void
-on_metadata_schema_activated (WpMetadata * m, GAsyncResult * res,
-    gpointer user_data)
-{
-  TestSettingsFixture *self = user_data;
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
 
-  g_assert_true (wp_object_activate_finish (WP_OBJECT (m), res, NULL));
-
-  for (it = wp_properties_new_iterator (self->loaded_schema);
+  for (it = wp_properties_new_iterator (props);
       wp_iterator_next (it, &item);
       g_value_unset (&item)) {
     WpPropertiesItem *pi = g_value_get_boxed (&item);
@@ -131,44 +116,6 @@ on_metadata_schema_activated (WpMetadata * m, GAsyncResult * res,
 
     wp_metadata_set (m, 0, key, "Spa:String:JSON", value);
   }
-
-  self->metadata_persistent = wp_impl_metadata_new_full (self->base.core,
-      WP_SETTINGS_PERSISTENT_METADATA_NAME_PREFIX "sm-settings", NULL);
-
-  wp_object_activate (WP_OBJECT (self->metadata_persistent),
-      WP_OBJECT_FEATURES_ALL,
-      NULL,
-      (GAsyncReadyCallback)on_metadata_persistent_activated,
-      self);
-}
-
-static void
-on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
-{
-  TestSettingsFixture *self = user_data;
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) item = G_VALUE_INIT;
-
-  g_assert_true (wp_object_activate_finish (WP_OBJECT (m), res, NULL));
-
-  for (it = wp_properties_new_iterator (self->loaded_settings);
-        wp_iterator_next (it, &item);
-        g_value_unset (&item)) {
-    WpPropertiesItem *pi = g_value_get_boxed (&item);
-    const gchar *key = wp_properties_item_get_key (pi);
-    const gchar *value = wp_properties_item_get_value (pi);
-
-    wp_metadata_set (m, 0, key, "Spa:String:JSON", value);
-  }
-
-  self->metadata_schema = wp_impl_metadata_new_full (self->base.core,
-      WP_SETTINGS_SCHEMA_METADATA_NAME_PREFIX "sm-settings", NULL);
-
-  wp_object_activate (WP_OBJECT (self->metadata_schema),
-      WP_OBJECT_FEATURES_ALL,
-      NULL,
-      (GAsyncReadyCallback)on_metadata_schema_activated,
-      self);
 }
 
 static void
@@ -178,14 +125,21 @@ test_metadata_setup (TestSettingsFixture *self, gconstpointer user_data)
 
   self->metadata = wp_impl_metadata_new_full (self->base.core, "sm-settings",
       NULL);
+  test_object_activate (&self->base, WP_OBJECT (self->metadata),
+      WP_OBJECT_FEATURES_ALL);
+  set_metadata_items (WP_METADATA (self->metadata), self->loaded_settings);
 
-  wp_object_activate (WP_OBJECT (self->metadata),
-      WP_OBJECT_FEATURES_ALL,
-      NULL,
-      (GAsyncReadyCallback)on_metadata_activated,
-      self);
+  self->metadata_schema = wp_impl_metadata_new_full (self->base.core,
+      WP_SETTINGS_SCHEMA_METADATA_NAME_PREFIX "sm-settings", NULL);
+  test_object_activate (&self->base, WP_OBJECT (self->metadata_schema),
+      WP_OBJECT_FEATURES_ALL);
+  set_metadata_items (WP_METADATA (self->metadata_schema),
+      self->loaded_schema);
 
-  g_main_loop_run (self->base.loop);
+  self->metadata_persistent = wp_impl_metadata_new_full (self->base.core,
+      WP_SETTINGS_PERSISTENT_METADATA_NAME_PREFIX "sm-settings", NULL);
+  test_object_activate (&self->base, WP_OBJECT (self->metadata_persistent),
+      WP_OBJECT_FEATURES_ALL);
 }
 
 static void
@@ -199,30 +153,15 @@ test_metadata_teardown (TestSettingsFixture *self, gconstpointer user_data)
 }
 
 static void
-on_settings_ready (WpSettings *s, GAsyncResult *res, gpointer data)
-{
-  TestSettingsFixture *self = data;
-
-  g_assert_true (wp_object_activate_finish (WP_OBJECT (s), res, NULL));
-
-  wp_registry_register_object (wp_core_get_registry (self->base.core),
-      g_object_ref (s));
-
-  g_main_loop_quit (self->base.loop);
-}
-
-static void
 test_settings_setup (TestSettingsFixture *self, gconstpointer user_data)
 {
   test_metadata_setup (self, user_data);
 
   self->settings = wp_settings_new (self->base.core, "sm-settings");
-  wp_object_activate (WP_OBJECT (self->settings),
-      WP_OBJECT_FEATURES_ALL,
-      NULL,
-      (GAsyncReadyCallback)on_settings_ready,
-      self);
-  g_main_loop_run (self->base.loop);
+  test_object_activate (&self->base, WP_OBJECT (self->settings),
+      WP_OBJECT_FEATURES_ALL);
+  wp_registry_register_object (wp_core_get_registry (self->base.core),
+      g_object_ref (self->settings));
 }
 
 static void

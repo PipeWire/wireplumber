@@ -46,9 +46,7 @@ create_client_node (TestFixture *f, const gchar *name)
           NULL)));
   g_assert_nonnull (node);
 
-  wp_object_activate (WP_OBJECT (node), WP_OBJECT_FEATURES_ALL,
-      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (node), WP_OBJECT_FEATURES_ALL);
 
   return g_steal_pointer (&node);
 }
@@ -177,9 +175,7 @@ test_dynamic_rules_condition_rule (TestFixture *f, gconstpointer user_data)
   f->rule_id = rule_id;
 
   /* Activate the dynamic rules */
-  wp_object_activate (WP_OBJECT (dr), WP_DYNAMIC_RULES_LOADED,
-      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (dr), WP_DYNAMIC_RULES_LOADED);
   g_assert_cmpuint (f->apply_count, ==, 0);
   g_assert_cmpuint (f->revert_count, ==, 0);
 
@@ -281,9 +277,7 @@ test_dynamic_rules_json_rule (TestFixture *f, gconstpointer user_data)
   f->rule_id = rule_id;
 
   /* Activate the dynamic rules */
-  wp_object_activate (WP_OBJECT (dr), WP_DYNAMIC_RULES_LOADED,
-      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, &f->base);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (dr), WP_DYNAMIC_RULES_LOADED);
   g_assert_cmpuint (f->apply_count, ==, 0);
   g_assert_cmpuint (f->revert_count, ==, 0);
 

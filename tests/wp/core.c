@@ -37,20 +37,9 @@ test_core_teardown (TestFixture *self, gconstpointer user_data)
 }
 
 static void
-on_core_activated (WpObject * core, GAsyncResult * res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  g_assert_true (wp_object_activate_finish (core, res, &error));
-  g_assert_no_error (error);
-  g_main_loop_quit (f->base.loop);
-}
-
-static void
 connect_core (WpCore * core, TestFixture * f)
 {
-  wp_object_activate (WP_OBJECT (core), WP_CORE_FEATURE_CONNECTED, NULL,
-      (GAsyncReadyCallback) on_core_activated, f);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (core), WP_CORE_FEATURE_CONNECTED);
 }
 
 static gboolean

@@ -136,9 +136,7 @@ test_om_interest_on_pw_props (TestFixture *f, gconstpointer user_data)
           NULL));
   g_assert_nonnull (node);
 
-  wp_object_activate (WP_OBJECT (node), WP_OBJECT_FEATURES_ALL,
-      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (node), WP_OBJECT_FEATURES_ALL);
 
   /* ensure the base core is in sync */
   wp_connection_sync (wp_core_get_connection (f->base.core),

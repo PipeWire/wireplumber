@@ -30,16 +30,6 @@ test_client_context_teardown (TestFixture * f, gconstpointer data)
   wp_base_test_fixture_teardown (&f->base);
 }
 
-static void
-on_object_activated (WpObject * object, GAsyncResult * res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  gboolean ok = wp_object_activate_finish (object, res, &error);
-  g_assert_no_error (error);
-  g_assert_true (ok);
-  g_main_loop_quit (f->base.loop);
-}
-
 /*
  * Loading the client-context component registers a client context on the core,
  * which wp_client_context_find() then returns, with its own connection.
@@ -192,9 +182,7 @@ test_local_node_in_client_context (TestFixture * f, gconstpointer data)
   g_assert_true (pw_impl_node_get_context (pw_node) !=
       wp_context_get_pw_context (WP_CONTEXT (wp_ctx)));
 
-  wp_object_activate (WP_OBJECT (node), WP_PROXY_FEATURE_BOUND, NULL,
-      (GAsyncReadyCallback) on_object_activated, f);
-  g_main_loop_run (f->base.loop);
+  test_object_activate (&f->base, WP_OBJECT (node), WP_PROXY_FEATURE_BOUND);
 
   bound_id = wp_proxy_get_bound_id (WP_PROXY (node));
   g_assert_cmpuint (bound_id, !=, SPA_ID_INVALID);
