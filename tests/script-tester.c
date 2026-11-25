@@ -412,9 +412,12 @@ static void
 script_run (ScriptRunnerFixture *f, gconstpointer argv)
 {
   gchar **args = (gchar **) argv;
+  const gchar *test_suite = args [1];
   const gchar *test_script = args [2];
 
-  if (!test_is_spa_lib_installed (&f->base, "audiotestsrc")) {
+  /* only the script-tests suite registers and uses audiotestsrc */
+  if (g_str_equal (test_suite, "script-tests") &&
+      !test_is_spa_lib_installed (&f->base, "audiotestsrc")) {
     g_test_skip ("The pipewire audiotestsrc factory was not found");
     return;
   }
