@@ -265,8 +265,9 @@ main (gint argc, gchar **argv)
   wp_object_activate (WP_OBJECT (d.core), WP_OBJECT_FEATURES_ALL, NULL,
       (GAsyncReadyCallback) on_core_activated, &d);
 
-  /* run */
-  g_main_loop_run (d.loop);
+  /* run, unless the activation above has already failed */
+  if (d.exit_code == WP_EXIT_OK)
+    g_main_loop_run (d.loop);
   wp_object_deactivate (WP_OBJECT (d.core), WP_CORE_FEATURE_CONNECTED);
   return d.exit_code;
 }

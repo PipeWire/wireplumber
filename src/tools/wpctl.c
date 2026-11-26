@@ -3590,7 +3590,9 @@ main (gint argc, gchar **argv)
       (GCallback) g_main_loop_quit, ctl.loop);
   ctl.run = cmd->run;
 
-  g_main_loop_run (ctl.loop);
+  /* the activations above may have already failed */
+  if (ctl.exit_code == 0)
+    g_main_loop_run (ctl.loop);
 
   return ctl.exit_code;
 }
