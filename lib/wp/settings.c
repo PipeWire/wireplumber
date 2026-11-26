@@ -7,6 +7,7 @@
  */
 
 #include "core.h"
+#include "error.h"
 #include "settings.h"
 #include "metadata.h"
 #include "log.h"
@@ -391,6 +392,7 @@ struct _WpSettings
   gchar *metadata_name;
   gchar *metadata_schema_name;
   gchar *metadata_persistent_name;
+  gboolean wait_for_metadata;
 
   WpObjectManager *metadata_om;
   GWeakRef metadata;
@@ -415,6 +417,7 @@ enum {
   PROP_0,
   PROP_METADATA_NAME,
   PROP_PROPERTIES,
+  PROP_WAIT_FOR_METADATA,
 };
 
 G_DEFINE_TYPE (WpSettings, wp_settings, WP_TYPE_OBJECT)
@@ -448,6 +451,9 @@ wp_settings_set_property (GObject * object, guint property_id,
     self->metadata_persistent_name = g_strdup_printf (
         WP_SETTINGS_PERSISTENT_METADATA_NAME_PREFIX "%s", self->metadata_name);
     break;
+  case PROP_WAIT_FOR_METADATA:
+    self->wait_for_metadata = g_value_get_boolean (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -463,6 +469,9 @@ wp_settings_get_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_METADATA_NAME:
     g_value_set_string (value, self->metadata_name);
+    break;
+  case PROP_WAIT_FOR_METADATA:
+    g_value_set_boolean (value, self->wait_for_metadata);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -575,15 +584,10 @@ on_metadata_persistent_changed (WpMetadata *m, guint32 subject,
 }
 
 static void
-on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
+load_metadata (WpSettings * self, WpMetadata * m)
 {
-  WpTransition * transition = WP_TRANSITION (d);
-  WpSettings * self = wp_transition_get_source_object (transition);
   g_autoptr (WpProperties) props = NULL;
   const gchar *metadata_name = NULL;
-  g_autoptr (WpMetadata) metadata = NULL;
-  g_autoptr (WpMetadata) metadata_schema = NULL;
-  g_autoptr (WpMetadata) metadata_persistent = NULL;
 
   /* make sure the metadata has a name */
   props = wp_global_proxy_get_global_properties (WP_GLOBAL_PROXY (m));
@@ -646,13 +650,6 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
         G_CALLBACK (on_metadata_persistent_changed), self, 0);
     g_weak_ref_set (&self->metadata_persistent, m);
   }
-
-  /* Finish loading when all metadatas are found */
-  metadata = g_weak_ref_get (&self->metadata);
-  metadata_schema = g_weak_ref_get (&self->metadata_schema);
-  metadata_persistent = g_weak_ref_get (&self->metadata_persistent);
-  if (metadata && metadata_schema && metadata_persistent)
-    wp_object_update_features (WP_OBJECT (self), WP_SETTINGS_LOADED, 0);
 }
 
 static void
@@ -663,13 +660,59 @@ callback_unref (Callback * self)
   g_slice_free (Callback, self);
 }
 
+static WpMetadata *
+lookup_metadata (WpObjectManager * om, const gchar * name)
+{
+  return wp_object_manager_lookup (om, WP_TYPE_METADATA,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", name, NULL);
+}
+
+static void
+check_metadata (WpObjectManager * om, WpTransition * transition)
+{
+  WpSettings *self = wp_transition_get_source_object (transition);
+  g_autoptr (WpMetadata) metadata = NULL;
+  g_autoptr (WpMetadata) metadata_schema = NULL;
+  g_autoptr (WpMetadata) metadata_persistent = NULL;
+
+  /* the activation may have finished meanwhile */
+  if (wp_transition_get_completed (transition))
+    return;
+
+  metadata = lookup_metadata (om, self->metadata_name);
+  metadata_schema = lookup_metadata (om, self->metadata_schema_name);
+  metadata_persistent = lookup_metadata (om, self->metadata_persistent_name);
+  if (!metadata || !metadata_schema || !metadata_persistent) {
+    if (!self->wait_for_metadata)
+      wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_SERVICE_UNAVAILABLE,
+          "could not find the %s metadata objects", self->metadata_name));
+    return;
+  }
+
+  load_metadata (self, metadata);
+  load_metadata (self, metadata_schema);
+  load_metadata (self, metadata_persistent);
+  wp_object_update_features (WP_OBJECT (self), WP_SETTINGS_LOADED, 0);
+}
+
 static void
 on_metadata_om_installed (WpObjectManager * om, GAsyncResult * res, gpointer d)
 {
+  g_autoptr (WpTransition) transition = d;
   g_autoptr (GError) error = NULL;
 
-  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error))
-    wp_warning_object (om, "failed to install: %s", error->message);
+  /* the activation may have been aborted meanwhile */
+  if (wp_transition_get_completed (transition))
+    return;
+
+  if (!wp_object_activate_finish (WP_OBJECT (om), res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
+  /* all the existing metadata objects have been added at this point */
+  check_metadata (om, transition);
 }
 
 static void
@@ -697,17 +740,21 @@ wp_settings_activate_execute_step (WpObject * object,
             self->metadata_persistent_name, NULL);
     wp_object_manager_request_object_features (self->metadata_om,
         WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
-    g_signal_connect_object (self->metadata_om, "object-added",
-        G_CALLBACK (on_metadata_added), transition, 0);
+    if (self->wait_for_metadata)
+      g_signal_connect_object (self->metadata_om, "objects-changed",
+          G_CALLBACK (check_metadata), transition, 0);
     wp_object_activate (WP_OBJECT (self->metadata_om),
         WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
-        (GAsyncReadyCallback) on_metadata_om_installed, NULL);
+        (GAsyncReadyCallback) on_metadata_om_installed,
+        g_object_ref (transition));
 
     wp_info_object (self, "looking for metadata object named %s",
         self->metadata_name);
     break;
   }
   case WP_TRANSITION_STEP_ERROR:
+    g_clear_object (&self->metadata_om);
+    g_clear_pointer (&self->callbacks, g_ptr_array_unref);
     break;
   default:
     g_assert_not_reached ();
@@ -764,6 +811,12 @@ wp_settings_class_init (WpSettingsClass * klass)
       g_param_spec_string ("metadata-name", "metadata-name",
           "The metadata object to look after", NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_WAIT_FOR_METADATA,
+      g_param_spec_boolean ("wait-for-metadata", "wait-for-metadata",
+          "Whether to wait for the metadata objects if they do not exist, "
+          "instead of failing the activation", TRUE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 /*!
@@ -773,14 +826,18 @@ wp_settings_class_init (WpSettingsClass * klass)
  * \param core the WpCore
  * \param metadata_name (nullable): the name of the metadata object to
  *    associate with the settings object; NULL means the default "sm-settings"
+ * \param wait_for_metadata whether the activation waits for the metadata
+ *    objects if they do not exist, instead of failing
  * \returns (transfer full): a new WpSettings object
  */
 WpSettings *
-wp_settings_new (WpCore * core, const gchar * metadata_name)
+wp_settings_new (WpCore * core, const gchar * metadata_name,
+    gboolean wait_for_metadata)
 {
   return g_object_new (WP_TYPE_SETTINGS,
       "core", core,
       "metadata-name", metadata_name ? metadata_name : "sm-settings",
+      "wait-for-metadata", wait_for_metadata,
       NULL);
 }
 

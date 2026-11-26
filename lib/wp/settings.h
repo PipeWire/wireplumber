@@ -113,7 +113,8 @@ WP_API
 G_DECLARE_FINAL_TYPE (WpSettings, wp_settings, WP, SETTINGS, WpObject)
 
 WP_API
-WpSettings * wp_settings_new (WpCore * core, const gchar * metadata_name);
+WpSettings * wp_settings_new (WpCore * core, const gchar * metadata_name,
+    gboolean wait_for_metadata);
 
 WP_API
 WpSettings * wp_settings_find (WpCore * core, const gchar * metadata_name);

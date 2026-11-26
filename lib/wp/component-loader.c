@@ -893,13 +893,18 @@ static void
 load_settings_instance (GTask * task, WpCore * core, WpSpaJson * args)
 {
   g_autofree gchar *metadata_name = NULL;
-  if (args)
+  gboolean wait_for_metadata = TRUE;
+  if (args) {
     wp_spa_json_object_get (args, "metadata.name", "s", &metadata_name, NULL);
+    wp_spa_json_object_get (args, "wait-for-metadata", "b", &wait_for_metadata,
+        NULL);
+  }
 
   wp_info_object (core, "loading settings instance '%s'...",
       metadata_name ? metadata_name : "(default: sm-settings)");
 
-  WpSettings *settings = wp_settings_new (core, metadata_name);
+  WpSettings *settings = wp_settings_new (core, metadata_name,
+      wait_for_metadata);
   g_task_return_pointer (task, settings, g_object_unref);
 }
 

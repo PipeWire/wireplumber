@@ -157,7 +157,7 @@ test_settings_setup (TestSettingsFixture *self, gconstpointer user_data)
 {
   test_metadata_setup (self, user_data);
 
-  self->settings = wp_settings_new (self->base.core, "sm-settings");
+  self->settings = wp_settings_new (self->base.core, "sm-settings", TRUE);
   test_object_activate (&self->base, WP_OBJECT (self->settings),
       WP_OBJECT_FEATURES_ALL);
   wp_registry_register_object (wp_core_get_registry (self->base.core),
@@ -1126,6 +1126,56 @@ test_subscribe_unsibscribe (TestSettingsFixture *self, gconstpointer data)
   }
 }
 
+static void
+test_no_metadata (TestSettingsFixture *self, gconstpointer data)
+{
+  g_autoptr (WpSettings) s =
+      wp_settings_new (self->base.core, "blah-blah", FALSE);
+  g_autoptr (GError) error = NULL;
+
+  g_assert_false (test_object_activate_full (self->base.context, WP_OBJECT (s),
+      WP_OBJECT_FEATURES_ALL, NULL, &error));
+  g_assert_error (error, WP_DOMAIN_LIBRARY,
+      WP_LIBRARY_ERROR_SERVICE_UNAVAILABLE);
+  g_assert_cmpuint (wp_object_get_active_features (WP_OBJECT (s)), ==, 0);
+}
+
+static void
+test_wait_for_metadata (TestSettingsFixture *self, gconstpointer data)
+{
+  g_autoptr (WpSettings) s =
+      wp_settings_new (self->base.core, "blah-blah", TRUE);
+  g_autoptr (GAsyncResult) res = NULL;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpImplMetadata) m = NULL;
+  g_autoptr (WpImplMetadata) m_schema = NULL;
+  g_autoptr (WpImplMetadata) m_persistent = NULL;
+
+  wp_object_activate (WP_OBJECT (s), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) test_object_activate_done, &res);
+  wp_connection_sync (wp_core_get_connection (self->base.core), NULL,
+      (GAsyncReadyCallback) test_core_done_cb, &self->base);
+  g_main_loop_run (self->base.loop);
+  g_assert_null (res);
+
+  /* the activation finishes once the metadata objects exist */
+  m = wp_impl_metadata_new_full (self->base.core, "blah-blah", NULL);
+  test_object_activate (&self->base, WP_OBJECT (m), WP_OBJECT_FEATURES_ALL);
+  m_schema = wp_impl_metadata_new_full (self->base.core,
+      WP_SETTINGS_SCHEMA_METADATA_NAME_PREFIX "blah-blah", NULL);
+  test_object_activate (&self->base, WP_OBJECT (m_schema),
+      WP_OBJECT_FEATURES_ALL);
+  m_persistent = wp_impl_metadata_new_full (self->base.core,
+      WP_SETTINGS_PERSISTENT_METADATA_NAME_PREFIX "blah-blah", NULL);
+  test_object_activate (&self->base, WP_OBJECT (m_persistent),
+      WP_OBJECT_FEATURES_ALL);
+
+  while (!res && !g_test_failed ())
+    g_main_context_iteration (self->base.context, TRUE);
+  g_assert_true (wp_object_activate_finish (WP_OBJECT (s), res, &error));
+  g_assert_no_error (error);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -1140,6 +1190,10 @@ main (gint argc, gchar *argv[])
       test_settings_setup, test_save_reset_delete_all, test_settings_teardown);
   g_test_add ("/wp/settings/subscribe-unsubscribe", TestSettingsFixture, NULL,
       test_settings_setup, test_subscribe_unsibscribe, test_settings_teardown);
+  g_test_add ("/wp/settings/no-metadata", TestSettingsFixture, NULL,
+      test_settings_setup, test_no_metadata, test_settings_teardown);
+  g_test_add ("/wp/settings/wait-for-metadata", TestSettingsFixture, NULL,
+      test_settings_setup, test_wait_for_metadata, test_settings_teardown);
 
   return g_test_run ();
 }
