@@ -34,9 +34,8 @@ struct _WpCtl
   WpCore *core;
   WpObjectManager *om;
   void (*run) (WpCtl *);
-  guint pending_plugins;
+  guint pending_components;
   gint exit_code;
-  gboolean streams_requested;
 };
 
 typedef enum {
@@ -374,83 +373,9 @@ print_stream_unsupported (WpStream *stream, const gchar *what)
 
 /* status */
 
-static void on_plugin_ready (WpCtl * ctl);
-
-static void
-on_manager_activated (WpObject * o, GAsyncResult * res, WpCtl * ctl)
-{
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (o, res, &error)) {
-    fprintf (stderr, "%s\n", error->message);
-    ctl->exit_code = 1;
-    g_main_loop_quit (ctl->loop);
-    return;
-  }
-
-  wp_registry_register_object (wp_core_get_registry (ctl->core),
-      g_object_ref (o));
-  on_plugin_ready (ctl);
-}
-
-static void
-on_stream_manager_activated (WpObject * o, GAsyncResult * res, WpCtl * ctl)
-{
-  g_autoptr (GError) error = NULL;
-  g_autoptr (WpStreamLinkManager) stream_link_manager = NULL;
-
-  if (!wp_object_activate_finish (o, res, &error)) {
-    fprintf (stderr, "%s\n", error->message);
-    ctl->exit_code = 1;
-    g_main_loop_quit (ctl->loop);
-    return;
-  }
-
-  wp_registry_register_object (wp_core_get_registry (ctl->core),
-      g_object_ref (o));
-  on_plugin_ready (ctl);
-
-  /* the stream links are made from the streams, so they need to exist */
-  stream_link_manager = wp_stream_link_manager_new (ctl->core, NULL);
-  wp_object_activate (WP_OBJECT (stream_link_manager), WP_OBJECT_FEATURES_ALL,
-      NULL, (GAsyncReadyCallback) on_manager_activated, ctl);
-}
-
-/* the streams are only known by the stream manager */
-static void
-request_streams (WpCtl * self)
-{
-  g_autoptr (WpStreamManager) stream_manager = NULL;
-
-  if (self->streams_requested)
-    return;
-  self->streams_requested = TRUE;
-
-  stream_manager = wp_stream_manager_new (self->core);
-  self->pending_plugins++;
-  wp_object_activate (WP_OBJECT (stream_manager), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) on_manager_activated, self);
-}
-
-/* the default streams are needed to translate the default IDs */
-static void
-request_default_streams (WpCtl * self, guint64 id)
-{
-  if (id == DEFAULT_AUDIO_SINK_ID || id == DEFAULT_AUDIO_SOURCE_ID ||
-      id == DEFAULT_VIDEO_SOURCE_ID)
-    request_streams (self);
-}
-
 static gboolean
 status_prepare (WpCtl * self, GError ** error)
 {
-  g_autoptr (WpStreamManager) stream_manager = wp_stream_manager_new (self->core);
-
-  /* the streams and stream links are only known by their managers */
-  self->pending_plugins += 2;
-  wp_object_activate (WP_OBJECT (stream_manager), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) on_stream_manager_activated, self);
-
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
@@ -912,9 +837,6 @@ list_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 list_prepare (WpCtl * self, GError ** error)
 {
-  /* the sinks and sources are listed by stream */
-  request_streams (self);
-
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
@@ -1067,7 +989,6 @@ static gboolean
 get_volume_prepare (WpCtl * self, GError ** error)
 {
   /* the volume is set on the audio streams of the node */
-  request_streams (self);
   wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
@@ -1139,10 +1060,8 @@ inspect_prepare (WpCtl * self, GError ** error)
 {
   /* the streams of a node are shown with its associated objects */
   if (cmdline.inspect.show_associated) {
-    request_streams (self);
     wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   }
-  request_default_streams (self, cmdline.inspect.id);
 
   /* collect all objects */
   wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
@@ -1479,7 +1398,6 @@ static gboolean
 set_default_prepare (WpCtl * self, GError ** error)
 {
   /* the default media classes are taken from the streams of the node */
-  request_streams (self);
   wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
@@ -1646,7 +1564,6 @@ static gboolean
 set_volume_prepare (WpCtl * self, GError ** error)
 {
   /* the volume is set on the audio streams of the node */
-  request_streams (self);
   wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
@@ -1757,7 +1674,6 @@ static gboolean
 set_mute_prepare (WpCtl * self, GError ** error)
 {
   /* the mute is set on the audio streams of the node */
-  request_streams (self);
   wp_object_manager_add_interest (self->om, WP_TYPE_STREAM, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
@@ -2047,7 +1963,6 @@ set_profile_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_profile_prepare (WpCtl * self, GError ** error)
 {
-  request_default_streams (self, cmdline.set_profile.id);
   wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
@@ -2540,7 +2455,6 @@ set_route_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_route_prepare (WpCtl * self, GError ** error)
 {
-  request_default_streams (self, cmdline.set_route.id);
   wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
@@ -2808,7 +2722,7 @@ settings_run (WpCtl * self)
 
   s = wp_settings_find (self->core, NULL);
   if (!s) {
-    printf ("Could not find registered settings\n");
+    fprintf (stderr, "Could not find the settings instance\n");
     goto out;
   }
 
@@ -3407,37 +3321,6 @@ static const struct subcommand {
 };
 
 static void
-on_settings_activated (WpSettings *s, GAsyncResult *res, WpCtl *ctl)
-{
-  GError *error = NULL;
-
-  if (!wp_object_activate_finish (WP_OBJECT (s), res, &error)) {
-    fprintf (stderr, "%s\n", error->message);
-    ctl->exit_code = 1;
-    g_main_loop_quit (ctl->loop);
-    return;
-  }
-
-  wp_registry_register_object (wp_core_get_registry (ctl->core),
-      g_object_ref (s));
-}
-
-static void
-on_plugin_loaded (WpCore * core, GAsyncResult * res, WpCtl *ctl)
-{
-  GError *error = NULL;
-
-  if (!wp_core_load_component_finish (core, res, &error)) {
-    fprintf (stderr, "%s\n", error->message);
-    ctl->exit_code = 1;
-    g_main_loop_quit (ctl->loop);
-    return;
-  }
-
-  on_plugin_ready (ctl);
-}
-
-static void
 on_om_installed (WpObjectManager * om, GAsyncResult * res, WpCtl * ctl)
 {
   g_autoptr (GError) error = NULL;
@@ -3453,15 +3336,57 @@ on_om_installed (WpObjectManager * om, GAsyncResult * res, WpCtl * ctl)
 }
 
 static void
-on_plugin_ready (WpCtl * ctl)
+on_component_loaded (WpCore * core, GAsyncResult * res, WpCtl *ctl)
 {
-  if (--ctl->pending_plugins == 0) {
+  GError *error = NULL;
+
+  if (!wp_core_load_component_finish (core, res, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    ctl->exit_code = 1;
+    g_main_loop_quit (ctl->loop);
+    return;
+  }
+
+  if (--ctl->pending_components == 0) {
     g_autoptr (WpPlugin) mixer_api = wp_plugin_find (ctl->core, "mixer-api");
     g_object_set (mixer_api, "scale", 1 /* cubic */, NULL);
     wp_object_activate (WP_OBJECT (ctl->om),
         WP_OBJECT_MANAGER_FEATURE_INSTALLED, NULL,
         (GAsyncReadyCallback) on_om_installed, ctl);
   }
+}
+
+static void
+on_stream_manager_loaded (WpCore * core, GAsyncResult * res, WpCtl * ctl)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_core_load_component_finish (core, res, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    ctl->exit_code = 1;
+    g_main_loop_quit (ctl->loop);
+    return;
+  }
+
+  /* the stream links are made from the streams, so they need to exist */
+  wp_core_load_component (core, "stream-link-manager", "built-in", NULL, NULL,
+      NULL, (GAsyncReadyCallback) on_component_loaded, ctl);
+}
+
+static void
+on_settings_loaded (WpCore * core, GAsyncResult * res, WpCtl * ctl)
+{
+  g_autoptr (GError) error = NULL;
+
+  /* the settings are only really needed for the settings sub-command, so just
+   * print a warning so wpctl can still run even without wireplumber running */
+  if (!wp_core_load_component_finish (core, res, &error))
+    fprintf (stderr, "Warning: could not load the settings: %s\n",
+        error->message);
+
+  /* the stream manager uses the settings, so they need to be loaded */
+  wp_core_load_component (core, "stream-manager", "built-in", NULL, NULL,
+      NULL, (GAsyncReadyCallback) on_stream_manager_loaded, ctl);
 }
 
 static void
@@ -3483,7 +3408,7 @@ main (gint argc, gchar **argv)
   const struct subcommand *cmd = NULL;
   g_autoptr (GError) error = NULL;
   g_autofree gchar *summary = NULL;
-  g_autoptr (WpSettings) settings = NULL;
+  g_autoptr (WpSpaJson) settings_args = NULL;
 
   setlocale (LC_ALL, "");
   setlocale (LC_NUMERIC, "C");
@@ -3565,21 +3490,22 @@ main (gint argc, gchar **argv)
     return ctl.exit_code;
   }
 
-  /* load and register settings */
-  settings = wp_settings_new (ctl.core, NULL);
-  wp_object_activate (WP_OBJECT (settings),
-      WP_OBJECT_FEATURES_ALL,
-      NULL,
-      (GAsyncReadyCallback)on_settings_activated,
+  /* load the settings, then stream-manager and finally stream-link-manager */
+  settings_args = wp_spa_json_new_from_string ("{ wait-for-metadata = false }");
+  ctl.pending_components++;
+  wp_core_load_component (ctl.core, "settings-instance", "built-in",
+      settings_args, NULL, NULL, (GAsyncReadyCallback) on_settings_loaded,
       &ctl);
 
   /* load required API modules */
-  ctl.pending_plugins++;
+  ctl.pending_components++;
   wp_core_load_component (ctl.core, "libwireplumber-module-default-streams-api",
-      "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
-  ctl.pending_plugins++;
+      "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_component_loaded,
+      &ctl);
+  ctl.pending_components++;
   wp_core_load_component (ctl.core, "libwireplumber-module-mixer-api",
-      "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
+      "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_component_loaded,
+      &ctl);
 
   /* connect */
   wp_object_activate (WP_OBJECT (ctl.core), WP_CORE_FEATURE_CONNECTED, NULL,
