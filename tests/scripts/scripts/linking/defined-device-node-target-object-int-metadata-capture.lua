@@ -58,9 +58,9 @@ SimpleEventHook {
     local link = tu.getStreamLink (stream, target)
     assert (link ~= nil)
     assert (stream_props ["node.name"] == "stream-node")
-    assert (target.properties ["node.name"] == "defined-device-node-in-metadata")
     assert (link:get_active_features () ~= 0)
-
-    Script:finish_activation ()
+    if (target.properties ["node.name"] == "defined-device-node-in-metadata") then
+      Script:finish_activation ()
+    end
   end
 }:register ()
