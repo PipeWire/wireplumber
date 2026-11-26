@@ -76,8 +76,6 @@ metadata_om = ObjectManager {
   }
 }
 
-metadata_om:activate()
-
 local setting
 local setting_value
 local callback
@@ -147,3 +145,5 @@ metadata_om:connect("objects-changed", function (om)
   assert (callback)
 
 end)
+
+metadata_om:activate()
