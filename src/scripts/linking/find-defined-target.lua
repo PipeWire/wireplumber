@@ -207,8 +207,10 @@ SimpleEventHook {
           log:debug (stream, "sent client error with message: " .. message)
         end
         local node = stream:get_node ()
-        node:request_destroy ()
-        log:debug (stream, "requested destroy node as defined target was not found")
+        if node then
+          node:request_destroy ()
+          log:debug (stream, "requested destroy node as defined target was not found")
+        end
       else
         log:debug (stream, "waiting for defined target as dont-fallback is set")
       end

@@ -85,8 +85,10 @@ SimpleEventHook {
           log:debug (stream, "sent client error with message: " .. message)
         end
         local node = stream:get_node ()
-        node:request_destroy ()
-        log:info (stream, "destroyed stream node as smart filter defined target was not found")
+        if node then
+          node:request_destroy ()
+          log:info (stream, "destroyed stream node as smart filter defined target was not found")
+        end
       else
         log:info (stream, "waiting for smart filter defined target as dont-fallback is set")
       end
