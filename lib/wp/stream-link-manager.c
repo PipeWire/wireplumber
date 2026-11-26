@@ -308,10 +308,15 @@ on_object_added (WpObjectManager *om, WpObject *object, gpointer d)
 {
   WpStreamLinkManager * self = WP_STREAM_LINK_MANAGER (d);
 
-  /* If stream was added, no need to do anything
+  /* If stream was added, adopt the links that were added before it
    * If link was added, create associated stream link if it does not exist */
   if (WP_IS_STREAM (object)) {
-    /* Nothing */
+    g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (
+        om, WP_TYPE_LINK, NULL);
+    g_auto (GValue) val = G_VALUE_INIT;
+
+    for (; wp_iterator_next (it, &val); g_value_unset (&val))
+      evaluate_stream_link_on_link_added (self, g_value_get_object (&val));
   } else if (WP_IS_LINK (object)) {
     evaluate_stream_link_on_link_added (self, WP_LINK (object));
   }
